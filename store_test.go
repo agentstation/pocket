@@ -4,14 +4,14 @@ import (
 	"context"
 	"sync"
 	"testing"
-	
+
 	"github.com/agentstation/pocket"
 )
 
 func TestStoreConcurrency(t *testing.T) {
 	store := pocket.NewStore()
 	var wg sync.WaitGroup
-	
+
 	// Concurrent writes
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -21,7 +21,7 @@ func TestStoreConcurrency(t *testing.T) {
 			store.Set(key, n)
 		}(i)
 	}
-	
+
 	// Concurrent reads
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -31,9 +31,9 @@ func TestStoreConcurrency(t *testing.T) {
 			store.Get(key)
 		}(i)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Verify some values
 	val, ok := store.Get("a")
 	if !ok {
@@ -50,11 +50,11 @@ func TestTypedStore(t *testing.T) {
 		Name string
 		Age  int
 	}
-	
+
 	store := pocket.NewStore()
 	userStore := pocket.NewTypedStore[User](store)
 	ctx := context.Background()
-	
+
 	tests := []struct {
 		name    string
 		op      func() error
@@ -125,7 +125,7 @@ func TestTypedStore(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.op()
@@ -141,35 +141,35 @@ func TestScopedStore(t *testing.T) {
 	baseStore := pocket.NewStore()
 	userStore := pocket.NewScopedStore(baseStore, "user")
 	adminStore := pocket.NewScopedStore(baseStore, "admin")
-	
+
 	// Set values in different scopes
 	userStore.Set("name", "Alice")
 	adminStore.Set("name", "Bob")
-	
+
 	// Check isolation
 	userName, ok := userStore.Get("name")
 	if !ok || userName != "Alice" {
 		t.Errorf("userStore.Get(name) = %v, %v; want Alice, true", userName, ok)
 	}
-	
+
 	adminName, ok := adminStore.Get("name")
 	if !ok || adminName != "Bob" {
 		t.Errorf("adminStore.Get(name) = %v, %v; want Bob, true", adminName, ok)
 	}
-	
+
 	// Check that base store has prefixed keys
 	userPrefixed, ok := baseStore.Get("user:name")
 	if !ok || userPrefixed != "Alice" {
 		t.Errorf("baseStore.Get(user:name) = %v, %v; want Alice, true", userPrefixed, ok)
 	}
-	
+
 	// Test delete
 	userStore.Delete("name")
 	_, ok = userStore.Get("name")
 	if ok {
 		t.Error("userStore.Get(name) after delete returned true, want false")
 	}
-	
+
 	// Admin scope should still have its value
 	adminName, ok = adminStore.Get("name")
 	if !ok || adminName != "Bob" {
@@ -185,7 +185,7 @@ func BenchmarkStore(b *testing.B) {
 			store.Set("key", i)
 		}
 	})
-	
+
 	b.Run("Get", func(b *testing.B) {
 		store := pocket.NewStore()
 		store.Set("key", "value")
@@ -194,7 +194,7 @@ func BenchmarkStore(b *testing.B) {
 			store.Get("key")
 		}
 	})
-	
+
 	b.Run("Concurrent", func(b *testing.B) {
 		store := pocket.NewStore()
 		b.RunParallel(func(pb *testing.PB) {

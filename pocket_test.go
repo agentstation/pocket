@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"github.com/agentstation/pocket"
 )
 
@@ -34,11 +34,11 @@ func TestProcessorFunc(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var processor pocket.Processor
-			
+
 			switch tt.name {
 			case "string transformation":
 				processor = pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
@@ -50,7 +50,7 @@ func TestProcessorFunc(t *testing.T) {
 				})
 				// Fix: we're appending first char, not uppercasing
 				tt.want = "helloh"
-				
+
 			case "number doubling":
 				processor = pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 					n, ok := input.(int)
@@ -59,7 +59,7 @@ func TestProcessorFunc(t *testing.T) {
 					}
 					return n * 2, nil
 				})
-				
+
 			case "nil input":
 				processor = pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 					if input == nil {
@@ -68,7 +68,7 @@ func TestProcessorFunc(t *testing.T) {
 					return input, nil
 				})
 			}
-			
+
 			got, err := processor.Process(context.Background(), tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Process() error = %v, wantErr %v", err, tt.wantErr)
@@ -86,39 +86,39 @@ func TestNodeConnections(t *testing.T) {
 	start := pocket.NewNode("start", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 		return "processed", nil
 	}))
-	
+
 	middle := pocket.NewNode("middle", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 		return input.(string) + "-middle", nil
 	}))
-	
+
 	end := pocket.NewNode("end", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 		return input.(string) + "-end", nil
 	}))
-	
+
 	// Test connections
 	start.Connect("next", middle)
 	middle.Default(end)
-	
+
 	// Test that connections were made (would need to expose successors for full test)
 	// For now, we'll test through flow execution
-	
+
 	// Create router to test connections
 	start.Router = pocket.RouterFunc(func(ctx context.Context, result any) (string, error) {
 		return "next", nil
 	})
-	
+
 	middle.Router = pocket.RouterFunc(func(ctx context.Context, result any) (string, error) {
 		return "default", nil
 	})
-	
+
 	store := pocket.NewStore()
 	flow := pocket.NewFlow(start, store)
-	
+
 	result, err := flow.Run(context.Background(), "input")
 	if err != nil {
 		t.Fatalf("Flow execution failed: %v", err)
 	}
-	
+
 	expected := "processed-middle-end"
 	if result != expected {
 		t.Errorf("Flow result = %v, want %v", result, expected)
@@ -157,18 +157,18 @@ func TestFlowExecution(t *testing.T) {
 					}
 					return "small", nil
 				})
-				
+
 				big := pocket.NewNode("big", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 					return "big number", nil
 				}))
-				
+
 				small := pocket.NewNode("small", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 					return "small number", nil
 				}))
-				
+
 				router.Connect("big", big)
 				router.Connect("small", small)
-				
+
 				store := pocket.NewStore()
 				return pocket.NewFlow(router, store), store
 			},
@@ -197,12 +197,12 @@ func TestFlowExecution(t *testing.T) {
 			wantErr: pocket.ErrNoStartNode,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			flow, _ := tt.setupFlow()
 			got, err := flow.Run(context.Background(), tt.input)
-			
+
 			if tt.wantErr != nil {
 				if err == nil {
 					t.Errorf("Run() error = nil, wantErr %v", tt.wantErr)
@@ -211,12 +211,12 @@ func TestFlowExecution(t *testing.T) {
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Run() unexpected error = %v", err)
 				return
 			}
-			
+
 			if got != tt.want {
 				t.Errorf("Run() = %v, want %v", got, tt.want)
 			}
@@ -226,11 +226,11 @@ func TestFlowExecution(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	store := pocket.NewStore()
-	
+
 	tests := []struct {
-		name   string
-		op     func()
-		check  func(t *testing.T)
+		name  string
+		op    func()
+		check func(t *testing.T)
 	}{
 		{
 			name: "set and get",
@@ -243,7 +243,7 @@ func TestStore(t *testing.T) {
 				if !ok || val1 != "value1" {
 					t.Errorf("Get(key1) = %v, %v; want value1, true", val1, ok)
 				}
-				
+
 				val2, ok := store.Get("key2")
 				if !ok || val2 != 42 {
 					t.Errorf("Get(key2) = %v, %v; want 42, true", val2, ok)
@@ -274,7 +274,7 @@ func TestStore(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.op()
@@ -285,7 +285,7 @@ func TestStore(t *testing.T) {
 
 func TestWithRetry(t *testing.T) {
 	attempts := 0
-	
+
 	node := pocket.NewNode("retry",
 		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 			attempts++
@@ -296,26 +296,26 @@ func TestWithRetry(t *testing.T) {
 		}),
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
-	
+
 	store := pocket.NewStore()
 	flow := pocket.NewFlow(node, store)
-	
+
 	start := time.Now()
 	result, err := flow.Run(context.Background(), nil)
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		t.Fatalf("Expected success after retries, got error: %v", err)
 	}
-	
+
 	if result != "success" {
 		t.Errorf("Expected 'success', got %v", result)
 	}
-	
+
 	if attempts != 3 {
 		t.Errorf("Expected 3 attempts, got %d", attempts)
 	}
-	
+
 	// Check that retry delays were applied (2 retries * 10ms)
 	if duration < 20*time.Millisecond {
 		t.Errorf("Expected duration >= 20ms, got %v", duration)
@@ -334,33 +334,33 @@ func TestWithTimeout(t *testing.T) {
 		}),
 		pocket.WithTimeout(10*time.Millisecond),
 	)
-	
+
 	store := pocket.NewStore()
 	flow := pocket.NewFlow(node, store)
-	
+
 	_, err := flow.Run(context.Background(), nil)
 	if err == nil {
 		t.Error("Expected timeout error, got nil")
 	}
-	
+
 	// The error will be wrapped, so check if it contains deadline exceeded
 	if !strings.Contains(err.Error(), "context deadline exceeded") &&
-	   !strings.Contains(err.Error(), "failed after 1 attempts") {
+		!strings.Contains(err.Error(), "failed after 1 attempts") {
 		t.Errorf("Expected timeout error, got %v", err)
 	}
 }
 
 func TestBuilder(t *testing.T) {
 	store := pocket.NewStore()
-	
+
 	node1 := pocket.NewNode("node1", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 		return "from-node1", nil
 	}))
-	
+
 	node2 := pocket.NewNode("node2", pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
 		return input.(string) + "-node2", nil
 	}))
-	
+
 	tests := []struct {
 		name    string
 		build   func() (*pocket.Flow, error)
@@ -387,14 +387,14 @@ func TestBuilder(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			flow, err := tt.build()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			
+
 			if !tt.wantErr && flow == nil {
 				t.Error("Build() returned nil flow without error")
 			}

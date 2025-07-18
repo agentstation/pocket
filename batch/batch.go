@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	
+
 	"github.com/agentstation/pocket"
 	"golang.org/x/sync/errgroup"
 )
@@ -14,13 +14,13 @@ import (
 type Processor[T, R any] struct {
 	// Extract retrieves items to process.
 	Extract func(ctx context.Context, store pocket.Store) ([]T, error)
-	
+
 	// Transform processes a single item.
 	Transform func(ctx context.Context, item T) (R, error)
-	
+
 	// Reduce combines results into a final output.
 	Reduce func(ctx context.Context, results []R) (any, error)
-	
+
 	// Options
 	maxConcurrency int
 	ordered        bool
@@ -59,22 +59,22 @@ func NewProcessor[T, R any](
 		Extract:        extract,
 		Transform:      transform,
 		Reduce:         reduce,
-		maxConcurrency: 10, // default
+		maxConcurrency: 10,   // default
 		ordered:        true, // default
 	}
-	
+
 	options := &options{
 		maxConcurrency: p.maxConcurrency,
 		ordered:        p.ordered,
 	}
-	
+
 	for _, opt := range opts {
 		opt(options)
 	}
-	
+
 	p.maxConcurrency = options.maxConcurrency
 	p.ordered = options.ordered
-	
+
 	return p
 }
 
@@ -85,22 +85,22 @@ func (p *Processor[T, R]) Process(ctx context.Context, input any) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("batch processor requires Store as input")
 	}
-	
+
 	items, err := p.Extract(ctx, store)
 	if err != nil {
 		return nil, fmt.Errorf("extract: %w", err)
 	}
-	
+
 	if len(items) == 0 {
 		return p.Reduce(ctx, []R{})
 	}
-	
+
 	// Process items
 	results, err := p.processItems(ctx, items)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Reduce results
 	return p.Reduce(ctx, results)
 }
@@ -116,39 +116,39 @@ func (p *Processor[T, R]) processItems(ctx context.Context, items []T) ([]R, err
 // processSequential processes items one by one.
 func (p *Processor[T, R]) processSequential(ctx context.Context, items []T) ([]R, error) {
 	results := make([]R, len(items))
-	
+
 	for i, item := range items {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		
+
 		result, err := p.Transform(ctx, item)
 		if err != nil {
 			return nil, fmt.Errorf("item %d: %w", i, err)
 		}
 		results[i] = result
 	}
-	
+
 	return results, nil
 }
 
 // processConcurrent processes items with worker pool.
 func (p *Processor[T, R]) processConcurrent(ctx context.Context, items []T) ([]R, error) {
 	g, ctx := errgroup.WithContext(ctx)
-	
+
 	// Results storage
 	results := make([]R, len(items))
 	var mu sync.Mutex
-	
+
 	// Work queue
 	work := make(chan int, len(items))
 	for i := range items {
 		work <- i
 	}
 	close(work)
-	
+
 	// Start workers
 	for w := 0; w < p.maxConcurrency && w < len(items); w++ {
 		g.Go(func() error {
@@ -157,7 +157,7 @@ func (p *Processor[T, R]) processConcurrent(ctx context.Context, items []T) ([]R
 				if err != nil {
 					return fmt.Errorf("item %d: %w", idx, err)
 				}
-				
+
 				mu.Lock()
 				results[idx] = result
 				mu.Unlock()
@@ -165,11 +165,11 @@ func (p *Processor[T, R]) processConcurrent(ctx context.Context, items []T) ([]R
 			return nil
 		})
 	}
-	
+
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	
+
 	return results, nil
 }
 
@@ -192,11 +192,11 @@ func ForEach[T any](
 	transform := func(ctx context.Context, item T) (struct{}, error) {
 		return struct{}{}, process(ctx, item)
 	}
-	
+
 	reduce := func(ctx context.Context, results []struct{}) (any, error) {
 		return len(results), nil
 	}
-	
+
 	return NewProcessor(extract, transform, reduce, opts...)
 }
 
@@ -210,12 +210,12 @@ func Filter[T any](
 		item T
 		keep bool
 	}
-	
+
 	transform := func(ctx context.Context, item T) (result, error) {
 		keep, err := predicate(ctx, item)
 		return result{item: item, keep: keep}, err
 	}
-	
+
 	reduce := func(ctx context.Context, results []result) (any, error) {
 		var filtered []T
 		for _, r := range results {
@@ -225,6 +225,6 @@ func Filter[T any](
 		}
 		return filtered, nil
 	}
-	
+
 	return NewProcessor(extract, transform, reduce, opts...)
 }

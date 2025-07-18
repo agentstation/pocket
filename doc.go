@@ -16,10 +16,10 @@ Basic usage:
 		name := input.(string)
 		return fmt.Sprintf("Hello, %s!", name), nil
 	})
-	
+
 	// Create a node
 	node := pocket.NewNode("greeter", greet)
-	
+
 	// Create and run a flow
 	store := pocket.NewStore()
 	flow := pocket.NewFlow(node, store)
@@ -35,17 +35,17 @@ Building complex flows:
 		Connect("fetch", "success", "process").
 		Connect("process", "success", "save").
 		Start("fetch")
-	
+
 	flow, err := builder.Build()
 
 Concurrent patterns:
 
 	// Fan-out processing
 	results, err := pocket.FanOut(ctx, processNode, store, items)
-	
+
 	// Pipeline
 	result, err := pocket.Pipeline(ctx, nodes, store, input)
-	
+
 	// Concurrent execution
 	results, err := pocket.RunConcurrent(ctx, nodes, store)
 
@@ -53,7 +53,7 @@ Type-safe operations:
 
 	// Create a typed store
 	userStore := pocket.NewTypedStore[User](store)
-	
+
 	// Type-safe get/set
 	user, exists, err := userStore.Get(ctx, "user:123")
 	err = userStore.Set(ctx, "user:123", newUser)

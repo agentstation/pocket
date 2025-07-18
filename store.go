@@ -52,12 +52,12 @@ func (t *typedStore[T]) Get(ctx context.Context, key string) (T, bool, error) {
 	if !exists {
 		return zero, false, nil
 	}
-	
+
 	typed, ok := value.(T)
 	if !ok {
 		return zero, false, ErrInvalidInput
 	}
-	
+
 	return typed, true, nil
 }
 

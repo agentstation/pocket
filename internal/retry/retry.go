@@ -36,10 +36,10 @@ func (p Policy) Do(ctx context.Context, fn func() error) error {
 	if p.MaxAttempts <= 0 {
 		return fn()
 	}
-	
+
 	var lastErr error
 	delay := p.InitialDelay
-	
+
 	for attempt := 0; attempt <= p.MaxAttempts; attempt++ {
 		if attempt > 0 {
 			select {
@@ -47,25 +47,25 @@ func (p Policy) Do(ctx context.Context, fn func() error) error {
 				return ctx.Err()
 			case <-time.After(delay):
 			}
-			
+
 			// Calculate next delay
 			delay = time.Duration(float64(delay) * p.Multiplier)
 			if delay > p.MaxDelay {
 				delay = p.MaxDelay
 			}
 		}
-		
+
 		lastErr = fn()
 		if lastErr == nil {
 			return nil
 		}
-		
+
 		// Check if error is retryable
 		if !IsRetryable(lastErr) {
 			return lastErr
 		}
 	}
-	
+
 	return fmt.Errorf("failed after %d attempts: %w", p.MaxAttempts+1, lastErr)
 }
 

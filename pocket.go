@@ -13,10 +13,10 @@ import (
 var (
 	// ErrNoStartNode is returned when a flow has no start node defined.
 	ErrNoStartNode = errors.New("pocket: no start node defined")
-	
+
 	// ErrNodeNotFound is returned when a referenced node doesn't exist.
 	ErrNodeNotFound = errors.New("pocket: node not found")
-	
+
 	// ErrInvalidInput is returned when input type doesn't match expected type.
 	ErrInvalidInput = errors.New("pocket: invalid input type")
 )
@@ -39,7 +39,7 @@ func (f ProcessorFunc) Process(ctx context.Context, input any) (any, error) {
 type Stateful interface {
 	// LoadState retrieves state from the store before processing.
 	LoadState(ctx context.Context, store Store) (state any, err error)
-	
+
 	// SaveState persists state to the store after processing.
 	SaveState(ctx context.Context, store Store, state any) error
 }
@@ -62,10 +62,10 @@ func (f RouterFunc) Route(ctx context.Context, result any) (string, error) {
 type Store interface {
 	// Get retrieves a value by key.
 	Get(key string) (value any, exists bool)
-	
+
 	// Set stores a value with the given key.
 	Set(key string, value any)
-	
+
 	// Delete removes a key from the store.
 	Delete(key string)
 }
@@ -75,19 +75,19 @@ type Store interface {
 type Node struct {
 	// Name identifies the node in the flow.
 	Name string
-	
+
 	// Processor handles the main logic.
 	Processor
-	
+
 	// Optional state management.
 	Stateful
-	
+
 	// Optional routing logic.
 	Router
-	
+
 	// Successors maps action names to next nodes.
 	successors map[string]*Node
-	
+
 	// Options
 	opts nodeOptions
 }
@@ -132,17 +132,17 @@ func NewNode(name string, processor Processor, opts ...Option) *Node {
 		Processor:  processor,
 		successors: make(map[string]*Node),
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(&n.opts)
 	}
-	
+
 	// Set defaults
 	if n.opts.retryDelay == 0 {
 		n.opts.retryDelay = 100 * time.Millisecond
 	}
-	
+
 	return n
 }
 
@@ -193,11 +193,11 @@ func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
 		start: start,
 		store: store,
 	}
-	
+
 	for _, opt := range opts {
 		opt(&f.opts)
 	}
-	
+
 	return f
 }
 
@@ -206,22 +206,22 @@ func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
 	if f.start == nil {
 		return nil, ErrNoStartNode
 	}
-	
+
 	current := f.start
 	currentInput := input
-	
+
 	for current != nil {
 		// Log node execution
 		if f.opts.logger != nil {
 			f.opts.logger.Debug(ctx, "executing node", "name", current.Name)
 		}
-		
+
 		// Execute node
 		output, err = f.executeNode(ctx, current, currentInput)
 		if err != nil {
 			return nil, fmt.Errorf("node %s: %w", current.Name, err)
 		}
-		
+
 		// Determine next node
 		next := "default"
 		if current.Router != nil {
@@ -230,12 +230,12 @@ func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
 				return nil, fmt.Errorf("routing failed in node %s: %w", current.Name, err)
 			}
 		}
-		
+
 		// Move to next node
 		current = current.successors[next]
 		currentInput = output
 	}
-	
+
 	return output, nil
 }
 
@@ -247,7 +247,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 		ctx, cancel = context.WithTimeout(ctx, node.opts.timeout)
 		defer cancel()
 	}
-	
+
 	// Load state if stateful
 	var state any
 	if node.Stateful != nil {
@@ -256,13 +256,13 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 		if err != nil {
 			return nil, fmt.Errorf("load state: %w", err)
 		}
-		
+
 		// Use state as input if no input provided
 		if input == nil {
 			input = state
 		}
 	}
-	
+
 	// Execute with retry
 	output, err := f.executeWithRetry(ctx, node, input)
 	if err != nil {
@@ -271,14 +271,14 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 		}
 		return nil, err
 	}
-	
+
 	// Save state if stateful
 	if node.Stateful != nil {
 		if err := node.Stateful.SaveState(ctx, f.store, output); err != nil {
 			return nil, fmt.Errorf("save state: %w", err)
 		}
 	}
-	
+
 	return output, nil
 }
 
@@ -286,7 +286,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 func (f *Flow) executeWithRetry(ctx context.Context, node *Node, input any) (any, error) {
 	attempts := 0
 	maxAttempts := node.opts.maxRetries + 1
-	
+
 	for attempts < maxAttempts {
 		if attempts > 0 {
 			select {
@@ -295,23 +295,23 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, input any) (any
 			case <-time.After(node.opts.retryDelay):
 			}
 		}
-		
+
 		output, err := node.Processor.Process(ctx, input)
 		if err == nil {
 			return output, nil
 		}
-		
+
 		attempts++
 		if attempts < maxAttempts {
 			if f.opts.logger != nil {
-				f.opts.logger.Debug(ctx, "retrying node", 
-					"name", node.Name, 
+				f.opts.logger.Debug(ctx, "retrying node",
+					"name", node.Name,
 					"attempt", attempts,
 					"error", err)
 			}
 		}
 	}
-	
+
 	return nil, fmt.Errorf("failed after %d attempts", attempts)
 }
 

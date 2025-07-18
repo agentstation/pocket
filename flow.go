@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	
+
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,12 +47,12 @@ func (b *Builder) Connect(from, action, to string) *Builder {
 	if !ok {
 		return b
 	}
-	
+
 	toNode, ok := b.nodes[to]
 	if !ok {
 		return b
 	}
-	
+
 	fromNode.Connect(action, toNode)
 	return b
 }
@@ -68,7 +68,7 @@ func (b *Builder) Build() (*Flow, error) {
 	if b.start == nil {
 		return nil, ErrNoStartNode
 	}
-	
+
 	return NewFlow(b.start, b.store, b.opts...), nil
 }
 
@@ -77,11 +77,11 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store) ([]any, erro
 	if len(nodes) == 0 {
 		return nil, nil
 	}
-	
+
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]any, len(nodes))
 	mu := &sync.Mutex{}
-	
+
 	for i, node := range nodes {
 		i, node := i, node // capture loop variables
 		g.Go(func() error {
@@ -90,26 +90,26 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store) ([]any, erro
 			if err != nil {
 				return fmt.Errorf("node %s: %w", node.Name, err)
 			}
-			
+
 			mu.Lock()
 			results[i] = result
 			mu.Unlock()
-			
+
 			return nil
 		})
 	}
-	
+
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	
+
 	return results, nil
 }
 
 // Pipeline executes nodes sequentially, passing output to input.
 func Pipeline(ctx context.Context, nodes []*Node, store Store, input any) (any, error) {
 	current := input
-	
+
 	for _, node := range nodes {
 		flow := NewFlow(node, store)
 		output, err := flow.Run(ctx, current)
@@ -118,7 +118,7 @@ func Pipeline(ctx context.Context, nodes []*Node, store Store, input any) (any, 
 		}
 		current = output
 	}
-	
+
 	return current, nil
 }
 
@@ -127,7 +127,7 @@ func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]a
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]any, len(items))
 	mu := &sync.Mutex{}
-	
+
 	for i, item := range items {
 		i, item := i, item
 		g.Go(func() error {
@@ -136,19 +136,19 @@ func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]a
 			if err != nil {
 				return err
 			}
-			
+
 			mu.Lock()
 			results[i] = result
 			mu.Unlock()
-			
+
 			return nil
 		})
 	}
-	
+
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	
+
 	return results, nil
 }
 
@@ -172,6 +172,6 @@ func (f *FanIn) Run(ctx context.Context, store Store) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return f.combine(results)
 }
