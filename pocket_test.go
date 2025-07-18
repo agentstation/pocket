@@ -292,7 +292,7 @@ func TestWithRetry(t *testing.T) {
 			if attempts < 3 {
 				return nil, errors.New("temporary error")
 			}
-			return "success", nil
+			return successResult, nil
 		}),
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
@@ -308,7 +308,7 @@ func TestWithRetry(t *testing.T) {
 		t.Fatalf("Expected success after retries, got error: %v", err)
 	}
 
-	if result != "success" {
+	if result != successResult {
 		t.Errorf("Expected 'success', got %v", result)
 	}
 

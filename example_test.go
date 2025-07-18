@@ -9,6 +9,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	successResult = "success"
+)
+
 // ExampleProcessorFunc demonstrates using a simple function as a processor.
 func ExampleProcessorFunc() {
 	// Create a processor from a function
@@ -231,7 +235,7 @@ func ExampleWithRetry() {
 			if attempts < 3 {
 				return nil, fmt.Errorf("temporary failure %d", attempts)
 			}
-			return "success", nil
+			return successResult, nil
 		}),
 		pocket.WithRetry(3, 0), // 3 retries, no delay for example
 	)

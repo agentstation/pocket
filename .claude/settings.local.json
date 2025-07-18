@@ -9,7 +9,16 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(go get:*)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(go mod:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)",
+      "WebFetch(domain:golangci-lint.run)",
+      "Bash(rm:*)",
+      "Bash(grep:*)",
+      "Bash(golangci-lint run:*)"
     ],
     "deny": []
   }

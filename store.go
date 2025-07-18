@@ -46,14 +46,14 @@ type typedStore[T any] struct {
 	store Store
 }
 
-func (t *typedStore[T]) Get(ctx context.Context, key string) (T, bool, error) {
+func (t *typedStore[T]) Get(ctx context.Context, key string) (value T, exists bool, err error) {
 	var zero T
-	value, exists := t.store.Get(key)
-	if !exists {
+	val, ok := t.store.Get(key)
+	if !ok {
 		return zero, false, nil
 	}
 
-	typed, ok := value.(T)
+	typed, ok := val.(T)
 	if !ok {
 		return zero, false, ErrInvalidInput
 	}

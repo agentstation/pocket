@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Common errors
+// Common errors.
 var (
 	// ErrNoStartNode is returned when a flow has no start node defined.
 	ErrNoStartNode = errors.New("pocket: no start node defined")

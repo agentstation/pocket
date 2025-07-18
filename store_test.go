@@ -8,6 +8,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	testUserName = "Alice"
+)
+
 func TestStoreConcurrency(t *testing.T) {
 	store := pocket.NewStore()
 	var wg sync.WaitGroup
@@ -64,7 +68,7 @@ func TestTypedStore(t *testing.T) {
 		{
 			name: "set and get user",
 			op: func() error {
-				user := User{ID: "123", Name: "Alice", Age: 30}
+				user := User{ID: "123", Name: testUserName, Age: 30}
 				return userStore.Set(ctx, "user:123", user)
 			},
 			check: func(t *testing.T) {
@@ -75,7 +79,7 @@ func TestTypedStore(t *testing.T) {
 				if !exists {
 					t.Error("Get() exists = false, want true")
 				}
-				if user.Name != "Alice" {
+				if user.Name != testUserName {
 					t.Errorf("Get() user.Name = %v, want Alice", user.Name)
 				}
 			},
@@ -143,12 +147,12 @@ func TestScopedStore(t *testing.T) {
 	adminStore := pocket.NewScopedStore(baseStore, "admin")
 
 	// Set values in different scopes
-	userStore.Set("name", "Alice")
+	userStore.Set("name", testUserName)
 	adminStore.Set("name", "Bob")
 
 	// Check isolation
 	userName, ok := userStore.Get("name")
-	if !ok || userName != "Alice" {
+	if !ok || userName != testUserName {
 		t.Errorf("userStore.Get(name) = %v, %v; want Alice, true", userName, ok)
 	}
 
@@ -159,7 +163,7 @@ func TestScopedStore(t *testing.T) {
 
 	// Check that base store has prefixed keys
 	userPrefixed, ok := baseStore.Get("user:name")
-	if !ok || userPrefixed != "Alice" {
+	if !ok || userPrefixed != testUserName {
 		t.Errorf("baseStore.Get(user:name) = %v, %v; want Alice, true", userPrefixed, ok)
 	}
 
