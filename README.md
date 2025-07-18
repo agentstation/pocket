@@ -1,5 +1,14 @@
 # Pocket
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/agentstation/pocket.svg)](https://pkg.go.dev/github.com/agentstation/pocket)
+[![Go Report Card](https://goreportcard.com/badge/github.com/agentstation/pocket)](https://goreportcard.com/report/github.com/agentstation/pocket)
+[![CI Status](https://github.com/agentstation/pocket/actions/workflows/ci.yml/badge.svg)](https://github.com/agentstation/pocket/actions)
+[![codecov](https://codecov.io/gh/agentstation/pocket/branch/master/graph/badge.svg)](https://codecov.io/gh/agentstation/pocket)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/agentstation/pocket.svg)](https://github.com/agentstation/pocket)
+[![Release](https://img.shields.io/github/release/agentstation/pocket.svg)](https://github.com/agentstation/pocket/releases/latest)
+[![Made with Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://go.dev/)
+
 A minimalist Go framework for building LLM workflows with composable nodes and built-in concurrency patterns. Inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow), Pocket embraces Go idioms with small interfaces, functional options, and zero dependencies.
 
 ## Philosophy
@@ -11,10 +20,21 @@ A minimalist Go framework for building LLM workflows with composable nodes and b
 - **Type-safe**: Leverages generics for compile-time safety
 - **Functional options**: Clean, extensible configuration
 
+## Requirements
+
+- Go 1.21 or higher
+- No external dependencies for core functionality
+
 ## Installation
 
 ```bash
 go get github.com/agentstation/pocket
+```
+
+To verify the installation:
+
+```bash
+go doc github.com/agentstation/pocket
 ```
 
 ## Quick Start
@@ -301,6 +321,27 @@ pocket/
 6. Push to the branch (`git push origin feature/amazing`)
 7. Open a Pull Request
 
+## Performance
+
+Pocket is designed for efficiency:
+- Zero allocations in hot paths
+- Minimal overhead for node execution
+- Efficient concurrent patterns using sync.Pool where appropriate
+- Benchmarks included for critical paths
+
+```bash
+# Run benchmarks
+go test -bench=. -benchmem ./...
+```
+
+## Stability
+
+While Pocket is a young project, we follow semantic versioning and strive for:
+- Stable interfaces (no breaking changes without major version bump)
+- Comprehensive test coverage
+- Race condition free (tested with -race)
+- Production-ready error handling
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
@@ -310,3 +351,13 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - Inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s minimalist philosophy
 - Built with Go's idioms and best practices in mind
 - Designed for the modern LLM application stack
+
+## Status
+
+- ✅ Core functionality complete
+- ✅ Full test coverage
+- ✅ Examples and documentation
+- ✅ CI/CD pipeline
+- 🚧 Community feedback incorporation
+- 🚧 Performance optimizations
+- 🚧 Additional patterns and helpers
