@@ -225,7 +225,7 @@ func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
 		// Determine next node
 		next := "default"
 		if current.Router != nil {
-			next, err = current.Router.Route(ctx, output)
+			next, err = current.Route(ctx, output)
 			if err != nil {
 				return nil, fmt.Errorf("routing failed in node %s: %w", current.Name, err)
 			}
@@ -252,7 +252,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 	var state any
 	if node.Stateful != nil {
 		var err error
-		state, err = node.Stateful.LoadState(ctx, f.store)
+		state, err = node.LoadState(ctx, f.store)
 		if err != nil {
 			return nil, fmt.Errorf("load state: %w", err)
 		}
@@ -274,7 +274,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (any, err
 
 	// Save state if stateful
 	if node.Stateful != nil {
-		if err := node.Stateful.SaveState(ctx, f.store, output); err != nil {
+		if err := node.SaveState(ctx, f.store, output); err != nil {
 			return nil, fmt.Errorf("save state: %w", err)
 		}
 	}
@@ -296,7 +296,7 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, input any) (any
 			}
 		}
 
-		output, err := node.Processor.Process(ctx, input)
+		output, err := node.Process(ctx, input)
 		if err == nil {
 			return output, nil
 		}

@@ -9,6 +9,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	completeAction = "complete"
+)
+
 // Task represents a task for the agent.
 type Task struct {
 	Description string
@@ -30,15 +34,16 @@ func (t *ThinkNode) Process(ctx context.Context, input any) (any, error) {
 	fmt.Printf("[THINK] Completed steps: %v\n", task.Steps)
 
 	// Simple task decomposition logic
-	if len(task.Steps) == 0 && strings.Contains(task.Description, "write") {
+	switch {
+	case len(task.Steps) == 0 && strings.Contains(task.Description, "write"):
 		return "research", nil
-	} else if len(task.Steps) == 1 {
+	case len(task.Steps) == 1:
 		return "draft", nil
-	} else if len(task.Steps) == 2 {
+	case len(task.Steps) == 2:
 		return "review", nil
+	default:
+		return completeAction, nil
 	}
-
-	return "complete", nil
 }
 
 // Route determines the next action based on thinking.
@@ -75,7 +80,7 @@ func (a *ActionNode) Process(ctx context.Context, input any) (any, error) {
 		fmt.Printf("[ACT] Reviewing: %s\n", task.Description)
 		result = "Review completed: Content polished and examples added"
 
-	case "complete":
+	case completeAction:
 		fmt.Printf("[ACT] Completing: %s\n", task.Description)
 		result = fmt.Sprintf("Task completed: %s", task.Description)
 		return result, nil
@@ -93,7 +98,7 @@ func (a *ActionNode) Process(ctx context.Context, input any) (any, error) {
 
 // Route always goes back to think (except for complete).
 func (a *ActionNode) Route(ctx context.Context, result any) (string, error) {
-	if a.actionType == "complete" {
+	if a.actionType == completeAction {
 		return "done", nil
 	}
 	return "think", nil
@@ -131,17 +136,17 @@ func main() {
 	})
 	review.Router = &ActionNode{actionType: "review", store: store}
 
-	complete := pocket.NewNode("complete", &ActionNode{
-		actionType: "complete",
+	complete := pocket.NewNode(completeAction, &ActionNode{
+		actionType: completeAction,
 		store:      store,
 	})
-	complete.Router = &ActionNode{actionType: "complete", store: store}
+	complete.Router = &ActionNode{actionType: completeAction, store: store}
 
 	// Connect nodes - think decides which action
 	think.Connect("research", research)
 	think.Connect("draft", draft)
 	think.Connect("review", review)
-	think.Connect("complete", complete)
+	think.Connect(completeAction, complete)
 
 	// Actions loop back to think (except complete)
 	research.Connect("think", think)

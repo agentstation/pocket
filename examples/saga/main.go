@@ -13,14 +13,14 @@ import (
 	"github.com/agentstation/pocket"
 )
 
-// Transaction represents a step in the saga
+// Transaction represents a step in the saga.
 type Transaction struct {
 	Name       string
 	Execute    func(ctx context.Context, data any) error
 	Compensate func(ctx context.Context, data any) error
 }
 
-// SagaProcessor handles transaction execution with compensation
+// SagaProcessor handles transaction execution with compensation.
 type SagaProcessor struct {
 	transaction Transaction
 	store       pocket.Store
@@ -41,7 +41,7 @@ func (s *SagaProcessor) Process(ctx context.Context, input any) (any, error) {
 	return input, nil
 }
 
-// CompensatingProcessor handles rollback
+// CompensatingProcessor handles rollback.
 type CompensatingProcessor struct {
 	transactions map[string]Transaction
 	store        pocket.Store
@@ -85,8 +85,8 @@ type Order struct {
 }
 
 func main() {
-	// Initialize random seed
-	rand.Seed(time.Now().UnixNano())
+	// Initialize random number generator
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// Create store
 	store := pocket.NewStore()
@@ -101,7 +101,7 @@ func main() {
 				store.Set("inventory_reserved", true)
 				
 				// Simulate potential failure
-				if rand.Float32() > 0.7 {
+				if rng.Float32() > 0.7 {
 					return fmt.Errorf("insufficient inventory")
 				}
 				return nil
@@ -121,7 +121,7 @@ func main() {
 				store.Set("payment_charged", order.Amount)
 				
 				// Simulate potential failure
-				if rand.Float32() > 0.8 {
+				if rng.Float32() > 0.8 {
 					return fmt.Errorf("payment declined")
 				}
 				return nil
@@ -141,7 +141,7 @@ func main() {
 				store.Set("shipment_created", order.ID)
 				
 				// Simulate potential failure
-				if rand.Float32() > 0.9 {
+				if rng.Float32() > 0.9 {
 					return fmt.Errorf("shipping service unavailable")
 				}
 				return nil

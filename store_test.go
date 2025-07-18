@@ -115,7 +115,7 @@ func TestTypedStore(t *testing.T) {
 			name: "delete user",
 			op: func() error {
 				user := User{ID: "456", Name: "Bob", Age: 25}
-				userStore.Set(ctx, "user:456", user)
+				_ = userStore.Set(ctx, "user:456", user)
 				return userStore.Delete(ctx, "user:456")
 			},
 			check: func(t *testing.T) {
