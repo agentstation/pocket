@@ -1,66 +1,69 @@
-.PHONY: all test bench race cover lint clean help
+.PHONY: all test lint fmt clean coverage bench install-tools help
 
 # Default target
-all: test
+all: test lint
 
 # Run tests
 test:
 	@echo "Running tests..."
-	@go test ./...
+	@go test -v ./...
+
+# Run tests with race detector
+test-race:
+	@echo "Running tests with race detector..."
+	@go test -race -v ./...
+
+# Run linters
+lint:
+	@echo "Running linters..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not installed, running basic linters..."; \
+		go vet ./...; \
+		gofmt -l .; \
+	fi
+
+# Format code
+fmt:
+	@echo "Formatting code..."
+	@gofmt -w .
+	@go mod tidy
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning..."
+	@go clean -cache -testcache
+
+# Generate coverage report
+coverage:
+	@echo "Generating coverage report..."
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
 
 # Run benchmarks
 bench:
 	@echo "Running benchmarks..."
 	@go test -bench=. -benchmem ./...
 
-# Run tests with race detector
-race:
-	@echo "Running tests with race detector..."
-	@go test -race ./...
+# Install development tools
+install-tools:
+	@echo "Installing development tools..."
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@go install honnef.co/go/tools/cmd/staticcheck@latest
+	@echo "Tools installed successfully"
 
-# Generate coverage report
-cover:
-	@echo "Generating coverage report..."
-	@go test -cover -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
-
-# Run linters
-lint:
-	@echo "Running linters..."
-	@go vet ./...
-	@gofmt -l .
-	@go mod tidy
-
-# Clean build artifacts
-clean:
-	@echo "Cleaning..."
-	@rm -f coverage.out coverage.html
-	@go clean
-
-# Run examples
-example-chat:
-	@echo "Running chat example..."
-	@go run examples/chat/main.go
-
-example-agent:
-	@echo "Running agent example..."
-	@go run examples/agent/main.go
-
-example-parallel:
-	@echo "Running parallel example..."
-	@go run examples/parallel/main.go
-
-# Help
+# Show help
 help:
 	@echo "Available targets:"
-	@echo "  make test          - Run tests"
-	@echo "  make bench         - Run benchmarks"
-	@echo "  make race          - Run tests with race detector"
-	@echo "  make cover         - Generate coverage report"
-	@echo "  make lint          - Run linters"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make example-chat  - Run chat example"
-	@echo "  make example-agent - Run agent example"
-	@echo "  make example-parallel - Run parallel example"
-	@echo "  make help          - Show this help"
+	@echo "  make test         - Run tests"
+	@echo "  make test-race    - Run tests with race detector"
+	@echo "  make lint         - Run linters"
+	@echo "  make fmt          - Format code"
+	@echo "  make clean        - Clean build artifacts"
+	@echo "  make coverage     - Generate coverage report"
+	@echo "  make bench        - Run benchmarks"
+	@echo "  make install-tools - Install development tools"
+	@echo "  make help         - Show this help message"

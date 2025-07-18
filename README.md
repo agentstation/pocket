@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/agentstation/pocket/branch/master/graph/badge.svg)](https://codecov.io/gh/agentstation/pocket)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/agentstation/pocket.svg)](https://github.com/agentstation/pocket)
-[![Release](https://img.shields.io/github/release/agentstation/pocket.svg)](https://github.com/agentstation/pocket/releases/latest)
+[![Release](https://img.shields.io/github/release/agentstation/pocket.svg)](https://github.com/agentstation/pocket/releases)
 [![Made with Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://go.dev/)
 
 A minimalist Go framework for building LLM workflows with composable nodes and built-in concurrency patterns. Inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow), Pocket embraces Go idioms with small interfaces, functional options, and zero dependencies.

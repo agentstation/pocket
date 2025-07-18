@@ -1,0 +1,100 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - gosec
+    - gocyclo
+    - gocognit
+    - typecheck
+    - dupl
+    - unconvert
+    - goconst
+    - gocritic
+    - prealloc
+    - revive
+    - misspell
+    - unparam
+    - nakedret
+    - nolintlint
+    - dogsled
+    - bodyclose
+    - whitespace
+    - nilerr
+    - exhaustive
+    - sqlclosecheck
+    - paralleltest
+    - tparallel
+    - errorlint
+    - godot
+    - testpackage
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gocognit:
+    min-complexity: 20
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  dupl:
+    threshold: 150
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true
+  nakedret:
+    max-func-lines: 30
+  govet:
+    check-shadowing: true
+  godot:
+    scope: declarations
+    capital: true
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - gosec
+        - dupl
+        - errcheck
+        - goconst
+    
+    # Exclude example files
+    - path: example
+      linters:
+        - gosec
+        - errcheck
+    
+    # Allow certain patterns
+    - text: "should have comment or be unexported"
+      linters:
+        - revive
+    
+    # Allow fmt.Printf in examples
+    - path: examples/
+      text: "use of fmt.Printf"
+      linters:
+        - gocritic
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
