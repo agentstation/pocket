@@ -12,7 +12,7 @@ import (
 	"github.com/agentstation/pocket"
 )
 
-// DataProcessor demonstrates stateful processing
+// DataProcessor demonstrates stateful processing.
 type DataProcessor struct {
 	name string
 }
@@ -37,7 +37,7 @@ func (p *DataProcessor) SaveState(ctx context.Context, store pocket.Store, state
 	return nil
 }
 
-// AccumulatorNode accumulates results over multiple runs
+// AccumulatorNode accumulates results over multiple runs.
 type AccumulatorNode struct {
 	results []string
 }
@@ -63,7 +63,7 @@ func (a *AccumulatorNode) SaveState(ctx context.Context, store pocket.Store, sta
 	return nil
 }
 
-// ValidatorNode validates and routes data
+// ValidatorNode validates and routes data.
 type ValidatorNode struct{}
 
 func (v *ValidatorNode) Process(ctx context.Context, input any) (any, error) {

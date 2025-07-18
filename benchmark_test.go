@@ -7,7 +7,7 @@ import (
 	"github.com/agentstation/pocket"
 )
 
-// Simple processor for benchmarking
+// Simple processor for benchmarking.
 type benchProcessor struct {
 	work func()
 }
@@ -19,7 +19,7 @@ func (p *benchProcessor) Process(ctx context.Context, input any) (any, error) {
 	return input, nil
 }
 
-// Benchmark node creation
+// Benchmark node creation.
 func BenchmarkNewNode(b *testing.B) {
 	proc := &benchProcessor{}
 	
@@ -29,7 +29,7 @@ func BenchmarkNewNode(b *testing.B) {
 	}
 }
 
-// Benchmark single node execution
+// Benchmark single node execution.
 func BenchmarkSingleNodeExecution(b *testing.B) {
 	proc := &benchProcessor{}
 	node := pocket.NewNode("bench", proc)
@@ -43,7 +43,7 @@ func BenchmarkSingleNodeExecution(b *testing.B) {
 	}
 }
 
-// Benchmark pipeline execution with multiple nodes
+// Benchmark pipeline execution with multiple nodes.
 func BenchmarkPipelineMultiNode(b *testing.B) {
 	nodes := make([]*pocket.Node, 5)
 	for i := range nodes {
@@ -58,7 +58,7 @@ func BenchmarkPipelineMultiNode(b *testing.B) {
 	}
 }
 
-// Benchmark concurrent execution with many nodes
+// Benchmark concurrent execution with many nodes.
 func BenchmarkRunConcurrentManyNodes(b *testing.B) {
 	nodes := make([]*pocket.Node, 10)
 	for i := range nodes {
@@ -73,7 +73,7 @@ func BenchmarkRunConcurrentManyNodes(b *testing.B) {
 	}
 }
 
-// Benchmark store operations
+// Benchmark store operations.
 func BenchmarkStoreOperations(b *testing.B) {
 	store := pocket.NewStore()
 	
@@ -99,7 +99,7 @@ func BenchmarkStoreOperations(b *testing.B) {
 	})
 }
 
-// Benchmark flow with routing
+// Benchmark flow with routing.
 func BenchmarkFlowWithRouting(b *testing.B) {
 	// Create nodes
 	start := pocket.NewNode("start", &benchProcessor{})
@@ -127,7 +127,7 @@ func BenchmarkFlowWithRouting(b *testing.B) {
 	}
 }
 
-// Benchmark builder pattern
+// Benchmark builder pattern.
 func BenchmarkBuilder(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		builder := pocket.NewBuilder(pocket.NewStore())
@@ -142,7 +142,7 @@ func BenchmarkBuilder(b *testing.B) {
 	}
 }
 
-// Benchmark memory allocations for node creation
+// Benchmark memory allocations for node creation.
 func BenchmarkNodeCreationAllocs(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -152,7 +152,7 @@ func BenchmarkNodeCreationAllocs(b *testing.B) {
 	}
 }
 
-// Benchmark typed store operations
+// Benchmark typed store operations.
 func BenchmarkTypedStore(b *testing.B) {
 	store := pocket.NewStore()
 	typedStore := pocket.NewTypedStore[string](store)
@@ -173,7 +173,7 @@ func BenchmarkTypedStore(b *testing.B) {
 	})
 }
 
-// Benchmark scoped store
+// Benchmark scoped store.
 func BenchmarkScopedStore(b *testing.B) {
 	store := pocket.NewStore()
 	scoped := pocket.NewScopedStore(store, "test")

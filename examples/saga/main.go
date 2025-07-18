@@ -75,7 +75,7 @@ func getTransactionList(data any) []string {
 	return []string{}
 }
 
-// Order represents our domain object
+// Order represents our domain object.
 type Order struct {
 	ID          string
 	CustomerID  string
