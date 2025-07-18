@@ -1,5 +1,7 @@
 module github.com/agentstation/pocket
 
-go 1.24.5
+go 1.23.0
 
-require golang.org/x/sync v0.16.0 // indirect
+toolchain go1.24.5
+
+require golang.org/x/sync v0.16.0
