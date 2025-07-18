@@ -77,11 +77,11 @@ func getTransactionList(data any) []string {
 
 // Order represents our domain object.
 type Order struct {
-	ID          string
-	CustomerID  string
-	Amount      float64
-	Items       []string
-	Status      string
+	ID         string
+	CustomerID string
+	Amount     float64
+	Items      []string
+	Status     string
 }
 
 func main() {
@@ -99,7 +99,7 @@ func main() {
 				order := data.(*Order)
 				fmt.Printf("Reserving inventory for order %s...\n", order.ID)
 				store.Set("inventory_reserved", true)
-				
+
 				// Simulate potential failure
 				if rng.Float32() > 0.7 {
 					return fmt.Errorf("insufficient inventory")
@@ -119,7 +119,7 @@ func main() {
 				order := data.(*Order)
 				fmt.Printf("Charging payment of $%.2f for order %s...\n", order.Amount, order.ID)
 				store.Set("payment_charged", order.Amount)
-				
+
 				// Simulate potential failure
 				if rng.Float32() > 0.8 {
 					return fmt.Errorf("payment declined")
@@ -139,7 +139,7 @@ func main() {
 				order := data.(*Order)
 				fmt.Printf("Creating shipment for order %s...\n", order.ID)
 				store.Set("shipment_created", order.ID)
-				
+
 				// Simulate potential failure
 				if rng.Float32() > 0.9 {
 					return fmt.Errorf("shipping service unavailable")
@@ -205,32 +205,32 @@ func main() {
 	sagaFlow := func(ctx context.Context, order *Order) (string, error) {
 		// Try each step in sequence
 		nodes := []*pocket.Node{reserveInventory, chargePayment, createShipment, sendConfirmation, success}
-		
+
 		for i, node := range nodes {
 			flow := pocket.NewFlow(node, store)
 			result, err := flow.Run(ctx, order)
-			
+
 			if err != nil {
 				fmt.Printf("\n❌ Error at step %d: %v\n", i+1, err)
 				fmt.Println("\n🔄 Starting compensation...")
-				
+
 				// Run compensation
 				compensateFlow := pocket.NewFlow(compensate, store)
 				compResult, compErr := compensateFlow.Run(ctx, order)
-				
+
 				if compErr != nil {
 					return "", fmt.Errorf("saga failed and compensation failed: %w", compErr)
 				}
-				
+
 				return compResult.(string), err
 			}
-			
+
 			// For the last node, return the result
 			if i == len(nodes)-1 {
 				return result.(string), nil
 			}
 		}
-		
+
 		return "", fmt.Errorf("unexpected saga state")
 	}
 
@@ -287,4 +287,3 @@ func main() {
 
 	fmt.Println("\n=== Saga Demo Complete ===")
 }
-
