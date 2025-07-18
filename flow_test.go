@@ -84,17 +84,17 @@ func TestPipeline(t *testing.T) {
 		{
 			name:  "positive number",
 			input: 5,
-			want: "Result: 20", // computed as: (5 * 2) + 10 = 20
+			want:  "Result: 20", // computed as: (5 * 2) + 10 = 20
 		},
 		{
 			name:  "zero",
 			input: 0,
-			want: "Result: 10", // computed as: (0 * 2) + 10 = 10
+			want:  "Result: 10", // computed as: (0 * 2) + 10 = 10
 		},
 		{
 			name:  "negative number",
 			input: -5,
-			want: "Result: 0", // computed as: (-5 * 2) + 10 = 0
+			want:  "Result: 0", // computed as: (-5 * 2) + 10 = 0
 		},
 	}
 
