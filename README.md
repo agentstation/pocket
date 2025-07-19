@@ -3,41 +3,72 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/agentstation/pocket.svg)](https://pkg.go.dev/github.com/agentstation/pocket)
 [![Go Report Card](https://goreportcard.com/badge/github.com/agentstation/pocket)](https://goreportcard.com/report/github.com/agentstation/pocket)
 [![CI Status](https://github.com/agentstation/pocket/actions/workflows/ci.yml/badge.svg)](https://github.com/agentstation/pocket/actions)
-[![codecov](https://codecov.io/gh/agentstation/pocket/branch/master/graph/badge.svg)](https://codecov.io/gh/agentstation/pocket)
+[![codecov](https://codecov.io/gh/agentstation/pocket/graph/badge.svg?token=3EQVJCCSHN)](https://codecov.io/gh/agentstation/pocket)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/agentstation/pocket.svg)](https://github.com/agentstation/pocket)
-[![Release](https://img.shields.io/github/release/agentstation/pocket.svg)](https://github.com/agentstation/pocket/releases)
-[![Made with Go](https://img.shields.io/badge/Made%20with-Go-1f425f.svg)](https://go.dev/)
 
-A minimalist Go framework for building LLM workflows with composable nodes and built-in concurrency patterns. Inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow), Pocket embraces Go idioms with small interfaces, functional options, and zero dependencies.
+A simple LLM decision graph Go package inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s Prep/Exec/Post workflow pattern. Build composable workflows as directed graphs with type safety, built-in concurrency, and zero dependencies. Avoid large LLM framework lock-in.
 
-## Philosophy
+## Table of Contents
+- [Why Pocket?](#why-pocket)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+  - [The Prep/Exec/Post Lifecycle](#the-prepexecpost-lifecycle)
+  - [Read/Write Separation](#readwrite-separation)
+  - [Type Safety](#type-safety)
+- [Building Workflows](#building-workflows)
+  - [Creating Nodes](#creating-nodes)
+  - [Connecting Nodes](#connecting-nodes)
+  - [State Management](#state-management)
+- [Concurrency & Performance](#concurrency--performance)
+  - [Built-in Patterns](#built-in-patterns)
+  - [Batch Processing](#batch-processing)
+- [Production Features](#production-features)
+  - [Error Handling](#error-handling)
+  - [Observability](#observability)
+  - [Testing](#testing)
+- [Patterns & Examples](#patterns--examples)
+  - [Agent Patterns](#agent-patterns)
+  - [Workflow Patterns](#workflow-patterns)
+  - [Advanced Patterns](#advanced-patterns)
+- [Migration Guide](#migration-guide)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
 
-- **Small interfaces**: Single-purpose interfaces that compose naturally
-- **Idiomatic Go**: Follows Go best practices and patterns
-- **Zero dependencies**: Core has no external dependencies
-- **Built-in concurrency**: First-class support for parallel execution
-- **Type-safe**: Leverages generics for compile-time safety
-- **Functional options**: Clean, extensible configuration
+## Why Pocket?
 
-## Requirements
+Pocket is a decision graph framework that lets you build complex workflows as connected nodes. At its core, it's a way to traverse directed graphs where each node makes decisions about what happens next.
 
-- Go 1.21 or higher
-- No external dependencies for core functionality
+### What Makes Pocket Special?
 
-## Installation
+1. **Decision Graph Architecture**
+   - Build workflows as directed graphs
+   - Each node decides the next step dynamically
+   - Non-deterministic transitions based on runtime logic
+   - Clear execution flow visualization
+
+2. **Enforced Read/Write Separation** 
+   - Prep step: Read-only access
+   - Exec step: Pure functions, no store
+   - Post step: Full read/write access
+
+3. **Go's Strengths**
+   - Optional compile-time type safety
+   - Built-in concurrency primitives
+   - Production-grade performance
+
+4. **Zero Dependencies**
+   - Pure Go standard library
+   - No vendor lock-in
+   - Easy to understand and modify
+
+## Quick Start
 
 ```bash
 go get github.com/agentstation/pocket
 ```
 
-To verify the installation:
-
-```bash
-go doc github.com/agentstation/pocket
-```
-
-## Quick Start
+Your first Pocket workflow in 30 seconds:
 
 ```go
 package main
@@ -45,116 +76,292 @@ package main
 import (
     "context"
     "fmt"
-    "log"
-    
     "github.com/agentstation/pocket"
 )
 
 func main() {
-    // Create a simple processor using a function
-    greet := pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-        name := input.(string)
-        return fmt.Sprintf("Hello, %s!", name), nil
-    })
+    // Create a simple greeting node
+    greet := pocket.NewNode[string, string]("greet",
+        pocket.WithExec(func(ctx context.Context, name string) (string, error) {
+            return fmt.Sprintf("Hello, %s!", name), nil
+        }),
+    )
     
-    // Create a node
-    node := pocket.NewNode("greeter", greet)
-    
-    // Create and run a flow
+    // Run it
     store := pocket.NewStore()
-    flow := pocket.NewFlow(node, store)
+    flow := pocket.NewFlow(greet, store)
     
-    result, err := flow.Run(context.Background(), "World")
-    if err != nil {
-        log.Fatal(err)
-    }
-    
+    result, _ := flow.Run(context.Background(), "World")
     fmt.Println(result) // "Hello, World!"
 }
 ```
 
 ## Core Concepts
 
-### Small, Composable Interfaces
+### The Prep/Exec/Post Lifecycle
 
-```go
-// Process data
-type Processor interface {
-    Process(ctx context.Context, input any) (output any, err error)
-}
+Every Pocket node follows three phases:
 
-// Manage state
-type Stateful interface {
-    LoadState(ctx context.Context, store Store) (state any, err error)
-    SaveState(ctx context.Context, store Store, state any) error
-}
-
-// Route to next node
-type Router interface {
-    Route(ctx context.Context, result any) (next string, err error)
-}
+```mermaid
+graph LR
+    subgraph "Step 1. PREP"
+        P[Read State<br/>Validate Input<br/>Transform Data]
+    end
+    
+    subgraph "Step 2. EXEC"
+        E[Pure Logic<br/>No Side Effects<br/>Business Rules]
+    end
+    
+    subgraph "Step 3. POST"
+        PO[Write State<br/>Route Decision<br/>Handle Results]
+    end
+    
+    P -->|PrepResult| E
+    E -->|ExecResult| PO
+    
+    style P fill:#e1f5fe
+    style E fill:#fff3e0
+    style PO fill:#f3e5f5
 ```
 
-### Nodes
+```go
+node := pocket.NewNode[any, any]("example",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+        // Prepare data, validate input, read state
+        // store is read-only - can only Get, not Set
+        existingData, _ := store.Get(ctx, "key")
+        return preparedData, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+        // Pure business logic - no side effects
+        // No store access enforces functional purity
+        return processData(prepData), nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+        // Process results, save state, determine next node
+        // store has full read/write access
+        store.Set(ctx, "result", result)
+        return output, "nextNode", nil
+    }),
+)
+```
 
-Nodes combine processing, state management, and routing:
+### Read/Write Separation
+
+This separation ensures:
+- **Prep step** can read configuration and state but cannot modify it
+- **Exec step** contains pure, testable business logic with no side effects
+- **Post step** handles all state mutations and persistence
+
+Benefits of this architecture:
+- **Testability**: Exec functions are pure and easy to unit test
+- **Predictability**: State changes only happen in designated steps
+- **Concurrency Safety**: Read-only steps can safely run in parallel
+- **Debugging**: Clear boundaries make it easy to trace state changes
+- **Reusability**: Pure exec functions can be composed and reused
+
+### Type Safety
+
+Choose your level of type safety:
 
 ```go
-// Create from a function
-processor := pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-    // Process input
-    return result, nil
-})
-
-// Create a node with options
-node := pocket.NewNode("myNode", processor,
-    pocket.WithRetry(3, time.Second),
-    pocket.WithTimeout(30*time.Second),
+// Fully typed - compile-time safety
+userNode := pocket.NewNode[User, Response]("process",
+    pocket.WithExec(func(ctx context.Context, user User) (Response, error) {
+        // user is typed as User, no casting needed
+        return processUser(user), nil
+    }),
 )
 
-// Connect nodes
-node.Connect("success", successNode)
-node.Connect("error", errorNode)
-node.Default(defaultNode)
+// Dynamic - maximum flexibility  
+flexNode := pocket.NewNode[any, any]("flexible",
+    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+        // Handle any input type
+        switch v := input.(type) {
+        case string:
+            return processString(v), nil
+        case map[string]any:
+            return processMap(v), nil
+        default:
+            return input, nil
+        }
+    }),
+)
 ```
 
-### Flows
+## Building Workflows
 
-Flows orchestrate node execution:
+### Creating Nodes
+
+Nodes are the building blocks of your workflows:
 
 ```go
-// Simple flow
-flow := pocket.NewFlow(startNode, store)
-result, err := flow.Run(ctx, input)
+// Simple node with just exec
+simple := pocket.NewNode[string, string]("uppercase",
+    pocket.WithExec(func(ctx context.Context, input string) (string, error) {
+        return strings.ToUpper(input), nil
+    }),
+)
 
-// Using the builder
+// Full lifecycle node
+validator := pocket.NewNode[User, ValidationResult]("validate",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, user User) (any, error) {
+        // Read validation rules
+        rules, _ := store.Get(ctx, "validation:rules")
+        return map[string]any{"user": user, "rules": rules}, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, data any) (ValidationResult, error) {
+        // Apply validation logic
+        d := data.(map[string]any)
+        return validateUser(d["user"].(User), d["rules"]), nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, user User, prep any, result ValidationResult) (ValidationResult, string, error) {
+        // Save result and route
+        store.Set(ctx, "lastValidation", result)
+        if result.Valid {
+            return result, "success", nil
+        }
+        return result, "failure", nil
+    }),
+)
+```
+
+### Connecting Nodes
+
+Build complex workflows by connecting nodes:
+
+```mermaid
+graph TD
+    V[Validate Node] -->|success| E[Enrich Node]
+    V -->|failure| EH[Error Handler]
+    E -->|default| N[Notify Node]
+    EH -->|retry| V
+    N -->|done| END[End]
+    
+    style V fill:#e3f2fd
+    style E fill:#f3e5f5
+    style EH fill:#ffebee
+    style N fill:#e8f5e9
+```
+
+```go
+// Direct connection
+validate.Connect("success", enrich)
+validate.Connect("failure", errorHandler)
+enrich.Connect("default", notify)
+
+// Using the builder pattern
 flow, err := pocket.NewBuilder(store).
-    Add(nodeA).
-    Add(nodeB).
-    Connect("nodeA", "success", "nodeB").
-    Start("nodeA").
+    Add(validate).
+    Add(enrich).
+    Add(notify).
+    Add(errorHandler).
+    Connect("validate", "success", "enrich").
+    Connect("validate", "failure", "errorHandler").
+    Connect("enrich", "default", "notify").
+    Start("validate").
     Build()
 ```
 
-## Concurrency Patterns
+### State Management
+
+Thread-safe state management with context support:
+
+```go
+// Basic store operations
+store := pocket.NewStore()
+store.Set(ctx, "user:123", user)
+value, exists := store.Get(ctx, "user:123")
+store.Delete(ctx, "user:123")
+
+// Scoped stores for isolation
+userStore := store.Scope("user")
+userStore.Set(ctx, "123", user) // Actually stores as "user:123"
+
+// Type-safe store wrapper
+typedStore := pocket.NewTypedStore[User](store)
+err := typedStore.Set(ctx, "user:123", user)
+retrieved, exists, err := typedStore.Get(ctx, "user:123")
+// retrieved is typed as User, not any
+```
+
+## Concurrency & Performance
 
 ### Built-in Patterns
 
-Pocket provides idiomatic Go concurrency patterns:
+Pocket provides idiomatic Go concurrency patterns out of the box:
+
+#### Fan-Out Pattern
+
+Distribute work across multiple processors:
+
+```mermaid
+graph TB
+    I[Input] --> FO[Fan-Out]
+    FO --> P1[Process 1]
+    FO --> P2[Process 2]
+    FO --> P3[Process 3]
+    
+    style FO fill:#ffd54f
+    style P1 fill:#e3f2fd
+    style P2 fill:#e3f2fd
+    style P3 fill:#e3f2fd
+```
 
 ```go
-// Run nodes concurrently
-results, err := pocket.RunConcurrent(ctx, nodes, store)
-
-// Pipeline - output feeds next input
-result, err := pocket.Pipeline(ctx, nodes, store, input)
-
 // Fan-out - process items in parallel
+items := []string{"item1", "item2", "item3"}
 results, err := pocket.FanOut(ctx, processor, store, items)
+```
 
+#### Fan-In Pattern
+
+Aggregate results from multiple sources:
+
+```mermaid
+graph TB
+    S1[Source 1] --> FI[Fan-In]
+    S2[Source 2] --> FI
+    S3[Source 3] --> FI
+    FI --> R[Aggregated Result]
+    
+    style S1 fill:#e8f5e9
+    style S2 fill:#e8f5e9
+    style S3 fill:#e8f5e9
+    style FI fill:#ffd54f
+    style R fill:#a5d6a7
+```
+
+```go
 // Fan-in - aggregate from multiple sources
 fanIn := pocket.NewFanIn(aggregator, source1, source2, source3)
 result, err := fanIn.Run(ctx, store)
+```
+
+#### Pipeline Pattern
+
+Chain operations where each output feeds the next input:
+
+```mermaid
+graph LR
+    IN[Input] --> N1[Node 1]
+    N1 --> N2[Node 2]
+    N2 --> N3[Node 3]
+    N3 --> OUT[Output]
+    
+    style IN fill:#e1f5fe
+    style N1 fill:#fff3e0
+    style N2 fill:#f3e5f5
+    style N3 fill:#e8f5e9
+    style OUT fill:#a5d6a7
+```
+
+```go
+// Pipeline - output feeds next input
+result, err := pocket.Pipeline(ctx, nodes, store, input)
+
+// Run nodes concurrently (general pattern)
+results, err := pocket.RunConcurrent(ctx, nodes, store)
 ```
 
 ### Batch Processing
@@ -181,183 +388,462 @@ batch.ForEach(extractItems, processItem,
 filtered := batch.Filter(extractItems, predicate)
 ```
 
-## Design Patterns
+## Production Features
 
-### Agent with Think-Act Loop
+### Error Handling
 
-```go
-// Think node decides actions
-think := pocket.NewNode("think", &ThinkAgent{})
-think.Router = &ThinkAgent{} // Implements Router interface
-
-// Action nodes execute and loop back
-research := pocket.NewNode("research", &ResearchAction{})
-research.Router = pocket.RouterFunc(func(ctx, result) (string, error) {
-    return "think", nil // Loop back
-})
-
-// Connect the loop
-think.Connect("research", research)
-think.Connect("draft", draft)
-think.Connect("complete", complete)
-```
-
-### Conditional Routing
+Multiple strategies for resilient workflows:
 
 ```go
-router := pocket.NewNode("router", processor)
-router.Router = pocket.RouterFunc(func(ctx context.Context, result any) (string, error) {
-    value := result.(int)
-    switch {
-    case value > 100:
-        return "large", nil
-    case value < 0:
-        return "negative", nil
-    default:
-        return "normal", nil
-    }
-})
-```
-
-## Type Safety
-
-### Generic Store Operations
-
-```go
-// Type-safe store wrapper
-userStore := pocket.NewTypedStore[User](store)
-
-// Compile-time type checking
-user := User{ID: "123", Name: "Alice"}
-err := userStore.Set(ctx, "user:123", user)
-
-retrieved, exists, err := userStore.Get(ctx, "user:123")
-// retrieved is typed as User, not any
-```
-
-### Scoped Stores
-
-```go
-// Isolated key namespaces
-userScope := pocket.NewScopedStore(store, "user")
-adminScope := pocket.NewScopedStore(store, "admin")
-
-// Keys are automatically prefixed
-userScope.Set("name", "Alice")  // Stored as "user:name"
-adminScope.Set("name", "Bob")   // Stored as "admin:name"
-```
-
-## Configuration
-
-### Functional Options
-
-```go
-node := pocket.NewNode("processor", processor,
+// Retry with exponential backoff
+node := pocket.NewNode[any, any]("resilient",
+    pocket.WithExec(processFunc),
     pocket.WithRetry(3, time.Second),
-    pocket.WithTimeout(30*time.Second),
-    pocket.WithErrorHandler(func(err error) {
-        log.Printf("Node error: %v", err)
+)
+
+// Fallback on error
+node := pocket.NewNode[any, any]("with-fallback",
+    pocket.WithExec(mainFunc),
+    pocket.WithFallback(func(ctx context.Context, input any, err error) (any, error) {
+        // Fallback logic
+        return defaultValue, nil
     }),
 )
 
+// Circuit breaker pattern
+import "github.com/agentstation/pocket/internal/fallback"
+
+cb := fallback.NewCircuitBreaker("external-api",
+    fallback.WithMaxFailures(3),
+    fallback.WithResetTimeout(30*time.Second),
+)
+```
+
+### Observability
+
+Built-in hooks for monitoring and debugging:
+
+```go
+// Lifecycle hooks
+node := pocket.NewNode[any, any]("observable",
+    pocket.WithExec(mainFunc),
+    pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
+        // Log success metrics
+        store.Set(ctx, "metrics:success", time.Now())
+    }),
+    pocket.WithOnFailure(func(ctx context.Context, store pocket.StoreWriter, err error) {
+        // Log failure metrics
+        store.Set(ctx, "metrics:failure", err.Error())
+    }),
+    pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
+        // Cleanup - always runs
+        store.Delete(ctx, "temp:data")
+    }),
+)
+
+// Flow-level logging and tracing
 flow := pocket.NewFlow(start, store,
     pocket.WithLogger(logger),
     pocket.WithTracer(tracer),
 )
 ```
 
-## Examples
-
-- [Chat Bot](examples/chat/main.go) - Multi-agent chat with routing
-- [Autonomous Agent](examples/agent/main.go) - Think-act loop pattern  
-- [Parallel Processing](examples/parallel/main.go) - Batch document processing
-
-## Testing
+### Testing
 
 ```bash
-# Run all tests
-go test ./...
-
-# Run with race detector
+# Run all tests with race detection
 go test -race ./...
 
-# Run benchmarks
-go test -bench=. ./...
-
-# Coverage report
+# Run with coverage
 go test -cover ./...
+
+# Run benchmarks
+go test -bench=. -benchmem ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
-## Project Structure
+## Patterns & Examples
 
+### Agent Patterns
+
+Build autonomous agents with think-act loops:
+
+```mermaid
+graph TD
+    T[Think Node] -->|research| R[Research Node]
+    T -->|execute| E[Execute Node]
+    T -->|plan| P[Plan Node]
+    
+    R -->|results| T
+    E -->|results| T
+    P -->|plan| T
+    
+    T -.->|analyze context| T
+    
+    style T fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    style R fill:#fff9c4
+    style E fill:#c8e6c9
+    style P fill:#f8bbd0
 ```
-pocket/
-├── pocket.go          # Main API - interfaces and node implementation
-├── flow.go           # Flow orchestration and concurrency patterns
-├── store.go          # Store implementations and type-safe wrappers
-├── doc.go            # Package documentation
-├── batch/            # Generic batch processing
-├── internal/         # Internal implementation details
-└── examples/         # Example applications
+
+```go
+// Think node analyzes and decides
+think := pocket.NewNode[any, any]("think",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+        // Read current task and context
+        task, _ := store.Get(ctx, "task")
+        context, _ := store.Get(ctx, "context")
+        return map[string]any{"task": task, "context": context}, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+        // Pure decision logic - analyze task and decide action
+        taskData := data.(map[string]any)
+        if needsResearch(taskData["task"]) {
+            return "research", nil
+        }
+        return "execute", nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, action any) (any, string, error) {
+        // Update state and route to chosen action
+        store.Set(ctx, "lastAction", action)
+        return action, action.(string), nil
+    }),
+)
+
+// Connect think to various action nodes
+think.Connect("research", researchNode)
+think.Connect("execute", executeNode)
+
+// Actions loop back to think
+researchNode.Connect("default", think)
+executeNode.Connect("default", think)
 ```
 
-## Philosophy Comparison
+### Workflow Patterns
 
-| Aspect | Traditional Approach | Pocket Approach |
-|--------|---------------------|-----------------|
-| Interfaces | Large, multi-method | Small, focused |
-| Concurrency | External libraries | Built-in patterns |
-| Configuration | Struct fields | Functional options |
-| Type Safety | Interface{} everywhere | Generics where useful |
-| Dependencies | Many external | Zero in core |
+Implement complex business processes:
+
+#### Saga Pattern with Compensation
+
+```mermaid
+graph TD
+    subgraph "Order Processing Saga"
+        O[Order Node] -->|success| P[Payment Node]
+        P -->|success| I[Inventory Node]
+        I -->|success| S[Shipping Node]
+        S -->|success| N[Notify Node]
+        
+        P -->|failed| PC[Payment<br/>Compensate]
+        I -->|failed| IC[Inventory<br/>Compensate]
+        S -->|failed| SC[Shipping<br/>Compensate]
+        
+        IC --> PC
+        SC --> IC
+        
+        PC -->|rollback complete| F[Failure Handler]
+        
+        style P fill:#e3f2fd
+        style I fill:#e8f5e9
+        style S fill:#fff3e0
+        style PC fill:#ffebee
+        style IC fill:#ffebee
+        style SC fill:#ffebee
+    end
+```
+
+```go
+// Saga pattern with compensation
+processPayment := pocket.NewNode[PaymentRequest, PaymentResult]("payment",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, req PaymentRequest) (any, error) {
+        // Read account balance
+        balance, _ := store.Get(ctx, "balance:" + req.AccountID)
+        return map[string]any{"request": req, "balance": balance}, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, data any) (PaymentResult, error) {
+        // Process payment logic
+        d := data.(map[string]any)
+        return processPaymentLogic(d["request"], d["balance"]), nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, req PaymentRequest, prep any, result PaymentResult) (PaymentResult, string, error) {
+        if result.Success {
+            // Update balance on success
+            store.Set(ctx, "balance:" + req.AccountID, result.NewBalance)
+            return result, "success", nil
+        }
+        // Route to compensation
+        return result, "compensate", nil
+    }),
+)
+
+// Compensation node
+compensate := pocket.NewNode[PaymentResult, any]("compensate",
+    pocket.WithExec(func(ctx context.Context, result PaymentResult) (any, error) {
+        // Rollback logic
+        return performRollback(result), nil
+    }),
+)
+
+processPayment.Connect("compensate", compensate)
+```
+
+### Advanced Patterns
+
+#### Flow Composition
+
+Convert entire flows into reusable nodes for modular design:
+
+```mermaid
+graph TB
+    subgraph "Main Flow"
+        M1[Main Start] --> M2[Pre-Process]
+        M2 --> SF[Sub-Flow Node]
+        SF --> M3[Post-Process]
+        M3 --> M4[Main End]
+    end
+    
+    subgraph "Sub-Flow (as Node)"
+        direction LR
+        S1[Validate] --> S2[Transform]
+        S2 --> S3[Enrich]
+    end
+    
+    SF -.-> S1
+    
+    style SF fill:#ffd54f,stroke:#f57c00,stroke-width:3px
+    style M1 fill:#e3f2fd
+    style M4 fill:#a5d6a7
+```
+
+```go
+// Build a complex sub-flow
+validate := pocket.NewNode[any, any]("validate",
+    pocket.WithExec(validateFunc),
+)
+transform := pocket.NewNode[any, any]("transform",
+    pocket.WithExec(transformFunc),
+)
+enrich := pocket.NewNode[any, any]("enrich",
+    pocket.WithExec(enrichFunc),
+)
+
+// Connect sub-flow nodes
+validate.Connect("default", transform)
+transform.Connect("default", enrich)
+
+// Convert the flow into a reusable node
+subFlow := pocket.NewFlow(validate, store)
+subFlowNode := subFlow.AsNode("data-processor")
+
+// Use in main flow
+preProcess := pocket.NewNode[any, any]("pre-process",
+    pocket.WithExec(preProcessFunc),
+)
+postProcess := pocket.NewNode[any, any]("post-process",
+    pocket.WithExec(postProcessFunc),
+)
+
+preProcess.Connect("default", subFlowNode)
+subFlowNode.Connect("default", postProcess)
+
+mainFlow := pocket.NewFlow(preProcess, store)
+```
+
+#### Dynamic Flow Building
+
+Build flows dynamically based on configuration:
+
+```mermaid
+graph TD
+    C[Config] --> FB[Flow Builder]
+    FB --> D1{Decision}
+    D1 -->|Type A| A1[Node A1]
+    D1 -->|Type B| B1[Node B1]
+    A1 --> A2[Node A2]
+    B1 --> B2[Node B2]
+    A2 --> M[Merge]
+    B2 --> M
+    M --> F[Final]
+    
+    style C fill:#e1f5fe
+    style FB fill:#ffd54f
+    style M fill:#f3e5f5
+    style F fill:#a5d6a7
+```
+
+```go
+// Dynamic flow construction based on config
+func BuildFlow(config FlowConfig, store pocket.Store) (*pocket.Flow, error) {
+    builder := pocket.NewBuilder(store)
+    
+    // Add nodes based on config
+    for _, nodeConfig := range config.Nodes {
+        node := createNodeFromConfig(nodeConfig)
+        builder.Add(node)
+    }
+    
+    // Connect based on rules
+    for _, conn := range config.Connections {
+        builder.Connect(conn.From, conn.Action, conn.To)
+    }
+    
+    return builder.Start(config.StartNode).Build()
+}
+
+// Factory pattern for node creation
+func createNodeFromConfig(cfg NodeConfig) *pocket.Node {
+    switch cfg.Type {
+    case "validator":
+        return pocket.NewNode[any, any](cfg.Name,
+            pocket.WithExec(validatorFunc(cfg.Rules)),
+        )
+    case "transformer":
+        return pocket.NewNode[any, any](cfg.Name,
+            pocket.WithExec(transformerFunc(cfg.Options)),
+        )
+    default:
+        return pocket.NewNode[any, any](cfg.Name,
+            pocket.WithExec(defaultFunc),
+        )
+    }
+}
+```
+
+#### YAML Integration
+
+Structured output for LLM interactions:
+
+```go
+import "github.com/agentstation/pocket/internal/yaml"
+
+// Create YAML-formatted output nodes
+yamlNode := yaml.YAMLNode("formatter",
+    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+        // Transform to YAML-friendly structure
+        return map[string]any{
+            "result": "processed",
+            "confidence": 0.95,
+            "metadata": map[string]any{
+                "timestamp": time.Now(),
+                "version": "1.0",
+            },
+        }, nil
+    }),
+)
+
+// Load flows from YAML definitions
+loader := yaml.NewLoader()
+flow, err := loader.LoadFile("workflow.yaml", store)
+```
+
+### Complete Examples
+
+Explore our example implementations:
+
+- [**Chat Bot**](examples/chat/) - Multi-agent conversation system with routing
+- [**Autonomous Agent**](examples/agent/) - Think-act loop implementation
+- [**RAG Pipeline**](examples/rag/) - Retrieval-augmented generation workflow
+- [**Workflow Engine**](examples/workflow/) - Complex e-commerce order processing
+- [**Parallel Processing**](examples/parallel/) - Batch document processing
+- [**Saga Pattern**](examples/saga/) - Distributed transactions with compensation
+- [**Type Safety Demo**](examples/typed/) - Leveraging Go's type system
+- [**Advanced Features**](examples/advanced/) - Flow composition, YAML, fallbacks
+
+## Migration Guide
+
+Moving from a traditional workflow engine? Here's how Pocket's approach differs:
+
+### Traditional Approach
+```python
+def process_node(input):
+    # All logic mixed together
+    data = store.get("key")
+    result = transform(data)
+    store.set("result", result)
+    return result
+```
+
+### Pocket Approach
+```go
+pocket.NewNode[Input, Output]("process",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input Input) (any, error) {
+        // Step 1: Read - store is read-only
+        data, _ := store.Get(ctx, "key")
+        return data, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, data any) (Output, error) {
+        // Step 2: Execute - pure computation, no store access
+        return transform(data), nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input Input, prep any, result Output) (Output, string, error) {
+        // Step 3: Write - full store access
+        store.Set(ctx, "result", result)
+        return result, "next", nil
+    }),
+)
+```
+
+### Key Differences
+
+1. **Explicit steps** - Prep/Exec/Post are separate functions
+2. **Type safety** - Optional but recommended
+3. **Concurrency** - Built-in patterns vs external libraries
+4. **State access** - Controlled by step
+
+## API Reference
+
+For detailed API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/agentstation/pocket).
+
+### Core Types
+- `Node[In, Out]` - Type-safe computation unit
+- `Flow` - Orchestrates node execution
+- `Store` - Thread-safe state management
+- `Builder` - Fluent API for flow construction
+
+### Key Functions
+- `NewNode[In, Out]()` - Create typed nodes
+- `NewFlow()` - Create executable flows
+- `ValidateFlow()` - Type-check your workflow
+- `RunConcurrent()` - Parallel execution
+- `Pipeline()` - Sequential processing
+- `FanOut()` / `FanIn()` - Scatter-gather patterns
 
 ## Contributing
+
+We welcome contributions! Pocket is built by the community, for the community.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing`)
 3. Write tests for your changes
-4. Ensure all tests pass with race detector
+4. Ensure all tests pass (`go test -race ./...`)
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing`)
 7. Open a Pull Request
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 ## Performance
 
-Pocket is designed for efficiency:
+Pocket is designed for production performance:
+
 - Zero allocations in hot paths
 - Minimal overhead for node execution
-- Efficient concurrent patterns using sync.Pool where appropriate
-- Benchmarks included for critical paths
+- Efficient concurrent patterns
+- Comprehensive benchmarks
 
 ```bash
 # Run benchmarks
 go test -bench=. -benchmem ./...
 ```
 
-## Stability
-
-While Pocket is a young project, we follow semantic versioning and strive for:
-- Stable interfaces (no breaking changes without major version bump)
-- Comprehensive test coverage
-- Race condition free (tested with -race)
-- Production-ready error handling
-
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- Inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s minimalist philosophy
-- Built with Go's idioms and best practices in mind
-- Designed for the modern LLM application stack
-
-## Status
-
-- ✅ Core functionality complete
-- ✅ Full test coverage
-- ✅ Examples and documentation
-- ✅ CI/CD pipeline
-- 🚧 Community feedback incorporation
-- 🚧 Performance optimizations
-- 🚧 Additional patterns and helpers
+- Inspired by minimalist workflow patterns
+- Built for Go's production requirements
+- Built with ❤️ by [AgentStation](https://agentstation.ai)
