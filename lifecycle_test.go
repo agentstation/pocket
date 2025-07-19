@@ -9,6 +9,11 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	successResult = "success"
+	doneRoute = "done"
+)
+
 func TestCleanupHooks(t *testing.T) {
 	t.Run("onSuccess hook runs on successful execution", func(t *testing.T) {
 		store := pocket.NewStore()
@@ -20,11 +25,11 @@ func TestCleanupHooks(t *testing.T) {
 		
 		node := pocket.NewNode[any, any]("test",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return "success", nil
+				return successResult, nil
 			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				successCalled = true
-				if output != "success" {
+				if output != successResult {
 					t.Errorf("expected output 'success', got %v", output)
 				}
 			}),
@@ -140,7 +145,7 @@ func TestCleanupHooks(t *testing.T) {
 				// Store the exec_data in post phase
 				data := execResult.(map[string]interface{})
 				store.Set(ctx, "exec_data", data["exec_data"])
-				return data["result"], "done", nil
+				return data["result"], doneRoute, nil
 			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				// Should be able to read from store

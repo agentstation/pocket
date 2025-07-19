@@ -7,6 +7,8 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+// Using constants from lifecycle_test.go
+
 // Benchmark node creation.
 func BenchmarkNewNode(b *testing.B) {
 	b.ResetTimer()
@@ -46,7 +48,7 @@ func BenchmarkLifecyclePhases(b *testing.B) {
 			return prep, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			return exec, "done", nil
+			return exec, doneRoute, nil
 		}),
 	)
 	

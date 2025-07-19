@@ -10,6 +10,8 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+// Using constants from lifecycle_test.go and options_test.go
+
 // ExampleNode demonstrates using the Prep/Exec/Post lifecycle.
 func ExampleNode() {
 	// Create a node with lifecycle phases
@@ -28,7 +30,7 @@ func ExampleNode() {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
 			// Return result and routing
-			return result, "done", nil
+			return result, doneRoute, nil
 		}),
 	)
 
@@ -64,7 +66,7 @@ func ExampleBuilder() {
 			return email, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 

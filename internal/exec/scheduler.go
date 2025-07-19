@@ -308,7 +308,7 @@ type executionResult struct {
 }
 
 // NewQueuedExecutor creates a queued executor.
-func NewQueuedExecutor(workers int, queueSize int, executor Executor) *QueuedExecutor {
+func NewQueuedExecutor(workers, queueSize int, executor Executor) *QueuedExecutor {
 	e := &QueuedExecutor{
 		queue:    make(chan *execution, queueSize),
 		workers:  workers,

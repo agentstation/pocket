@@ -10,6 +10,12 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	// Using successResult from lifecycle_test.go
+	// Using defaultRoute from options_test.go
+	testValue = "test"
+)
+
 // Test types for type safety testing.
 type TestInput struct {
 	Value string
@@ -149,7 +155,7 @@ func TestNodeOptions(t *testing.T) {
 				if strings.HasPrefix(output.Result, "error") {
 					return output, "error", nil
 				}
-				return output, "success", nil
+				return output, successResult, nil
 			}),
 		)
 
@@ -245,7 +251,7 @@ func TestRuntimeTypeSafety(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
-		if output, ok := result.(TestOutput); !ok || output.Result != "test" {
+		if output, ok := result.(TestOutput); !ok || output.Result != testValue {
 			t.Errorf("Wrong result: %v", result)
 		}
 
@@ -366,7 +372,7 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 				return input, nil
 			}),
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input TestInput, prep any, output TestOutput) (TestOutput, string, error) {
-				return output, "default", nil
+				return output, defaultRoute, nil
 			}),
 			pocket.WithFallback(func(ctx context.Context, input TestInput, err error) (TestOutput, error) {
 				return TestOutput{Result: "fallback"}, nil

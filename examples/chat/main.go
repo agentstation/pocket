@@ -161,13 +161,15 @@ func main() {
 			// Simulate creative response
 			response := fmt.Sprintf("[%s] 🎨 How delightful! Here's something creative: ", bot)
 
-			if strings.Contains(strings.ToLower(message), "story") {
+			lowerMessage := strings.ToLower(message)
+			switch {
+			case strings.Contains(lowerMessage, "story"):
 				response += "Once upon a time in a digital realm..."
-			} else if strings.Contains(strings.ToLower(message), "poem") {
+			case strings.Contains(lowerMessage, "poem"):
 				response += "\n  Roses are red,\n  Violets are blue,\n  AI writes poems,\n  Just for you!"
-			} else if strings.Contains(strings.ToLower(message), "joke") {
+			case strings.Contains(lowerMessage, "joke"):
 				response += "Why did the AI go to therapy? It had too many deep issues! 😄"
-			} else {
+			default:
 				response += "Let me paint you a word picture of possibilities..."
 			}
 

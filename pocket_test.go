@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	testResult     = "result"
-	successResult  = "success"
+	testResult = "result"
 )
 
 func TestNodeLifecycle(t *testing.T) {

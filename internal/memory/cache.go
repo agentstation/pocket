@@ -205,7 +205,7 @@ func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any)
 	// Check cache
 	if cached, exists := n.cache.Get(key); exists {
 		// Store cache hit metadata
-		store.Set(ctx, fmt.Sprintf("node:%s:cache_hit", n.Name), true)
+		_ = store.Set(ctx, fmt.Sprintf("node:%s:cache_hit", n.Name), true)
 		return cached, nil
 	}
 
@@ -218,7 +218,7 @@ func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any)
 
 	// Cache result
 	n.cache.Set(key, result, n.ttl)
-	store.Set(ctx, fmt.Sprintf("node:%s:cache_miss", n.Name), true)
+	_ = store.Set(ctx, fmt.Sprintf("node:%s:cache_miss", n.Name), true)
 	
 	return result, nil
 }
@@ -253,7 +253,7 @@ func CacheMiddleware(cache Cache, keyFunc func(any) string, ttl time.Duration) f
 func HashKeyFunc(prefix string) func(any) string {
 	return func(input any) string {
 		h := sha256.New()
-		h.Write([]byte(fmt.Sprintf("%v", input)))
+		fmt.Fprintf(h, "%v", input)
 		return prefix + ":" + hex.EncodeToString(h.Sum(nil))
 	}
 }

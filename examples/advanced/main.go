@@ -331,7 +331,7 @@ func main() {
 
 // createExtractionFlow creates a sub-flow for data extraction
 func createExtractionFlow() *pocket.Flow {
-	store := pocket.NewStore()
+	flowStore := pocket.NewStore()
 
 	// Entity extraction node
 	entityExtractor := pocket.NewNode[any, any]("entity-extractor",
@@ -411,5 +411,5 @@ func createExtractionFlow() *pocket.Flow {
 	wrappedEntityExtractor.Connect("default", wrappedSentimentAnalyzer)
 	wrappedSentimentAnalyzer.Connect("default", combiner)
 
-	return pocket.NewFlow(wrappedEntityExtractor, store)
+	return pocket.NewFlow(wrappedEntityExtractor, flowStore)
 }

@@ -8,6 +8,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	defaultRoute = "default"
+)
+
 func TestFunctionalOptions(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
@@ -43,7 +47,7 @@ func TestFunctionalOptions(t *testing.T) {
 			}),
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 				postCalled = true
-				return exec.(string) + "-post", "default", nil
+				return exec.(string) + "-post", defaultRoute, nil
 			}),
 		)
 
@@ -95,7 +99,7 @@ func TestFunctionalOptions(t *testing.T) {
 
 		node := pocket.NewNode[any, any]("hooks",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return "result", nil
+				return testResult, nil
 			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				successCalled = true
@@ -205,7 +209,7 @@ func TestGlobalDefaults(t *testing.T) {
 			}),
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 				postCalled = true
-				return exec.(string) + "-post", "default", nil
+				return exec.(string) + "-post", defaultRoute, nil
 			}),
 			pocket.WithTimeout(5*time.Second),
 		)

@@ -178,13 +178,13 @@ func (s *SequentialStrategy) Execute(ctx context.Context, chain *Chain, store po
 
 		if err == nil {
 			// Store which link succeeded
-			store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), link.Name)
+			_ = store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), link.Name)
 			return result, nil
 		}
 
 		lastErr = err
 		// Store the error for debugging
-		store.Set(ctx, fmt.Sprintf("chain:%s:link_%d_error", chain.name, i), err)
+		_ = store.Set(ctx, fmt.Sprintf("chain:%s:link_%d_error", chain.name, i), err)
 	}
 
 	return nil, fmt.Errorf("all %d links failed, last error: %w", len(links), lastErr)
@@ -260,7 +260,7 @@ func (s *ParallelStrategy) Execute(ctx context.Context, chain *Chain, store pock
 		select {
 		case r := <-resultCh:
 			if r.err == nil {
-				store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), r.link)
+				_ = store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), r.link)
 				return r.value, nil
 			}
 			errors = append(errors, fmt.Errorf("%s: %w", r.link, r.err))

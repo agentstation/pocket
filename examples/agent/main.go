@@ -14,6 +14,7 @@ import (
 
 const (
 	completeAction = "complete"
+	doneRoute      = "done"
 )
 
 // Task represents a task for the agent.
@@ -113,7 +114,7 @@ func main() {
 
 				// Decide next step
 				if actionType == completeAction {
-					return resultStr, "done", nil // End the flow (no successor for "done")
+					return resultStr, doneRoute, nil // End the flow (no successor for "done")
 				}
 				return resultStr, "think", nil // Back to thinking
 			}),
@@ -192,7 +193,7 @@ func main() {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
 			fmt.Printf("[POST] Analysis result: %v\n", result)
-			return result, "done", nil
+			return result, doneRoute, nil
 		}),
 		pocket.WithRetry(3, 0), // Retry up to 3 times
 	)

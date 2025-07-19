@@ -188,7 +188,7 @@ func Timing() Middleware {
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:last_duration", node.Name), execDuration)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:total_duration", node.Name), totalDuration)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:execution_count", node.Name), execCount)
-			store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
 			
 			// Call original post with correct data
 			var actualPrep any = prep
@@ -306,7 +306,7 @@ func Timeout(duration time.Duration) Middleware {
 }
 
 // RateLimit adds rate limiting to a node.
-func RateLimit(rps int, burst int) Middleware {
+func RateLimit(rps, burst int) Middleware {
 	// Simple token bucket implementation
 	tokens := make(chan struct{}, burst)
 	
