@@ -240,50 +240,50 @@ func getLen(value any) int {
 	}
 }
 
-// FlowAssert provides flow-specific assertions.
-type FlowAssert struct {
+// GraphAssert provides graph-specific assertions.
+type GraphAssert struct {
 	*Assert
 }
 
-// NewFlowAssert creates flow-specific assertions.
-func NewFlowAssert(t *testing.T) *FlowAssert {
-	return &FlowAssert{
+// NewGraphAssert creates graph-specific assertions.
+func NewGraphAssert(t *testing.T) *GraphAssert {
+	return &GraphAssert{
 		Assert: NewAssert(t),
 	}
 }
 
-// FlowCompletes asserts that a flow completes successfully.
-func (fa *FlowAssert) FlowCompletes(flow *pocket.Flow, input any) any {
+// GraphCompletes asserts that a graph completes successfully.
+func (fa *GraphAssert) GraphCompletes(graph *pocket.Graph, input any) any {
 	fa.t.Helper()
 
 	ctx := context.Background()
-	result, err := flow.Run(ctx, input)
-	fa.NoError(err, "Flow execution failed")
+	result, err := graph.Run(ctx, input)
+	fa.NoError(err, "Graph execution failed")
 
 	return result
 }
 
-// FlowFails asserts that a flow fails with an error.
-func (fa *FlowAssert) FlowFails(flow *pocket.Flow, input any) error {
+// GraphFails asserts that a graph fails with an error.
+func (fa *GraphAssert) GraphFails(graph *pocket.Graph, input any) error {
 	fa.t.Helper()
 
 	ctx := context.Background()
-	_, err := flow.Run(ctx, input)
-	fa.Error(err, "Expected flow to fail")
+	_, err := graph.Run(ctx, input)
+	fa.Error(err, "Expected graph to fail")
 
 	return err
 }
 
 // NodeExecutes asserts that a node executes successfully.
-func (fa *FlowAssert) NodeExecutes(node *pocket.Node, store pocket.Store, input any) any {
+func (fa *GraphAssert) NodeExecutes(node *pocket.Node, store pocket.Store, input any) any {
 	fa.t.Helper()
 
-	flow := pocket.NewFlow(node, store)
-	return fa.FlowCompletes(flow, input)
+	graph := pocket.NewGraph(node, store)
+	return fa.GraphCompletes(graph, input)
 }
 
 // StoreContains asserts that a store contains a key.
-func (fa *FlowAssert) StoreContains(store pocket.Store, key string) any {
+func (fa *GraphAssert) StoreContains(store pocket.Store, key string) any {
 	fa.t.Helper()
 
 	ctx := context.Background()
@@ -294,7 +294,7 @@ func (fa *FlowAssert) StoreContains(store pocket.Store, key string) any {
 }
 
 // StoreNotContains asserts that a store does not contain a key.
-func (fa *FlowAssert) StoreNotContains(store pocket.Store, key string) {
+func (fa *GraphAssert) StoreNotContains(store pocket.Store, key string) {
 	fa.t.Helper()
 
 	ctx := context.Background()

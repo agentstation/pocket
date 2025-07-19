@@ -91,9 +91,9 @@ func TestNodeLifecycle(t *testing.T) {
 			}
 
 			store := pocket.NewStore()
-			flow := pocket.NewFlow(node, store)
+			graph := pocket.NewGraph(node, store)
 
-			got, err := flow.Run(context.Background(), tt.input)
+			got, err := graph.Run(context.Background(), tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -136,44 +136,44 @@ func TestNodeConnections(t *testing.T) {
 	middle.Default(end)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(start, store)
+	graph := pocket.NewGraph(start, store)
 
-	result, err := flow.Run(context.Background(), "input")
+	result, err := graph.Run(context.Background(), "input")
 	if err != nil {
-		t.Fatalf("Flow execution failed: %v", err)
+		t.Fatalf("Graph execution failed: %v", err)
 	}
 
 	expected := "processed-middle-end"
 	if result != expected {
-		t.Errorf("Flow result = %v, want %v", result, expected)
+		t.Errorf("Graph result = %v, want %v", result, expected)
 	}
 }
 
-func TestFlowExecution(t *testing.T) {
+func TestGraphExecution(t *testing.T) {
 	tests := []struct {
-		name      string
-		setupFlow func() (*pocket.Flow, pocket.Store)
-		input     any
-		want      any
-		wantErr   error
+		name       string
+		setupGraph func() (*pocket.Graph, pocket.Store)
+		input      any
+		want       any
+		wantErr    error
 	}{
 		{
-			name: "simple flow",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			name: "simple graph",
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("simple",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 						return testResult, nil
 					}),
 				)
 				store := pocket.NewStore()
-				return pocket.NewFlow(node, store), store
+				return pocket.NewGraph(node, store), store
 			},
 			input: "test",
 			want:  testResult,
 		},
 		{
-			name: "flow with routing",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			name: "graph with routing",
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				router := pocket.NewNode[any, any]("router",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 						return input, nil
@@ -202,51 +202,51 @@ func TestFlowExecution(t *testing.T) {
 				router.Connect("small", small)
 
 				store := pocket.NewStore()
-				return pocket.NewFlow(router, store), store
+				return pocket.NewGraph(router, store), store
 			},
 			input: 15,
 			want:  "big number",
 		},
 		{
-			name: "flow with error",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			name: "graph with error",
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("error",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 						return nil, errors.New("process error")
 					}),
 				)
 				store := pocket.NewStore()
-				return pocket.NewFlow(node, store), store
+				return pocket.NewGraph(node, store), store
 			},
 			input:   "test",
 			wantErr: errors.New("node error: exec failed: process error"),
 		},
 		{
 			name: "no start node",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				store := pocket.NewStore()
-				return pocket.NewFlow(nil, store), store
+				return pocket.NewGraph(nil, store), store
 			},
 			input:   "test",
 			wantErr: pocket.ErrNoStartNode,
 		},
 		{
 			name: "prep step error",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("prep-error",
 					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 						return nil, errors.New("prep failed")
 					}),
 				)
 				store := pocket.NewStore()
-				return pocket.NewFlow(node, store), store
+				return pocket.NewGraph(node, store), store
 			},
 			input:   "test",
 			wantErr: errors.New("node prep-error: prep failed: prep failed"),
 		},
 		{
 			name: "post step error",
-			setupFlow: func() (*pocket.Flow, pocket.Store) {
+			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("post-error",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 						return "result", nil
@@ -256,7 +256,7 @@ func TestFlowExecution(t *testing.T) {
 					}),
 				)
 				store := pocket.NewStore()
-				return pocket.NewFlow(node, store), store
+				return pocket.NewGraph(node, store), store
 			},
 			input:   "test",
 			wantErr: errors.New("node post-error: post failed: post failed"),
@@ -265,8 +265,8 @@ func TestFlowExecution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flow, _ := tt.setupFlow()
-			got, err := flow.Run(context.Background(), tt.input)
+			graph, _ := tt.setupGraph()
+			got, err := graph.Run(context.Background(), tt.input)
 
 			if tt.wantErr != nil {
 				if err == nil {
@@ -386,10 +386,10 @@ func TestWithRetry(t *testing.T) {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	graph := pocket.NewGraph(node, store)
 
 	start := time.Now()
-	result, err := flow.Run(ctx, nil)
+	result, err := graph.Run(ctx, nil)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -424,9 +424,9 @@ func TestWithTimeout(t *testing.T) {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	graph := pocket.NewGraph(node, store)
 
-	_, err := flow.Run(context.Background(), nil)
+	_, err := graph.Run(context.Background(), nil)
 	if err == nil {
 		t.Error("Expected timeout error, got nil")
 	}
@@ -458,12 +458,12 @@ func TestBuilder(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		build   func() (*pocket.Flow, error)
+		build   func() (*pocket.Graph, error)
 		wantErr bool
 	}{
 		{
 			name: "successful build",
-			build: func() (*pocket.Flow, error) {
+			build: func() (*pocket.Graph, error) {
 				return pocket.NewBuilder(store).
 					Add(node1).
 					Add(node2).
@@ -475,7 +475,7 @@ func TestBuilder(t *testing.T) {
 		},
 		{
 			name: "no start node",
-			build: func() (*pocket.Flow, error) {
+			build: func() (*pocket.Graph, error) {
 				return pocket.NewBuilder(store).
 					Build()
 			},
@@ -485,13 +485,13 @@ func TestBuilder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flow, err := tt.build()
+			graph, err := tt.build()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && flow == nil {
-				t.Error("Build() returned nil flow without error")
+			if !tt.wantErr && graph == nil {
+				t.Error("Build() returned nil graph without error")
 			}
 		})
 	}
@@ -533,9 +533,9 @@ func TestTypedNode(t *testing.T) {
 
 	// Execute the node
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	graph := pocket.NewGraph(node, store)
 
-	result, err := flow.Run(context.Background(), User{Name: "Alice"})
+	result, err := graph.Run(context.Background(), User{Name: "Alice"})
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -550,20 +550,20 @@ func TestTypedNode(t *testing.T) {
 	}
 }
 
-func TestValidateFlow(t *testing.T) {
+func TestValidateGraph(t *testing.T) {
 	type Input struct{ Value int }
 	type Output struct{ Result string }
 	type Different struct{ Data float64 }
 
 	tests := []struct {
-		name      string
-		setupFlow func() *pocket.Node
-		wantErr   bool
-		errMsg    string
+		name       string
+		setupGraph func() *pocket.Node
+		wantErr    bool
+		errMsg     string
 	}{
 		{
-			name: "valid flow with matching types",
-			setupFlow: func() *pocket.Node {
+			name: "valid graph with matching types",
+			setupGraph: func() *pocket.Node {
 				// Create nodes with matching input/output types
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -583,8 +583,8 @@ func TestValidateFlow(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "invalid flow with type mismatch",
-			setupFlow: func() *pocket.Node {
+			name: "invalid graph with type mismatch",
+			setupGraph: func() *pocket.Node {
 				// Create nodes with mismatched types
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -606,8 +606,8 @@ func TestValidateFlow(t *testing.T) {
 			errMsg:  "type mismatch",
 		},
 		{
-			name: "flow with untyped nodes (should pass)",
-			setupFlow: func() *pocket.Node {
+			name: "graph with untyped nodes (should pass)",
+			setupGraph: func() *pocket.Node {
 				// Mix of typed and untyped nodes
 				typedNode := pocket.NewNode[Input, Output]("typed",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -628,8 +628,8 @@ func TestValidateFlow(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "cyclic flow validation",
-			setupFlow: func() *pocket.Node {
+			name: "cyclic graph validation",
+			setupGraph: func() *pocket.Node {
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
 						return Output{Result: "processed"}, nil
@@ -658,7 +658,7 @@ func TestValidateFlow(t *testing.T) {
 		},
 		{
 			name: "interface type compatibility",
-			setupFlow: func() *pocket.Node {
+			setupGraph: func() *pocket.Node {
 				// Test with interface types
 				type Writer interface {
 					Write() string
@@ -691,15 +691,15 @@ func TestValidateFlow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			startNode := tt.setupFlow()
-			err := pocket.ValidateFlow(startNode)
+			startNode := tt.setupGraph()
+			err := pocket.ValidateGraph(startNode)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateFlow() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidateGraph() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-				t.Errorf("ValidateFlow() error = %v, want error containing %v", err, tt.errMsg)
+				t.Errorf("ValidateGraph() error = %v, want error containing %v", err, tt.errMsg)
 			}
 		})
 	}
@@ -737,11 +737,11 @@ func TestLifecycleSteps(t *testing.T) {
 		}),
 	)
 
-	flow := pocket.NewFlow(node, store)
-	result, err := flow.Run(ctx, "input")
+	graph := pocket.NewGraph(node, store)
+	result, err := graph.Run(ctx, "input")
 
 	if err != nil {
-		t.Fatalf("Flow failed: %v", err)
+		t.Fatalf("Graph failed: %v", err)
 	}
 
 	// Check execution order
@@ -786,11 +786,11 @@ func TestRetryPerStep(t *testing.T) {
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
 
-	flow := pocket.NewFlow(node, store)
-	result, err := flow.Run(ctx, "input")
+	graph := pocket.NewGraph(node, store)
+	result, err := graph.Run(ctx, "input")
 
 	if err != nil {
-		t.Fatalf("Flow failed: %v", err)
+		t.Fatalf("Graph failed: %v", err)
 	}
 
 	if prepAttempts != 2 {
@@ -819,8 +819,8 @@ func TestErrorHandler(t *testing.T) {
 		}),
 	)
 
-	flow := pocket.NewFlow(node, store)
-	_, err := flow.Run(ctx, "input")
+	graph := pocket.NewGraph(node, store)
+	_, err := graph.Run(ctx, "input")
 
 	if err == nil {
 		t.Fatal("Expected error, got nil")

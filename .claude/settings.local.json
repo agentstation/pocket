@@ -22,7 +22,8 @@
       "Bash(gofmt:*)",
       "WebFetch(domain:pkg.go.dev)",
       "WebFetch(domain:api.github.com)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(gh repo view:*)"
     ],
     "deny": []
   }

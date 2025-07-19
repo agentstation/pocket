@@ -1,4 +1,4 @@
-// Package yaml provides YAML-based flow definition support for pocket.
+// Package yaml provides YAML-based graph definition support for pocket.
 package yaml
 
 import (
@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// FlowDefinition represents a complete flow defined in YAML.
-type FlowDefinition struct {
+// GraphDefinition represents a complete graph defined in YAML.
+type GraphDefinition struct {
 	Name        string                 `yaml:"name"`
 	Description string                 `yaml:"description,omitempty"`
 	Version     string                 `yaml:"version,omitempty"`
@@ -44,21 +44,21 @@ type RetryConfig struct {
 	MaxDelay    string  `yaml:"max_delay,omitempty"`
 }
 
-// Validate checks if the flow definition is valid.
-func (fd *FlowDefinition) Validate() error {
-	if fd.Name == "" {
-		return fmt.Errorf("flow name is required")
+// Validate checks if the graph definition is valid.
+func (gd *GraphDefinition) Validate() error {
+	if gd.Name == "" {
+		return fmt.Errorf("graph name is required")
 	}
-	if fd.Start == "" {
+	if gd.Start == "" {
 		return fmt.Errorf("start node is required")
 	}
-	if len(fd.Nodes) == 0 {
+	if len(gd.Nodes) == 0 {
 		return fmt.Errorf("at least one node is required")
 	}
 
 	// Check if start node exists
 	nodeMap := make(map[string]bool)
-	for _, node := range fd.Nodes {
+	for _, node := range gd.Nodes {
 		if node.Name == "" {
 			return fmt.Errorf("node name is required")
 		}
@@ -68,12 +68,12 @@ func (fd *FlowDefinition) Validate() error {
 		nodeMap[node.Name] = true
 	}
 
-	if !nodeMap[fd.Start] {
-		return fmt.Errorf("start node %s not found", fd.Start)
+	if !nodeMap[gd.Start] {
+		return fmt.Errorf("start node %s not found", gd.Start)
 	}
 
 	// Validate connections
-	for _, conn := range fd.Connections {
+	for _, conn := range gd.Connections {
 		if !nodeMap[conn.From] {
 			return fmt.Errorf("connection from node %s not found", conn.From)
 		}
@@ -83,7 +83,7 @@ func (fd *FlowDefinition) Validate() error {
 	}
 
 	// Validate individual nodes
-	for _, node := range fd.Nodes {
+	for _, node := range gd.Nodes {
 		if err := node.Validate(); err != nil {
 			return fmt.Errorf("node %s: %w", node.Name, err)
 		}

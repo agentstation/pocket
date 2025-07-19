@@ -67,7 +67,7 @@ The Store is context-aware and supports scoping for isolation between concurrent
 
 We fully adopted PocketFlow's lifecycle pattern because:
 - It naturally models most workflow patterns (think-act, ETL, validation-process-route)
-- Provides clear phases for different concerns
+- Provides clear steps for different concerns
 - Enables better optimization and caching strategies
 - Makes workflows more testable
 
@@ -130,15 +130,15 @@ Instead of external libraries, we provide idiomatic Go patterns:
 
 ## Implementation Details
 
-### Flow Execution
+### Graph Execution
 
-1. Flow starts at the designated start node
+1. Graph starts at the designated start node
 2. For each node:
    - Execute Prep step (with retry support)
    - Execute Exec step (with retry support)
    - Execute Post step (no retry for routing decisions)
    - Post returns the next node name
-   - Flow continues to the next node or ends
+   - Graph continues to the next node or ends
 
 ### Error Handling
 
@@ -158,7 +158,7 @@ Instead of external libraries, we provide idiomatic Go patterns:
 
 Optional type validation ensures compatibility:
 ```go
-func ValidateFlow(start *Node) error {
+func ValidateGraph(start *Node) error {
     // Traverses graph checking InputType/OutputType compatibility
     // Returns error if types don't match
 }
@@ -166,12 +166,12 @@ func ValidateFlow(start *Node) error {
 
 ## Advanced Features
 
-### Flow Composition
+### Graph Composition
 
-Flows can be converted to nodes for composition:
+Graphs can be converted to nodes for composition:
 ```go
-subFlow := pocket.NewFlow(startNode, store)
-compositeNode := subFlow.AsNode("sub-workflow")
+subGraph := pocket.NewGraph(startNode, store)
+compositeNode := subGraph.AsNode("sub-workflow")
 ```
 
 ### YAML Support
@@ -356,7 +356,7 @@ node := pocket.NewNode[any, any]("processor",
 2. **Type Validation**: Only runs if types are specified
 3. **Store Operations**: O(1) with mutex overhead
 4. **Concurrency**: Uses sync.Pool where appropriate
-5. **Memory**: Efficient reuse of nodes across flows
+5. **Memory**: Efficient reuse of nodes across graphs
 
 ## Testing
 
@@ -374,25 +374,25 @@ func TestNode(t *testing.T) {
     )
     
     // Test lifecycle
-    flow := pocket.NewFlow(node, store)
-    result, err := flow.Run(ctx, input)
+    graph := pocket.NewGraph(node, store)
+    result, err := graph.Run(ctx, input)
 }
 ```
 
-### Integration Testing Flows
+### Integration Testing Graphs
 
 ```go
-func TestFlow(t *testing.T) {
-    // Build complete flow
-    flow, err := pocket.NewBuilder(store).
+func TestGraph(t *testing.T) {
+    // Build complete graph
+    graph, err := pocket.NewBuilder(store).
         Add(node1).
         Add(node2).
         Connect("node1", "success", "node2").
         Start("node1").
         Build()
     
-    // Run flow
-    result, err := flow.Run(ctx, input)
+    // Run graph
+    result, err := graph.Run(ctx, input)
 }
 ```
 
@@ -408,7 +408,7 @@ func TestFlow(t *testing.T) {
 
 Potential areas for enhancement:
 1. Middleware support for cross-cutting concerns
-2. Flow visualization tools
+2. Graph visualization tools
 3. Persistent store implementations
 4. Distributed execution support
 5. Advanced routing strategies

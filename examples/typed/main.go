@@ -198,13 +198,13 @@ func main() {
 	validator.Connect("invalid", errorHandler)
 	enricher.Connect("notify", notifier)
 
-	// Validate the flow before running
+	// Validate the graph before running
 	fmt.Println("=== Type-Safe Workflow Demo ===")
-	fmt.Println("\nValidating flow types...")
-	if err := pocket.ValidateFlow(validator); err != nil {
-		log.Fatalf("Flow validation failed: %v", err)
+	fmt.Println("\nValidating graph types...")
+	if err := pocket.ValidateGraph(validator); err != nil {
+		log.Fatalf("Graph validation failed: %v", err)
 	}
-	fmt.Println("✅ Flow validation passed!")
+	fmt.Println("✅ Graph validation passed!")
 
 	// Test cases
 	testUsers := []User{
@@ -234,10 +234,10 @@ func main() {
 	for _, user := range testUsers {
 		fmt.Printf("\n--- Processing User: %s ---\n", user.ID)
 
-		flow := pocket.NewFlow(validator, store)
-		result, err := flow.Run(ctx, user)
+		graph := pocket.NewGraph(validator, store)
+		result, err := graph.Run(ctx, user)
 		if err != nil {
-			fmt.Printf("Flow error: %v\n", err)
+			fmt.Printf("Graph error: %v\n", err)
 			continue
 		}
 
@@ -264,7 +264,7 @@ func main() {
 
 	// This should fail validation
 	fmt.Println("Testing incompatible node connection...")
-	if err := pocket.ValidateFlow(validator); err != nil {
+	if err := pocket.ValidateGraph(validator); err != nil {
 		fmt.Printf("✅ Correctly caught type mismatch: %v\n", err)
 	} else {
 		fmt.Println("❌ Type mismatch should have been detected!")
@@ -298,8 +298,8 @@ func main() {
 
 	// Test the reliable processor
 	fmt.Println("Testing reliable processor with retry and timeout...")
-	reliableFlow := pocket.NewFlow(reliableProcessor, store)
-	_, _ = reliableFlow.Run(ctx, "888,Test User,test@example.com")
+	reliableGraph := pocket.NewGraph(reliableProcessor, store)
+	_, _ = reliableGraph.Run(ctx, "888,Test User,test@example.com")
 
 	fmt.Println("\n=== Builder Pattern with Typed Nodes ===")
 
@@ -320,8 +320,8 @@ func main() {
 		}),
 	)
 
-	// Build complete flow
-	flow, err := pocket.NewBuilder(store).
+	// Build complete graph
+	graph, err := pocket.NewBuilder(store).
 		Add(preprocessor).
 		Add(validator).
 		Add(enricher).
@@ -335,14 +335,14 @@ func main() {
 		Build()
 
 	if err != nil {
-		log.Fatalf("Failed to build flow: %v", err)
+		log.Fatalf("Failed to build graph: %v", err)
 	}
 
 	// Test with CSV input
 	csvInput := "999,Alice Developer,alice@example.com"
 	fmt.Printf("\nProcessing CSV input: %s\n", csvInput)
 
-	result, err := flow.Run(ctx, csvInput)
+	result, err := graph.Run(ctx, csvInput)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	} else if notification, ok := result.(NotificationResult); ok {

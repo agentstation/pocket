@@ -1,4 +1,4 @@
-// Package main demonstrates advanced Pocket features including flow composition,
+// Package main demonstrates advanced Pocket features including graph composition,
 // YAML support, fallback mechanisms, circuit breakers, and memory management.
 package main
 
@@ -109,8 +109,8 @@ func main() {
 			Model:       "gpt-4",
 		}
 
-		flow := pocket.NewFlow(protectedLLM, boundedStore)
-		result, err := flow.Run(ctx, req)
+		graph := pocket.NewGraph(protectedLLM, boundedStore)
+		result, err := graph.Run(ctx, req)
 		if err != nil {
 			log.Printf("Request %d failed: %v", i+1, err)
 		} else {
@@ -119,18 +119,18 @@ func main() {
 		}
 	}
 
-	// Demo 2: Flow Composition with YAML
-	fmt.Println("\n2. Flow Composition with YAML Output")
+	// Demo 2: Graph Composition with YAML Output
+	fmt.Println("\n2. Graph Composition with YAML Output")
 	fmt.Println("------------------------------------")
 
-	// Create a sub-flow for data extraction
-	extractionFlow := createExtractionFlow()
+	// Create a sub-graph for data extraction
+	extractionGraph := createExtractionGraph()
 
-	// Convert the flow to a node
-	extractionNode := extractionFlow.AsNode("extraction-subflow")
+	// Convert the graph to a node
+	extractionNode := extractionGraph.AsNode("extraction-subgraph")
 
-	// Create a main flow that uses the extraction subflow
-	mainFlow := pocket.NewNode[any, any]("main-pipeline",
+	// Create a main graph that uses the extraction subgraph
+	mainGraph := pocket.NewNode[any, any]("main-pipeline",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare the input for extraction
 			text := input.(string)
@@ -151,7 +151,7 @@ func main() {
 	)
 
 	// Connect to extraction node
-	mainFlow.Connect("default", extractionNode)
+	mainGraph.Connect("default", extractionNode)
 
 	// Add YAML formatting node
 	yamlFormatter := pocket.NewNode[any, any]("yaml-formatter",
@@ -167,9 +167,9 @@ func main() {
 
 	extractionNode.Connect("default", yamlFormatter)
 
-	// Run the composed flow
-	composedFlow := pocket.NewFlow(mainFlow, boundedStore)
-	result, err := composedFlow.Run(ctx, "Analyze this text for sentiment and extract key entities.")
+	// Run the composed graph
+	composedGraph := pocket.NewGraph(mainGraph, boundedStore)
+	result, err := composedGraph.Run(ctx, "Analyze this text for sentiment and extract key entities.")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -240,9 +240,9 @@ func main() {
 	)
 
 	// Test the chain
-	chainFlow := pocket.NewFlow(chainNode, boundedStore)
+	chainGraph := pocket.NewGraph(chainNode, boundedStore)
 	for i := 0; i < 5; i++ {
-		result, err := chainFlow.Run(ctx, fmt.Sprintf("Query %d", i+1))
+		result, err := chainGraph.Run(ctx, fmt.Sprintf("Query %d", i+1))
 		if err != nil {
 			log.Printf("Chain failed: %v", err)
 		} else {
@@ -311,8 +311,8 @@ func main() {
 	)
 
 	// Test cleanup hooks
-	cleanupFlow := pocket.NewFlow(resourceNode, boundedStore)
-	_, err = cleanupFlow.Run(ctx, "test input")
+	cleanupGraph := pocket.NewGraph(resourceNode, boundedStore)
+	_, err = cleanupGraph.Run(ctx, "test input")
 	if err != nil {
 		log.Printf("Cleanup test error: %v", err)
 	}
@@ -333,9 +333,9 @@ func main() {
 	fmt.Println("\n=== Demo Complete ===")
 }
 
-// createExtractionFlow creates a sub-flow for data extraction
-func createExtractionFlow() *pocket.Flow {
-	flowStore := pocket.NewStore()
+// createExtractionGraph creates a sub-graph for data extraction
+func createExtractionGraph() *pocket.Graph {
+	graphStore := pocket.NewStore()
 
 	// Entity extraction node
 	entityExtractor := pocket.NewNode[any, any]("entity-extractor",
@@ -415,5 +415,5 @@ func createExtractionFlow() *pocket.Flow {
 	wrappedEntityExtractor.Connect("default", wrappedSentimentAnalyzer)
 	wrappedSentimentAnalyzer.Connect("default", combiner)
 
-	return pocket.NewFlow(wrappedEntityExtractor, flowStore)
+	return pocket.NewGraph(wrappedEntityExtractor, graphStore)
 }

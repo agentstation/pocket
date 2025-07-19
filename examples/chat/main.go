@@ -199,8 +199,8 @@ func main() {
 	router.Connect("expert", expertBot)
 	router.Connect("creative", creativeBot)
 
-	// Create flow
-	flow := pocket.NewFlow(router, store)
+	// Create graph
+	graph := pocket.NewGraph(router, store)
 
 	// Example conversations
 	messages := []string{
@@ -217,7 +217,7 @@ func main() {
 	for _, msg := range messages {
 		fmt.Printf("\nUser: %s\n", msg)
 
-		result, err := flow.Run(ctx, msg)
+		result, err := graph.Run(ctx, msg)
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 			continue
@@ -240,7 +240,7 @@ func main() {
 	// Clear history
 	_ = store.Set(ctx, "history", []string{})
 
-	// Build a more complex flow with input validation
+	// Build a more complex graph with input validation
 	inputValidator := pocket.NewNode[any, any]("input",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate and normalize input
@@ -272,7 +272,7 @@ func main() {
 		}),
 	)
 
-	flow2, err := pocket.NewBuilder(store).
+	graph2, err := pocket.NewBuilder(store).
 		Add(inputValidator).
 		Add(router).
 		Add(simpleBot).
@@ -289,7 +289,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Test the built flow
+	// Test the built graph
 	testMessages := []string{
 		"Builder pattern test",
 		"Tell me a story about builder patterns",
@@ -298,7 +298,7 @@ func main() {
 
 	for _, msg := range testMessages {
 		fmt.Printf("\nTesting: %q\n", msg)
-		result, err := flow2.Run(ctx, msg)
+		result, err := graph2.Run(ctx, msg)
 		if err != nil {
 			fmt.Printf("Validation error: %v\n", err)
 			continue

@@ -42,6 +42,7 @@ examples/*/[!.]?*
 /advanced
 /agent
 /chat
+/graph-composition
 /flow-composition
 /parallel
 /rag

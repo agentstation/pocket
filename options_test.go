@@ -28,8 +28,8 @@ func testSimpleNodeWithExec(t *testing.T) {
 		}),
 	)
 
-	flow := pocket.NewFlow(node, store)
-	result, err := flow.Run(ctx, "test")
+	graph := pocket.NewGraph(node, store)
+	result, err := graph.Run(ctx, "test")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,8 +58,8 @@ func testNodeWithAllLifecycle(t *testing.T) {
 		}),
 	)
 
-	flow := pocket.NewFlow(node, store)
-	result, err := flow.Run(ctx, "test")
+	graph := pocket.NewGraph(node, store)
+	result, err := graph.Run(ctx, "test")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,8 +90,8 @@ func testNodeWithErrorHandler(t *testing.T) {
 			pocket.WithRetry(3, 10*time.Millisecond),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, "test")
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, "test")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -123,8 +123,8 @@ func testNodeWithErrorHandler(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, "test")
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, "test")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -161,8 +161,8 @@ func TestGlobalDefaults(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, "test")
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, "test")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -195,8 +195,8 @@ func TestGlobalDefaults(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, "test")
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, "test")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -232,8 +232,8 @@ func TestGlobalDefaults(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, "test")
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, "test")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

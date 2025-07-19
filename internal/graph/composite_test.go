@@ -1,4 +1,4 @@
-package flow_test
+package graph_test
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/internal/flow"
+	"github.com/agentstation/pocket/internal/graph"
 )
 
-func TestFlowAsNode(t *testing.T) {
+func TestGraphAsNode(t *testing.T) {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
-	// Create a simple flow that doubles a number
+	// Create a simple graph that doubles a number
 	doubler := pocket.NewNode[any, any]("double",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			n := input.(int)
@@ -21,9 +21,9 @@ func TestFlowAsNode(t *testing.T) {
 		}),
 	)
 
-	doublerFlow := pocket.NewFlow(doubler, store)
+	doublerGraph := pocket.NewGraph(doubler, store)
 
-	// Create another flow that adds 10
+	// Create another graph that adds 10
 	adder := pocket.NewNode[any, any]("add10",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			n := input.(int)
@@ -31,21 +31,21 @@ func TestFlowAsNode(t *testing.T) {
 		}),
 	)
 
-	adderFlow := pocket.NewFlow(adder, store)
+	adderGraph := pocket.NewGraph(adder, store)
 
-	// Compose the flows: double then add 10
-	// Using the Flow.AsNode method
-	doubleNode := doublerFlow.AsNode("double-flow")
-	addNode := adderFlow.AsNode("add-flow")
+	// Compose the graphs: double then add 10
+	// Using the Graph.AsNode method
+	doubleNode := doublerGraph.AsNode("double-graph")
+	addNode := adderGraph.AsNode("add-graph")
 
 	// Connect them
 	doubleNode.Connect("default", addNode)
 
-	// Create composite flow
-	compositeFlow := pocket.NewFlow(doubleNode, store)
+	// Create composite graph
+	compositeGraph := pocket.NewGraph(doubleNode, store)
 
 	// Execute test case: 5 * 2 + 10 = 20
-	result, err := compositeFlow.Run(ctx, 5)
+	result, err := compositeGraph.Run(ctx, 5)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -55,12 +55,12 @@ func TestFlowAsNode(t *testing.T) {
 	}
 }
 
-func TestNestedFlowBuilder(t *testing.T) {
+func TestNestedGraphBuilder(t *testing.T) {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
-	// Create flows for different operations
-	multiplyFlow := pocket.NewFlow(
+	// Create graphs for different operations
+	multiplyGraph := pocket.NewGraph(
 		pocket.NewNode[any, any]("multiply",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				n := input.(int)
@@ -70,7 +70,7 @@ func TestNestedFlowBuilder(t *testing.T) {
 		store,
 	)
 
-	subtractFlow := pocket.NewFlow(
+	subtractGraph := pocket.NewGraph(
 		pocket.NewNode[any, any]("subtract",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				n := input.(int)
@@ -80,19 +80,19 @@ func TestNestedFlowBuilder(t *testing.T) {
 		store,
 	)
 
-	// Build nested flow
-	nestedFlow, err := flow.NewNestedFlowBuilder("math", store).
-		AddFlow("multiply", multiplyFlow).
-		AddFlow("subtract", subtractFlow).
+	// Build nested graph
+	nestedGraph, err := graph.NewNestedGraphBuilder("math", store).
+		AddGraph("multiply", multiplyGraph).
+		AddGraph("subtract", subtractGraph).
 		Connect("multiply", "default", "subtract").
 		Build()
 
 	if err != nil {
-		t.Fatalf("failed to build nested flow: %v", err)
+		t.Fatalf("failed to build nested graph: %v", err)
 	}
 
 	// Execute test case: 10 * 3 - 5 = 25
-	result, err := nestedFlow.Run(ctx, 10)
+	result, err := nestedGraph.Run(ctx, 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -102,15 +102,15 @@ func TestNestedFlowBuilder(t *testing.T) {
 	}
 }
 
-func TestComposeFlows(t *testing.T) {
+func TestComposeGraphs(t *testing.T) {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
-	// Create a chain of flows
-	flows := make([]*pocket.Flow, 3)
+	// Create a chain of graphs
+	graphs := make([]*pocket.Graph, 3)
 
-	// Flow 1: Add 1
-	flows[0] = pocket.NewFlow(
+	// Graph 1: Add 1
+	graphs[0] = pocket.NewGraph(
 		pocket.NewNode[any, any]("add1",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input.(int) + 1, nil
@@ -119,8 +119,8 @@ func TestComposeFlows(t *testing.T) {
 		store,
 	)
 
-	// Flow 2: Multiply by 2
-	flows[1] = pocket.NewFlow(
+	// Graph 2: Multiply by 2
+	graphs[1] = pocket.NewGraph(
 		pocket.NewNode[any, any]("mul2",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input.(int) * 2, nil
@@ -129,8 +129,8 @@ func TestComposeFlows(t *testing.T) {
 		store,
 	)
 
-	// Flow 3: Add 5
-	flows[2] = pocket.NewFlow(
+	// Graph 3: Add 5
+	graphs[2] = pocket.NewGraph(
 		pocket.NewNode[any, any]("add5",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input.(int) + 5, nil
@@ -140,9 +140,9 @@ func TestComposeFlows(t *testing.T) {
 	)
 
 	// Compose them
-	composed, err := flow.ComposeFlows("math-chain", store, flows...)
+	composed, err := graph.ComposeGraphs("math-chain", store, graphs...)
 	if err != nil {
-		t.Fatalf("failed to compose flows: %v", err)
+		t.Fatalf("failed to compose graphs: %v", err)
 	}
 
 	// Execute test case: (10 + 1) * 2 + 5 = 27
@@ -156,7 +156,7 @@ func TestComposeFlows(t *testing.T) {
 	}
 }
 
-func TestFlowWithStore(t *testing.T) {
+func TestGraphWithStore(t *testing.T) {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
@@ -164,8 +164,8 @@ func TestFlowWithStore(t *testing.T) {
 	store.Set(ctx, "multiplier", 5)
 	store.Set(ctx, "input", 10)
 
-	// Create a flow that reads from store
-	calculatorFlow := pocket.NewFlow(
+	// Create a graph that reads from store
+	calculatorGraph := pocket.NewGraph(
 		pocket.NewNode[any, any]("calculator",
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				mult, _ := store.Get(ctx, "multiplier")
@@ -180,13 +180,13 @@ func TestFlowWithStore(t *testing.T) {
 	)
 
 	// Use AsNodeWithStore
-	calcNode := flow.AsNodeWithStore(calculatorFlow, "calc", "input", "result")
+	calcNode := graph.AsNodeWithStore(calculatorGraph, "calc", "input", "result")
 
-	// Create wrapper flow
-	wrapperFlow := pocket.NewFlow(calcNode, store)
+	// Create wrapper graph
+	wrapperGraph := pocket.NewGraph(calcNode, store)
 
 	// Run - should read from "input" key and write to "result" key
-	_, err := wrapperFlow.Run(ctx, nil)
+	_, err := wrapperGraph.Run(ctx, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -202,17 +202,17 @@ func TestFlowWithStore(t *testing.T) {
 	}
 }
 
-func TestParallelFlows(t *testing.T) {
+func TestParallelGraphs(t *testing.T) {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
-	// Create flows that return different values
-	flows := make([]*pocket.Flow, 3)
+	// Create graphs that return different values
+	graphs := make([]*pocket.Graph, 3)
 
-	for i := range flows {
+	for i := range graphs {
 		i := i // capture loop variable
-		flows[i] = pocket.NewFlow(
-			pocket.NewNode[any, any](fmt.Sprintf("flow%d", i),
+		graphs[i] = pocket.NewGraph(
+			pocket.NewNode[any, any](fmt.Sprintf("graph%d", i),
 				pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 					return fmt.Sprintf("result-%d", i), nil
 				}),
@@ -222,7 +222,7 @@ func TestParallelFlows(t *testing.T) {
 	}
 
 	// Run in parallel
-	results, err := flow.ParallelFlows(ctx, store, flows...)
+	results, err := graph.ParallelGraphs(ctx, store, graphs...)
 	if err != nil {
 		t.Fatalf("parallel execution failed: %v", err)
 	}

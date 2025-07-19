@@ -8,7 +8,7 @@ import (
 	"github.com/agentstation/pocket"
 )
 
-// Context provides enhanced context for flow execution.
+// Context provides enhanced context for graph execution.
 type Context struct {
 	context.Context
 	mu       sync.RWMutex
@@ -163,85 +163,85 @@ func (cs *ContextStore) Set(ctx context.Context, key string, value any) error {
 	return cs.Store.Set(ctx, key, value)
 }
 
-// FlowContext provides flow-specific context.
-type FlowContext struct {
+// GraphContext provides graph-specific context.
+type GraphContext struct {
 	*Context
-	flowID    string
+	graphID   string
 	startTime time.Time
 	nodeStack []string
 	mu        sync.Mutex
 }
 
-// NewFlowContext creates a flow execution context.
-func NewFlowContext(parent context.Context, flowID string) *FlowContext {
-	return &FlowContext{
+// NewGraphContext creates a graph execution context.
+func NewGraphContext(parent context.Context, graphID string) *GraphContext {
+	return &GraphContext{
 		Context:   NewContext(parent),
-		flowID:    flowID,
+		graphID:   graphID,
 		startTime: time.Now(),
 		nodeStack: []string{},
 	}
 }
 
-// FlowID returns the flow ID.
-func (fc *FlowContext) FlowID() string {
-	return fc.flowID
+// GraphID returns the graph ID.
+func (gc *GraphContext) GraphID() string {
+	return gc.graphID
 }
 
-// Duration returns the flow execution duration.
-func (fc *FlowContext) Duration() time.Duration {
-	return time.Since(fc.startTime)
+// Duration returns the graph execution duration.
+func (gc *GraphContext) Duration() time.Duration {
+	return time.Since(gc.startTime)
 }
 
 // EnterNode records entering a node.
-func (fc *FlowContext) EnterNode(nodeName string) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (gc *GraphContext) EnterNode(nodeName string) {
+	gc.mu.Lock()
+	defer gc.mu.Unlock()
 
-	fc.nodeStack = append(fc.nodeStack, nodeName)
-	fc.Log("debug", "entering node", "node", nodeName, "depth", len(fc.nodeStack))
+	gc.nodeStack = append(gc.nodeStack, nodeName)
+	gc.Log("debug", "entering node", "node", nodeName, "depth", len(gc.nodeStack))
 }
 
 // ExitNode records exiting a node.
-func (fc *FlowContext) ExitNode(nodeName string) {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (gc *GraphContext) ExitNode(nodeName string) {
+	gc.mu.Lock()
+	defer gc.mu.Unlock()
 
-	if len(fc.nodeStack) > 0 {
-		fc.nodeStack = fc.nodeStack[:len(fc.nodeStack)-1]
+	if len(gc.nodeStack) > 0 {
+		gc.nodeStack = gc.nodeStack[:len(gc.nodeStack)-1]
 	}
-	fc.Log("debug", "exiting node", "node", nodeName, "depth", len(fc.nodeStack))
+	gc.Log("debug", "exiting node", "node", nodeName, "depth", len(gc.nodeStack))
 }
 
 // CurrentNode returns the current node name.
-func (fc *FlowContext) CurrentNode() string {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (gc *GraphContext) CurrentNode() string {
+	gc.mu.Lock()
+	defer gc.mu.Unlock()
 
-	if len(fc.nodeStack) > 0 {
-		return fc.nodeStack[len(fc.nodeStack)-1]
+	if len(gc.nodeStack) > 0 {
+		return gc.nodeStack[len(gc.nodeStack)-1]
 	}
 	return ""
 }
 
 // NodePath returns the current node execution path.
-func (fc *FlowContext) NodePath() []string {
-	fc.mu.Lock()
-	defer fc.mu.Unlock()
+func (gc *GraphContext) NodePath() []string {
+	gc.mu.Lock()
+	defer gc.mu.Unlock()
 
-	path := make([]string, len(fc.nodeStack))
-	copy(path, fc.nodeStack)
+	path := make([]string, len(gc.nodeStack))
+	copy(path, gc.nodeStack)
 	return path
 }
 
-// Deadline wraps context deadline with flow awareness.
-func (fc *FlowContext) Deadline() (deadline time.Time, ok bool) {
-	deadline, ok = fc.Context.Deadline()
-	if ok && fc.logger != nil {
+// Deadline wraps context deadline with graph awareness.
+func (gc *GraphContext) Deadline() (deadline time.Time, ok bool) {
+	deadline, ok = gc.Context.Deadline()
+	if ok && gc.logger != nil {
 		remaining := time.Until(deadline)
-		fc.Log("debug", "flow deadline check",
-			"flow", fc.flowID,
+		gc.Log("debug", "graph deadline check",
+			"graph", gc.graphID,
 			"remaining", remaining,
-			"elapsed", fc.Duration())
+			"elapsed", gc.Duration())
 	}
 	return
 }
@@ -250,8 +250,8 @@ func (fc *FlowContext) Deadline() (deadline time.Time, ok bool) {
 type ContextKey string
 
 const (
-	// FlowIDKey is the context key for flow ID.
-	FlowIDKey ContextKey = "flow_id"
+	// GraphIDKey is the context key for graph ID.
+	GraphIDKey ContextKey = "graph_id"
 	// NodeNameKey is the context key for current node.
 	NodeNameKey ContextKey = "node_name"
 	// StoreKey is the context key for the store.
@@ -260,14 +260,14 @@ const (
 	TracerKey ContextKey = "tracer"
 )
 
-// WithFlowID adds flow ID to context.
-func WithFlowID(ctx context.Context, flowID string) context.Context {
-	return context.WithValue(ctx, FlowIDKey, flowID)
+// WithGraphID adds graph ID to context.
+func WithGraphID(ctx context.Context, graphID string) context.Context {
+	return context.WithValue(ctx, GraphIDKey, graphID)
 }
 
-// GetFlowID retrieves flow ID from context.
-func GetFlowID(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(FlowIDKey).(string)
+// GetGraphID retrieves graph ID from context.
+func GetGraphID(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(GraphIDKey).(string)
 	return id, ok
 }
 

@@ -101,8 +101,8 @@ func TestNodeOptions(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -130,8 +130,8 @@ func TestNodeOptions(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, TestInput{Value: "hello"})
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, TestInput{Value: "hello"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -160,8 +160,8 @@ func TestNodeOptions(t *testing.T) {
 		)
 
 		// Test nodes should still work without full routing setup
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -185,8 +185,8 @@ func TestNodeOptions(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Expected fallback to handle error, got: %v", err)
 		}
@@ -215,8 +215,8 @@ func TestNodeOptions(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -244,10 +244,10 @@ func TestRuntimeTypeSafety(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
+		graph := pocket.NewGraph(node, store)
 
 		// Correct type works
-		result, err := flow.Run(ctx, TestInput{Value: "test"})
+		result, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -256,7 +256,7 @@ func TestRuntimeTypeSafety(t *testing.T) {
 		}
 
 		// Wrong type should fail
-		_, err = flow.Run(ctx, DifferentType{Data: 42})
+		_, err = graph.Run(ctx, DifferentType{Data: 42})
 		if err == nil {
 			t.Error("Expected type error for wrong input type")
 		}
@@ -282,8 +282,8 @@ func TestRuntimeTypeSafety(t *testing.T) {
 	})
 }
 
-// TestValidateFlowTypeSafety tests initialization-time type validation.
-func TestValidateFlowTypeSafety(t *testing.T) {
+// TestValidateGraphTypeSafety tests initialization-time type validation.
+func TestValidateGraphTypeSafety(t *testing.T) {
 	t.Run("validates compatible typed nodes", func(t *testing.T) {
 		node1 := pocket.NewNode[TestInput, TestOutput]("node1",
 			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
@@ -301,7 +301,7 @@ func TestValidateFlowTypeSafety(t *testing.T) {
 		node1.Connect("default", node2)
 
 		// Should validate successfully
-		if err := pocket.ValidateFlow(node1); err != nil {
+		if err := pocket.ValidateGraph(node1); err != nil {
 			t.Errorf("Expected validation to pass, got: %v", err)
 		}
 	})
@@ -324,7 +324,7 @@ func TestValidateFlowTypeSafety(t *testing.T) {
 		node1.Connect("default", node2)
 
 		// Should fail validation
-		err := pocket.ValidateFlow(node1)
+		err := pocket.ValidateGraph(node1)
 		if err == nil {
 			t.Error("Expected validation to fail for type mismatch")
 		}
@@ -333,7 +333,7 @@ func TestValidateFlowTypeSafety(t *testing.T) {
 		}
 	})
 
-	t.Run("allows untyped nodes in typed flow", func(t *testing.T) {
+	t.Run("allows untyped nodes in typed graph", func(t *testing.T) {
 		typedNode := pocket.NewNode[TestInput, TestOutput]("typed",
 			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
 				return TestOutput{Result: input.Value}, nil
@@ -350,7 +350,7 @@ func TestValidateFlowTypeSafety(t *testing.T) {
 		typedNode.Connect("default", untypedNode)
 
 		// Should validate (untyped nodes are not checked)
-		if err := pocket.ValidateFlow(typedNode); err != nil {
+		if err := pocket.ValidateGraph(typedNode); err != nil {
 			t.Errorf("Expected validation to pass with untyped node, got: %v", err)
 		}
 	})
@@ -382,8 +382,8 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -410,10 +410,10 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
+		graph := pocket.NewGraph(node, store)
 
 		// Test with string
-		result, err := flow.Run(ctx, "hello")
+		result, err := graph.Run(ctx, "hello")
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -422,7 +422,7 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 		}
 
 		// Test with int
-		result, err = flow.Run(ctx, 21)
+		result, err = graph.Run(ctx, 21)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -451,8 +451,8 @@ func TestAutoTypeWrapping(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, TestInput{Value: "test"})
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}

@@ -23,7 +23,7 @@ type Scheduler struct {
 type Job struct {
 	ID         string
 	Name       string
-	Flow       *pocket.Flow
+	Graph      *pocket.Graph
 	Schedule   Schedule
 	Input      any
 	LastRun    time.Time
@@ -39,9 +39,9 @@ type Schedule interface {
 	Next(from time.Time) time.Time
 }
 
-// Executor executes flows.
+// Executor executes graphs.
 type Executor interface {
-	Execute(ctx context.Context, flow *pocket.Flow, input any) (any, error)
+	Execute(ctx context.Context, graph *pocket.Graph, input any) (any, error)
 }
 
 // NewScheduler creates a new scheduler.
@@ -156,7 +156,7 @@ func (s *Scheduler) runJob(job *Job) {
 	job.mu.Unlock()
 
 	ctx := context.Background()
-	_, err := s.executor.Execute(ctx, job.Flow, job.Input)
+	_, err := s.executor.Execute(ctx, job.Graph, job.Input)
 
 	job.mu.Lock()
 	if err != nil {
@@ -255,12 +255,12 @@ func (ps *PriorityScheduler) GetPriority(jobID string) int {
 
 // Executor implementations
 
-// BasicExecutor provides simple flow execution.
+// BasicExecutor provides simple graph execution.
 type BasicExecutor struct{}
 
-// Execute runs a flow.
-func (e *BasicExecutor) Execute(ctx context.Context, flow *pocket.Flow, input any) (any, error) {
-	return flow.Run(ctx, input)
+// Execute runs a graph.
+func (e *BasicExecutor) Execute(ctx context.Context, graph *pocket.Graph, input any) (any, error) {
+	return graph.Run(ctx, input)
 }
 
 // ThrottledExecutor limits concurrent executions.
@@ -277,12 +277,12 @@ func NewThrottledExecutor(maxConcurrent int) *ThrottledExecutor {
 	}
 }
 
-// Execute runs a flow with throttling.
-func (e *ThrottledExecutor) Execute(ctx context.Context, flow *pocket.Flow, input any) (any, error) {
+// Execute runs a graph with throttling.
+func (e *ThrottledExecutor) Execute(ctx context.Context, graph *pocket.Graph, input any) (any, error) {
 	select {
 	case e.sem <- struct{}{}:
 		defer func() { <-e.sem }()
-		return flow.Run(ctx, input)
+		return graph.Run(ctx, input)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -297,7 +297,7 @@ type QueuedExecutor struct {
 
 type execution struct {
 	ctx    context.Context
-	flow   *pocket.Flow
+	graph  *pocket.Graph
 	input  any
 	result chan executionResult
 }
@@ -323,11 +323,11 @@ func NewQueuedExecutor(workers, queueSize int, executor Executor) *QueuedExecuto
 	return e
 }
 
-// Execute queues a flow execution.
-func (e *QueuedExecutor) Execute(ctx context.Context, flow *pocket.Flow, input any) (any, error) {
+// Execute queues a graph execution.
+func (e *QueuedExecutor) Execute(ctx context.Context, graph *pocket.Graph, input any) (any, error) {
 	exec := &execution{
 		ctx:    ctx,
-		flow:   flow,
+		graph:  graph,
 		input:  input,
 		result: make(chan executionResult, 1),
 	}
@@ -348,7 +348,7 @@ func (e *QueuedExecutor) Execute(ctx context.Context, flow *pocket.Flow, input a
 // worker processes queued executions.
 func (e *QueuedExecutor) worker() {
 	for exec := range e.queue {
-		output, err := e.executor.Execute(exec.ctx, exec.flow, exec.input)
+		output, err := e.executor.Execute(exec.ctx, exec.graph, exec.input)
 		exec.result <- executionResult{output: output, err: err}
 	}
 }

@@ -20,12 +20,12 @@ Basic usage:
 	// Create a node
 	node := pocket.NewNode[any, any]("greeter", greet)
 
-	// Create and run a flow
+	// Create and run a graph
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
-	result, err := flow.Run(context.Background(), "World")
+	graph := pocket.NewGraph(node, store)
+	result, err := graph.Run(context.Background(), "World")
 
-Building complex flows:
+Building complex graphs:
 
 	// Use the builder API
 	builder := pocket.NewBuilder(store).
@@ -36,7 +36,7 @@ Building complex flows:
 		Connect("process", "success", "save").
 		Start("fetch")
 
-	flow, err := builder.Build()
+	graph, err := builder.Build()
 
 Concurrent patterns:
 

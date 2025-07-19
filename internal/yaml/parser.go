@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// Parser handles parsing YAML flow definitions.
+// Parser handles parsing YAML graph definitions.
 type Parser struct {
 	// Future: Add schema validation, custom marshalers, etc.
 }
@@ -17,16 +17,16 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-// Parse reads and parses a YAML flow definition from a reader.
-func (p *Parser) Parse(r io.Reader) (*FlowDefinition, error) {
+// Parse reads and parses a YAML graph definition from a reader.
+func (p *Parser) Parse(r io.Reader) (*GraphDefinition, error) {
 	// Note: We're not importing yaml.v3 to keep the package dependency-free.
 	// This is a placeholder that would need a YAML library in practice.
 	// For now, we'll return an error indicating YAML support needs to be enabled.
 	return nil, fmt.Errorf("YAML parsing requires importing a YAML library (e.g., gopkg.in/yaml.v3)")
 }
 
-// ParseFile reads and parses a YAML flow definition from a file.
-func (p *Parser) ParseFile(filename string) (*FlowDefinition, error) {
+// ParseFile reads and parses a YAML graph definition from a file.
+func (p *Parser) ParseFile(filename string) (*GraphDefinition, error) {
 	// #nosec G304 - This is a parser that needs to accept arbitrary file paths
 	// In production, callers should validate the path based on their security requirements
 	file, err := os.Open(filename)
@@ -38,20 +38,20 @@ func (p *Parser) ParseFile(filename string) (*FlowDefinition, error) {
 	return p.Parse(file)
 }
 
-// ParseString parses a YAML flow definition from a string.
-func (p *Parser) ParseString(s string) (*FlowDefinition, error) {
+// ParseString parses a YAML graph definition from a string.
+func (p *Parser) ParseString(s string) (*GraphDefinition, error) {
 	return p.Parse(bytes.NewReader([]byte(s)))
 }
 
-// Marshal converts a flow definition to YAML format.
-func (p *Parser) Marshal(fd *FlowDefinition) ([]byte, error) {
+// Marshal converts a graph definition to YAML format.
+func (p *Parser) Marshal(gd *GraphDefinition) ([]byte, error) {
 	// Placeholder - would use YAML library
 	return nil, fmt.Errorf("YAML marshaling requires importing a YAML library")
 }
 
-// MarshalToFile writes a flow definition to a YAML file.
-func (p *Parser) MarshalToFile(fd *FlowDefinition, filename string) error {
-	data, err := p.Marshal(fd)
+// MarshalToFile writes a graph definition to a YAML file.
+func (p *Parser) MarshalToFile(gd *GraphDefinition, filename string) error {
+	data, err := p.Marshal(gd)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (p *Parser) MarshalToFile(fd *FlowDefinition, filename string) error {
 	return os.WriteFile(filename, data, 0o600)
 }
 
-// Example shows what a YAML flow definition would look like.
+// Example shows what a YAML graph definition would look like.
 func Example() string {
 	return `name: chat_workflow
 description: Multi-agent chat workflow with routing

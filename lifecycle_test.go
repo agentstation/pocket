@@ -50,8 +50,8 @@ func TestCleanupHooks(t *testing.T) {
 			return successResult, nil
 		}, tracker)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, "input")
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, "input")
 
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -96,8 +96,8 @@ func TestCleanupHooks(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, err := flow.Run(ctx, "input")
+		graph := pocket.NewGraph(node, store)
+		_, err := graph.Run(ctx, "input")
 
 		if err == nil {
 			t.Error("expected error")
@@ -131,8 +131,8 @@ func TestCleanupHooks(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, _ = flow.Run(ctx, "input")
+		graph := pocket.NewGraph(node, store)
+		_, _ = graph.Run(ctx, "input")
 
 		if !completeCalled {
 			t.Error("onComplete hook should have been called even on error")
@@ -168,8 +168,8 @@ func TestCleanupHooks(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		_, _ = flow.Run(ctx, "input")
+		graph := pocket.NewGraph(node, store)
+		_, _ = graph.Run(ctx, "input")
 
 		// Check that cleanup could read the value
 		if val, exists := store.Get(ctx, "cleanup_read"); !exists || val != "important_value" {
@@ -208,8 +208,8 @@ func TestCleanupHooks(t *testing.T) {
 			}),
 		)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, "input")
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, "input")
 
 		if err != nil {
 			t.Errorf("unexpected error with fallback: %v", err)
@@ -231,12 +231,12 @@ func TestCleanupHooks(t *testing.T) {
 	})
 }
 
-func TestFlowComposition(t *testing.T) {
-	t.Run("flow as node", func(t *testing.T) {
+func TestGraphComposition(t *testing.T) {
+	t.Run("graph as node", func(t *testing.T) {
 		store := pocket.NewStore()
 		ctx := context.Background()
 
-		// Create a sub-flow
+		// Create a sub-graph
 		subNode1 := pocket.NewNode[any, any]("sub1",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input.(string) + " -> sub1", nil
@@ -250,23 +250,23 @@ func TestFlowComposition(t *testing.T) {
 		)
 
 		subNode1.Connect("default", subNode2)
-		subFlow := pocket.NewFlow(subNode1, pocket.NewStore())
+		subGraph := pocket.NewGraph(subNode1, pocket.NewStore())
 
-		// Convert sub-flow to node
-		subFlowNode := subFlow.AsNode("subflow")
+		// Convert sub-graph to node
+		subGraphNode := subGraph.AsNode("subgraph1")
 
-		// Create main flow
+		// Create main graph
 		mainNode := pocket.NewNode[any, any]("main",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input.(string) + " -> main", nil
 			}),
 		)
 
-		mainNode.Connect("default", subFlowNode)
+		mainNode.Connect("default", subGraphNode)
 
-		// Run composed flow
-		mainFlow := pocket.NewFlow(mainNode, store)
-		result, err := mainFlow.Run(ctx, "start")
+		// Run composed graph
+		mainGraph := pocket.NewGraph(mainNode, store)
+		result, err := mainGraph.Run(ctx, "start")
 
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)

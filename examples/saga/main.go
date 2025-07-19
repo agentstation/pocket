@@ -369,8 +369,8 @@ func main() {
 			fmt.Printf("\n❌ Error: %v\n", err)
 
 			// Trigger compensation
-			compensateFlow := pocket.NewFlow(compensate, store)
-			result, compErr := compensateFlow.Run(ctx, order)
+			compensateGraph := pocket.NewGraph(compensate, store)
+			result, compErr := compensateGraph.Run(ctx, order)
 
 			if compErr != nil {
 				return nil, fmt.Errorf("saga failed and compensation failed: %w", compErr)
@@ -418,9 +418,9 @@ func main() {
 		store.Delete(ctx, "transaction_state")
 		store.Set(ctx, "transaction_state", &TransactionState{})
 
-		// Create saga flow
-		flow := pocket.NewFlow(reserveInventory, store)
-		result, err := flow.Run(ctx, order)
+		// Create saga graph
+		graph := pocket.NewGraph(reserveInventory, store)
+		result, err := graph.Run(ctx, order)
 
 		if err != nil {
 			// Handle error by triggering compensation
@@ -429,8 +429,8 @@ func main() {
 				"order": order,
 			}
 
-			errorFlow := pocket.NewFlow(errorHandler, store)
-			compResult, _ := errorFlow.Run(ctx, errorData)
+			errorGraph := pocket.NewGraph(errorHandler, store)
+			compResult, _ := errorGraph.Run(ctx, errorData)
 
 			fmt.Printf("\n❌ Order %s failed: %v\n", order.ID, err)
 			if compResult != nil {
@@ -465,7 +465,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("Failed to build saga: %v\n", err)
 	} else {
-		fmt.Println("Successfully built saga flow with builder pattern")
+		fmt.Println("Successfully built saga graph with builder pattern")
 	}
 
 	fmt.Println("\n=== Saga Demo Complete ===")

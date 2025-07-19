@@ -416,16 +416,16 @@ func main() {
 	for _, order := range orders {
 		fmt.Printf("--- Processing Order %s ---\n", order.OrderID)
 
-		// Create new flow for each order
-		flow := pocket.NewFlow(validator, store)
+		// Create new graph for each order
+		graph := pocket.NewGraph(validator, store)
 
-		result, err := flow.Run(ctx, order)
+		result, err := graph.Run(ctx, order)
 		if err != nil {
 			fmt.Printf("Workflow error for order %s: %v\n", order.OrderID, err)
 
-			// Attempt error recovery flow
-			errorFlow := pocket.NewFlow(errorHandler, store)
-			_, _ = errorFlow.Run(ctx, order)
+			// Attempt error recovery graph
+			errorGraph := pocket.NewGraph(errorHandler, store)
+			_, _ = errorGraph.Run(ctx, order)
 		} else {
 			fmt.Printf("\n✅ Order %s completed successfully\n", order.OrderID)
 			if valResult, ok := result.(ValidationResult); ok {
@@ -483,8 +483,8 @@ func main() {
 			}),
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				// Pass through to wrapped node
-				flow := pocket.NewFlow(node, store)
-				return flow.Run(ctx, input)
+				graph := pocket.NewGraph(node, store)
+				return graph.Run(ctx, input)
 			}),
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 				fmt.Printf("[Monitor] Completed stage: %s\n", name)

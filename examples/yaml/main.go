@@ -67,8 +67,8 @@ func main() {
 		}),
 	)
 
-	flow := pocket.NewFlow(yamlExtractor, store)
-	result, err := flow.Run(ctx, "Pocket framework supports YAML for better token efficiency with LLMs")
+	graph := pocket.NewGraph(yamlExtractor, store)
+	result, err := graph.Run(ctx, "Pocket framework supports YAML for better token efficiency with LLMs")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -190,8 +190,8 @@ func main() {
 
 	pipeline.Connect("default", structuredNode)
 
-	flow = pocket.NewFlow(pipeline, store)
-	result, err = flow.Run(ctx, "John Doe, john@example.com, 5 years at TechCorp as Senior Engineer")
+	graph = pocket.NewGraph(pipeline, store)
+	result, err = graph.Run(ctx, "John Doe, john@example.com, 5 years at TechCorp as Senior Engineer")
 	if err != nil {
 		log.Printf("Error: %v", err)
 	}
@@ -301,7 +301,7 @@ skills:
 	classifier.Connect("business-handler", businessHandler)
 
 	// Test routing
-	routingFlow := pocket.NewFlow(classifier, store)
+	routingGraph := pocket.NewGraph(classifier, store)
 
 	testInputs := []string{
 		"How to implement YAML parsing in Go",
@@ -310,7 +310,7 @@ skills:
 
 	for _, input := range testInputs {
 		fmt.Printf("\nInput: %q\n", input)
-		_, err := routingFlow.Run(ctx, input)
+		_, err := routingGraph.Run(ctx, input)
 		if err != nil {
 			log.Printf("Routing error: %v", err)
 		}

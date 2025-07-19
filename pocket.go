@@ -29,7 +29,7 @@ import (
 
 // Common errors.
 var (
-	// ErrNoStartNode is returned when a flow has no start node defined.
+	// ErrNoStartNode is returned when a graph has no start node defined.
 	ErrNoStartNode = errors.New("pocket: no start node defined")
 
 	// ErrNodeNotFound is returned when a referenced node doesn't exist.
@@ -81,7 +81,7 @@ type Store interface {
 
 // Node represents a processing unit in a workflow with Prep/Exec/Post lifecycle.
 type Node struct {
-	// Name identifies the node in the flow.
+	// Name identifies the node in the graph.
 	Name string
 
 	// Lifecycle methods (never nil - have defaults).
@@ -435,39 +435,39 @@ func (n *Node) Default(next *Node) *Node {
 	return n.Connect("default", next)
 }
 
-// Flow orchestrates the execution of connected nodes.
-type Flow struct {
+// Graph orchestrates the execution of connected nodes.
+type Graph struct {
 	start *Node
 	store Store
-	opts  flowOptions
+	opts  graphOptions
 }
 
-// flowOptions holds configuration for a Flow.
-type flowOptions struct {
+// graphOptions holds configuration for a Graph.
+type graphOptions struct {
 	logger Logger
 	tracer Tracer
 }
 
-// FlowOption configures a Flow.
-type FlowOption func(*flowOptions)
+// GraphOption configures a Graph.
+type GraphOption func(*graphOptions)
 
-// WithLogger adds logging to the flow.
-func WithLogger(logger Logger) FlowOption {
-	return func(o *flowOptions) {
+// WithLogger adds logging to the graph.
+func WithLogger(logger Logger) GraphOption {
+	return func(o *graphOptions) {
 		o.logger = logger
 	}
 }
 
 // WithTracer adds distributed tracing.
-func WithTracer(tracer Tracer) FlowOption {
-	return func(o *flowOptions) {
+func WithTracer(tracer Tracer) GraphOption {
+	return func(o *graphOptions) {
 		o.tracer = tracer
 	}
 }
 
-// NewFlow creates a new flow starting from the given node.
-func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
-	f := &Flow{
+// NewGraph creates a new graph starting from the given node.
+func NewGraph(start *Node, store Store, opts ...GraphOption) *Graph {
+	f := &Graph{
 		start: start,
 		store: store,
 	}
@@ -479,7 +479,7 @@ func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
 	return f
 }
 
-// ValidateFlow provides initialization-time type safety by validating the entire workflow graph.
+// ValidateGraph provides initialization-time type safety by validating the entire workflow graph.
 //
 // Type validation process:
 //  1. Traverses the graph starting from the given node using depth-first search
@@ -507,16 +507,16 @@ func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
 //	validator.Connect("valid", processor)
 //
 //	// Validate before execution - catches type mismatches early
-//	if err := ValidateFlow(validator); err != nil {
+//	if err := ValidateGraph(validator); err != nil {
 //	    // Error: "type mismatch: node 'validator' outputs ValidationResult
 //	    //         but node 'wrongNode' expects User (via action 'valid')"
 //	    log.Fatal(err)
 //	}
 //
 //	// Safe to execute - types are verified
-//	flow := NewFlow(validator, store)
-//	result, err := flow.Run(ctx, user)
-func ValidateFlow(start *Node) error {
+//	graph := NewGraph(validator, store)
+//	result, err := graph.Run(ctx, user)
+func ValidateGraph(start *Node) error {
 	visited := make(map[string]bool)
 	return validateNode(start, visited)
 }
@@ -580,24 +580,24 @@ func isTypeCompatible(outputType, inputType reflect.Type) bool {
 	return outputType.AssignableTo(inputType)
 }
 
-// Run executes the flow with the given input.
-func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
-	if f.start == nil {
+// Run executes the graph with the given input.
+func (g *Graph) Run(ctx context.Context, input any) (output any, err error) {
+	if g.start == nil {
 		return nil, ErrNoStartNode
 	}
 
-	current := f.start
+	current := g.start
 	currentInput := input
 	var lastOutput any
 
 	for current != nil {
 		// Log node execution
-		if f.opts.logger != nil {
-			f.opts.logger.Debug(ctx, "executing node", "name", current.Name)
+		if g.opts.logger != nil {
+			g.opts.logger.Debug(ctx, "executing node", "name", current.Name)
 		}
 
 		// Execute node with lifecycle
-		output, next, err := f.executeNode(ctx, current, currentInput)
+		output, next, err := g.executeNode(ctx, current, currentInput)
 		if err != nil {
 			return nil, fmt.Errorf("node %s: %w", current.Name, err)
 		}
@@ -623,7 +623,7 @@ func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
 // This is where runtime type checking occurs, complementing compile-time and init-time checks.
 // For typed nodes using generic options like WithExec, type assertions are handled
 // automatically through Go's type inference.
-func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output any, next string, err error) {
+func (g *Graph) executeNode(ctx context.Context, node *Node, input any) (output any, next string, err error) {
 	// Runtime type check: Validate input matches node's expected type
 	// This catches any type mismatches that slipped through earlier checks
 	if node.InputType != nil && input != nil {
@@ -641,7 +641,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output a
 	}
 
 	// Execute lifecycle with retry support for each step
-	output, next, err = f.executeLifecycle(ctx, node, input)
+	output, next, err = g.executeLifecycle(ctx, node, input)
 	if err != nil {
 		if node.opts.onError != nil {
 			node.opts.onError(err)
@@ -653,43 +653,43 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output a
 }
 
 // executeLifecycle runs the Prep/Exec/Post steps.
-func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (output any, next string, err error) {
+func (g *Graph) executeLifecycle(ctx context.Context, node *Node, input any) (output any, next string, err error) {
 	// Ensure cleanup hooks run
 	defer func() {
 		// Run success or failure hook based on error state first
 		if err != nil {
 			if node.opts.onFailure != nil {
-				node.opts.onFailure(ctx, f.store, err)
+				node.opts.onFailure(ctx, g.store, err)
 			}
 		} else {
 			if node.opts.onSuccess != nil {
-				node.opts.onSuccess(ctx, f.store, output)
+				node.opts.onSuccess(ctx, g.store, output)
 			}
 		}
 
 		// Always run onComplete last
 		if node.opts.onComplete != nil {
-			node.opts.onComplete(ctx, f.store)
+			node.opts.onComplete(ctx, g.store)
 		}
 	}()
 
 	// Prep step with retry
-	prepResult, err := f.executeWithRetry(ctx, node, func() (any, error) {
-		return node.Prep(ctx, f.store, input)
+	prepResult, err := g.executeWithRetry(ctx, node, func() (any, error) {
+		return node.Prep(ctx, g.store, input)
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("prep failed: %w", err)
 	}
 
 	// Exec step with retry
-	execResult, err := f.executeWithRetry(ctx, node, func() (any, error) {
+	execResult, err := g.executeWithRetry(ctx, node, func() (any, error) {
 		return node.Exec(ctx, prepResult)
 	})
 	if err != nil {
 		// Check if node has a fallback
 		if node.opts.fallback != nil {
-			if f.opts.logger != nil {
-				f.opts.logger.Debug(ctx, "executing fallback", "name", node.Name, "error", err)
+			if g.opts.logger != nil {
+				g.opts.logger.Debug(ctx, "executing fallback", "name", node.Name, "error", err)
 			}
 
 			// Execute fallback with original input
@@ -706,7 +706,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 	}
 
 	// Post step (no retry for routing decisions)
-	output, next, err = node.Post(ctx, f.store, input, prepResult, execResult)
+	output, next, err = node.Post(ctx, g.store, input, prepResult, execResult)
 	if err != nil {
 		return nil, "", fmt.Errorf("post failed: %w", err)
 	}
@@ -715,7 +715,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 }
 
 // executeWithRetry handles retry logic for lifecycle steps.
-func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any, error)) (any, error) {
+func (g *Graph) executeWithRetry(ctx context.Context, node *Node, fn func() (any, error)) (any, error) {
 	attempts := 0
 	maxAttempts := node.opts.maxRetries + 1
 	var lastErr error
@@ -737,8 +737,8 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any,
 		lastErr = err
 		attempts++
 		if attempts < maxAttempts {
-			if f.opts.logger != nil {
-				f.opts.logger.Debug(ctx, "retrying node step",
+			if g.opts.logger != nil {
+				g.opts.logger.Debug(ctx, "retrying node step",
 					"name", node.Name,
 					"attempt", attempts,
 					"error", err)
@@ -749,14 +749,14 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any,
 	return nil, fmt.Errorf("failed after %d attempts: %w", attempts, lastErr)
 }
 
-// AsNode converts this Flow into a Node that can be used within another Flow.
-// This enables flow composition where entire workflows become single nodes.
-func (f *Flow) AsNode(name string) *Node {
+// AsNode converts this Graph into a Node that can be used within another Graph.
+// This enables graph composition where entire workflows become single nodes.
+func (g *Graph) AsNode(name string) *Node {
 	return NewNode[any, any](name,
 		WithExec(func(ctx context.Context, input any) (any, error) {
-			// Run the flow with the provided input
-			// The flow uses its own store, maintaining isolation
-			return f.Run(ctx, input)
+			// Run the graph with the provided input
+			// The graph uses its own store, maintaining isolation
+			return g.Run(ctx, input)
 		}),
 	)
 }

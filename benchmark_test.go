@@ -29,12 +29,12 @@ func BenchmarkSingleNodeExecution(b *testing.B) {
 		}),
 	)
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	graph := pocket.NewGraph(node, store)
 	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = flow.Run(ctx, "test")
+		_, _ = graph.Run(ctx, "test")
 	}
 }
 
@@ -53,12 +53,12 @@ func BenchmarkLifecycleSteps(b *testing.B) {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	graph := pocket.NewGraph(node, store)
 	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = flow.Run(ctx, "test")
+		_, _ = graph.Run(ctx, "test")
 	}
 }
 
@@ -131,8 +131,8 @@ func BenchmarkStoreOperations(b *testing.B) {
 	})
 }
 
-// Benchmark flow with routing.
-func BenchmarkFlowWithRouting(b *testing.B) {
+// Benchmark graph with routing.
+func BenchmarkGraphWithRouting(b *testing.B) {
 	// Create nodes
 	start := pocket.NewNode[any, any]("start",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -162,12 +162,12 @@ func BenchmarkFlowWithRouting(b *testing.B) {
 	start.Connect("odd", nodeB)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(start, store)
+	graph := pocket.NewGraph(start, store)
 	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = flow.Run(ctx, i)
+		_, _ = graph.Run(ctx, i)
 	}
 }
 

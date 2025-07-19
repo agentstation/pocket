@@ -292,9 +292,9 @@ func main() {
 	retriever.Connect("no_results", noResultsHandler)
 	augmenter.Connect("generate", generator)
 
-	// Validate the flow
-	if err := pocket.ValidateFlow(retriever); err != nil {
-		log.Fatalf("Flow validation failed: %v", err)
+	// Validate the graph
+	if err := pocket.ValidateGraph(retriever); err != nil {
+		log.Fatalf("Graph validation failed: %v", err)
 	}
 
 	// Test queries
@@ -320,9 +320,9 @@ func main() {
 		fmt.Printf("Query %d: %s\n", i+1, query.Text)
 		fmt.Println("Processing:")
 
-		// Create and run the RAG flow
-		flow := pocket.NewFlow(retriever, store)
-		result, err := flow.Run(ctx, query)
+		// Create and run the RAG graph
+		graph := pocket.NewGraph(retriever, store)
+		result, err := graph.Run(ctx, query)
 		if err != nil {
 			log.Printf("Error processing query: %v", err)
 			continue
@@ -337,8 +337,8 @@ func main() {
 
 	// Demonstrate caching by re-running a query
 	fmt.Println("\nDemonstrating caching (re-running first query):")
-	flow := pocket.NewFlow(retriever, store)
-	result, err := flow.Run(ctx, queries[0])
+	graph := pocket.NewGraph(retriever, store)
+	result, err := graph.Run(ctx, queries[0])
 	if err == nil {
 		response := result.(GeneratedResponse)
 		fmt.Printf("\nAnswer: %s\n", response.Answer)

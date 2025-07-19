@@ -196,10 +196,10 @@ func (f *Fixtures) AggregatorNode(name string, aggregate func([]any) any) *pocke
 	)
 }
 
-// Flows provides common flow patterns.
+// Graphs provides common graph patterns.
 
-// LinearFlow creates a linear flow of nodes.
-func (f *Fixtures) LinearFlow(store pocket.Store, nodes ...*pocket.Node) *pocket.Flow {
+// LinearGraph creates a linear graph of nodes.
+func (f *Fixtures) LinearGraph(store pocket.Store, nodes ...*pocket.Node) *pocket.Graph {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -209,19 +209,19 @@ func (f *Fixtures) LinearFlow(store pocket.Store, nodes ...*pocket.Node) *pocket
 		nodes[i].Connect("default", nodes[i+1])
 	}
 
-	return pocket.NewFlow(nodes[0], store)
+	return pocket.NewGraph(nodes[0], store)
 }
 
-// BranchingFlow creates a flow with conditional branching.
-func (f *Fixtures) BranchingFlow(store pocket.Store, condition, trueBranch, falseBranch *pocket.Node) *pocket.Flow {
+// BranchingGraph creates a graph with conditional branching.
+func (f *Fixtures) BranchingGraph(store pocket.Store, condition, trueBranch, falseBranch *pocket.Node) *pocket.Graph {
 	condition.Connect("true", trueBranch)
 	condition.Connect("false", falseBranch)
 
-	return pocket.NewFlow(condition, store)
+	return pocket.NewGraph(condition, store)
 }
 
-// LoopFlow creates a flow with a loop.
-func (f *Fixtures) LoopFlow(store pocket.Store, body *pocket.Node, maxIterations int) *pocket.Flow {
+// LoopGraph creates a graph with a loop.
+func (f *Fixtures) LoopGraph(store pocket.Store, body *pocket.Node, maxIterations int) *pocket.Graph {
 	counter := f.CounterNode("loop_counter")
 
 	check := pocket.NewNode[any, any]("loop_check",
@@ -239,7 +239,7 @@ func (f *Fixtures) LoopFlow(store pocket.Store, body *pocket.Node, maxIterations
 	check.Connect("continue", body)
 	body.Connect("default", counter)
 
-	return pocket.NewFlow(counter, store)
+	return pocket.NewGraph(counter, store)
 }
 
 // containsIgnoreCase is a helper function for case-insensitive string contains check.
@@ -318,7 +318,7 @@ func (f *Fixtures) SampleTestData() TestData {
 type Scenario struct {
 	Name        string
 	Description string
-	Flow        *pocket.Flow
+	Graph       *pocket.Graph
 	Input       any
 	Expected    any
 	ShouldError bool
@@ -376,7 +376,7 @@ func (f *Fixtures) ChatBotScenario(store pocket.Store) Scenario {
 	return Scenario{
 		Name:        "ChatBot",
 		Description: "Simple chat bot with intent classification",
-		Flow:        pocket.NewFlow(classifier, store),
+		Graph:       pocket.NewGraph(classifier, store),
 		Input:       "hello there",
 		Expected:    "Hello! How can I help you today?",
 		ShouldError: false,
@@ -416,7 +416,7 @@ func (f *Fixtures) DataPipelineScenario(store pocket.Store) Scenario {
 	return Scenario{
 		Name:        "DataPipeline",
 		Description: "Data validation, transformation, and storage",
-		Flow:        pocket.NewFlow(validate, store),
+		Graph:       pocket.NewGraph(validate, store),
 		Input:       map[string]any{"value": 5.0},
 		Expected:    map[string]any{"value": 5.0, "doubled": 10.0, "squared": 25.0},
 		ShouldError: false,

@@ -231,8 +231,8 @@ func TestBuilderFluent(t *testing.T) {
 		}),
 	)
 
-	// Create a complex flow using builder
-	flow, err := pocket.NewBuilder(store).
+	// Create a complex graph using builder
+	graph, err := pocket.NewBuilder(store).
 		Add(input).
 		Add(process).
 		Add(format).
@@ -245,21 +245,21 @@ func TestBuilderFluent(t *testing.T) {
 		t.Fatalf("Builder.Build() error = %v", err)
 	}
 
-	// Test successful flow
-	result, err := flow.Run(context.Background(), 5)
+	// Test successful graph
+	result, err := graph.Run(context.Background(), 5)
 	if err != nil {
-		t.Fatalf("Flow.Run() error = %v", err)
+		t.Fatalf("Graph.Run() error = %v", err)
 	}
 
 	expected := "Processed: 50"
 	if result != expected {
-		t.Errorf("Flow.Run() = %v, want %v", result, expected)
+		t.Errorf("Graph.Run() = %v, want %v", result, expected)
 	}
 
 	// Test error case
-	_, err = flow.Run(context.Background(), -5)
+	_, err = graph.Run(context.Background(), -5)
 	if err == nil {
-		t.Error("Flow.Run() with negative input error = nil, want error")
+		t.Error("Graph.Run() with negative input error = nil, want error")
 	}
 }
 

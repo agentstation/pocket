@@ -35,9 +35,9 @@ func ExampleNode() {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(uppercase, store)
+	graph := pocket.NewGraph(uppercase, store)
 
-	result, err := flow.Run(context.Background(), "hello world")
+	result, err := graph.Run(context.Background(), "hello world")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,8 +77,8 @@ func ExampleBuilder() {
 		}),
 	)
 
-	// Build the flow
-	flow, err := pocket.NewBuilder(store).
+	// Build the graph
+	graph, err := pocket.NewBuilder(store).
 		Add(validate).
 		Add(normalize).
 		Connect("validate", "default", "normalize").
@@ -89,7 +89,7 @@ func ExampleBuilder() {
 		log.Fatal(err)
 	}
 
-	result, err := flow.Run(context.Background(), "  USER@EXAMPLE.COM  ")
+	result, err := graph.Run(context.Background(), "  USER@EXAMPLE.COM  ")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -134,10 +134,10 @@ func ExampleNode_routing() {
 	router.Connect("small", smallHandler)
 
 	// Run with different inputs
-	flow := pocket.NewFlow(router, store)
+	graph := pocket.NewGraph(router, store)
 
-	result1, _ := flow.Run(context.Background(), 50)
-	result2, _ := flow.Run(context.Background(), 150)
+	result1, _ := graph.Run(context.Background(), 50)
+	result2, _ := graph.Run(context.Background(), 150)
 
 	fmt.Println(result1)
 	fmt.Println(result2)
@@ -260,9 +260,9 @@ func ExampleWithRetry() {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(flaky, store)
+	graph := pocket.NewGraph(flaky, store)
 
-	result, err := flow.Run(context.Background(), nil)
+	result, err := graph.Run(context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -303,9 +303,9 @@ func Example_lifecycle() {
 	)
 
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(processor, store)
+	graph := pocket.NewGraph(processor, store)
 
-	result, err := flow.Run(context.Background(), map[string]int{
+	result, err := graph.Run(context.Background(), map[string]int{
 		"a": 10,
 		"b": 20,
 		"c": 30,

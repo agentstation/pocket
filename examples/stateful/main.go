@@ -262,8 +262,8 @@ func main() {
 	manyHandler.Connect("validate", validator)
 	validator.Connect("report", reporter)
 
-	// Create flow
-	flow := pocket.NewFlow(processor, store)
+	// Create graph
+	graph := pocket.NewGraph(processor, store)
 
 	// Run multiple iterations to demonstrate state persistence
 	inputs := []string{"hello", "world", "pocket", "framework", "state", "management"}
@@ -275,7 +275,7 @@ func main() {
 	for i, input := range inputs {
 		fmt.Printf("\n--- Iteration %d - Input: %s ---\n", i+1, input)
 
-		result, err := flow.Run(ctx, input)
+		result, err := graph.Run(ctx, input)
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 			continue

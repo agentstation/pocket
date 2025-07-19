@@ -25,13 +25,13 @@ type defaultNodeFactory struct {
 // NodeBuilder is a function that builds a node from a definition.
 type NodeBuilder func(def *NodeDefinition) (*pocket.Node, error)
 
-// Loader loads flow definitions and creates executable flows.
+// Loader loads graph definitions and creates executable graphs.
 type Loader struct {
 	parser  *Parser
 	factory NodeFactory
 }
 
-// NewLoader creates a new YAML flow loader.
+// NewLoader creates a new YAML graph loader.
 func NewLoader() *Loader {
 	return &Loader{
 		parser: NewParser(),
@@ -54,8 +54,8 @@ func (l *Loader) RegisterNodeType(nodeType string, builder NodeBuilder) {
 	}
 }
 
-// LoadFile loads a flow from a YAML file.
-func (l *Loader) LoadFile(filename string, store pocket.Store) (*pocket.Flow, error) {
+// LoadFile loads a graph from a YAML file.
+func (l *Loader) LoadFile(filename string, store pocket.Store) (*pocket.Graph, error) {
 	def, err := l.parser.ParseFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("parse file: %w", err)
@@ -64,8 +64,8 @@ func (l *Loader) LoadFile(filename string, store pocket.Store) (*pocket.Flow, er
 	return l.LoadDefinition(def, store)
 }
 
-// LoadString loads a flow from a YAML string.
-func (l *Loader) LoadString(yamlStr string, store pocket.Store) (*pocket.Flow, error) {
+// LoadString loads a graph from a YAML string.
+func (l *Loader) LoadString(yamlStr string, store pocket.Store) (*pocket.Graph, error) {
 	def, err := l.parser.ParseString(yamlStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse string: %w", err)
@@ -74,10 +74,10 @@ func (l *Loader) LoadString(yamlStr string, store pocket.Store) (*pocket.Flow, e
 	return l.LoadDefinition(def, store)
 }
 
-// LoadDefinition creates a flow from a parsed definition.
-func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocket.Flow, error) {
+// LoadDefinition creates a graph from a parsed definition.
+func (l *Loader) LoadDefinition(def *GraphDefinition, store pocket.Store) (*pocket.Graph, error) {
 	if err := def.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid flow definition: %w", err)
+		return nil, fmt.Errorf("invalid graph definition: %w", err)
 	}
 
 	// Create all nodes
@@ -103,7 +103,7 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 		fromNode.Connect(action, toNode)
 	}
 
-	// Create flow with start node
+	// Create graph with start node
 	startNode := nodes[def.Start]
 	if startNode == nil {
 		return nil, fmt.Errorf("start node %s not found", def.Start)
@@ -112,11 +112,11 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 	// Store metadata in the store
 	if def.Metadata != nil {
 		for k, v := range def.Metadata {
-			_ = store.Set(context.Background(), fmt.Sprintf("flow:metadata:%s", k), v)
+			_ = store.Set(context.Background(), fmt.Sprintf("graph:metadata:%s", k), v)
 		}
 	}
 
-	return pocket.NewFlow(startNode, store), nil
+	return pocket.NewGraph(startNode, store), nil
 }
 
 // CreateNode implements NodeFactory for defaultNodeFactory.

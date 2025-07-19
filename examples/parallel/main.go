@@ -200,10 +200,10 @@ func main() {
 		}),
 	)
 
-	// Create flow and run
-	flow := pocket.NewFlow(parallelProcessor, store)
+	// Create graph and run
+	graph := pocket.NewGraph(parallelProcessor, store)
 
-	result, err := flow.Run(ctx, nil)
+	result, err := graph.Run(ctx, nil)
 	if err != nil {
 		log.Fatalf("Processing failed: %v", err)
 	}
@@ -352,8 +352,8 @@ func main() {
 		batch.WithConcurrency(5),
 	)
 
-	mrFlow := pocket.NewFlow(mapReduceNode, store)
-	mrResult, err := mrFlow.Run(ctx, nil)
+	mrGraph := pocket.NewGraph(mapReduceNode, store)
+	mrResult, err := mrGraph.Run(ctx, nil)
 	if err != nil {
 		log.Fatalf("MapReduce failed: %v", err)
 	}

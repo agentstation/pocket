@@ -114,7 +114,7 @@ func main() {
 
 				// Decide next step
 				if actionType == completeAction {
-					return resultStr, doneRoute, nil // End the flow (no successor for "done")
+					return resultStr, doneRoute, nil // End the graph (no successor for "done")
 				}
 				return resultStr, "think", nil // Back to thinking
 			}),
@@ -137,13 +137,13 @@ func main() {
 	research.Connect("think", think)
 	draft.Connect("think", think)
 	review.Connect("think", think)
-	// complete has no connections (ends the flow)
+	// complete has no connections (ends the graph)
 
-	// Create and run the agent flow
+	// Create and run the agent graph
 	fmt.Println("=== Autonomous Agent Demo ===")
-	flow := pocket.NewFlow(think, store)
+	graph := pocket.NewGraph(think, store)
 
-	result, err := flow.Run(ctx, nil)
+	result, err := graph.Run(ctx, nil)
 	if err != nil {
 		log.Fatalf("Agent failed: %v", err)
 	}
@@ -198,7 +198,7 @@ func main() {
 		pocket.WithRetry(3, 0), // Retry up to 3 times
 	)
 
-	// Simple flow: think -> analyze
+	// Simple graph: think -> analyze
 	think2 := pocket.NewNode[any, any]("think2",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return "Starting analysis", nil
@@ -210,8 +210,8 @@ func main() {
 
 	think2.Connect("analyze", analyze)
 
-	flow2 := pocket.NewFlow(think2, store)
-	result2, err := flow2.Run(ctx, nil)
+	graph2 := pocket.NewGraph(think2, store)
+	result2, err := graph2.Run(ctx, nil)
 	if err != nil {
 		log.Printf("Retry demo error: %v", err)
 	} else {

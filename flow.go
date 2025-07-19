@@ -8,15 +8,15 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Builder provides a fluent API for constructing flows.
+// Builder provides a fluent API for constructing graphs.
 type Builder struct {
 	nodes map[string]*Node
 	start *Node
 	store Store
-	opts  []FlowOption
+	opts  []GraphOption
 }
 
-// NewBuilder creates a new flow builder.
+// NewBuilder creates a new graph builder.
 func NewBuilder(store Store) *Builder {
 	return &Builder{
 		nodes: make(map[string]*Node),
@@ -24,7 +24,7 @@ func NewBuilder(store Store) *Builder {
 	}
 }
 
-// Add registers a node in the flow.
+// Add registers a node in the graph.
 func (b *Builder) Add(node *Node) *Builder {
 	b.nodes[node.Name] = node
 	if b.start == nil {
@@ -57,19 +57,19 @@ func (b *Builder) Connect(from, action, to string) *Builder {
 	return b
 }
 
-// WithOptions adds flow options.
-func (b *Builder) WithOptions(opts ...FlowOption) *Builder {
+// WithOptions adds graph options.
+func (b *Builder) WithOptions(opts ...GraphOption) *Builder {
 	b.opts = append(b.opts, opts...)
 	return b
 }
 
-// Build creates the flow.
-func (b *Builder) Build() (*Flow, error) {
+// Build creates the graph.
+func (b *Builder) Build() (*Graph, error) {
 	if b.start == nil {
 		return nil, ErrNoStartNode
 	}
 
-	return NewFlow(b.start, b.store, b.opts...), nil
+	return NewGraph(b.start, b.store, b.opts...), nil
 }
 
 // RunConcurrent executes multiple nodes concurrently.
@@ -97,8 +97,8 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store, inputs []any
 		g.Go(func() error {
 			// Each concurrent execution gets its own scoped store
 			scopedStore := store.Scope(fmt.Sprintf("concurrent-%d", i))
-			flow := NewFlow(node, scopedStore)
-			result, err := flow.Run(ctx, input)
+			graph := NewGraph(node, scopedStore)
+			result, err := graph.Run(ctx, input)
 			if err != nil {
 				return fmt.Errorf("node %s: %w", node.Name, err)
 			}
@@ -123,8 +123,8 @@ func Pipeline(ctx context.Context, nodes []*Node, store Store, input any) (any, 
 	current := input
 
 	for _, node := range nodes {
-		flow := NewFlow(node, store)
-		output, err := flow.Run(ctx, current)
+		graph := NewGraph(node, store)
+		output, err := graph.Run(ctx, current)
 		if err != nil {
 			return nil, fmt.Errorf("pipeline failed at %s: %w", node.Name, err)
 		}
@@ -145,8 +145,8 @@ func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]a
 		g.Go(func() error {
 			// Each item gets its own scoped store
 			scopedStore := store.Scope(fmt.Sprintf("item-%d", i))
-			flow := NewFlow(node, scopedStore)
-			result, err := flow.Run(ctx, item)
+			graph := NewGraph(node, scopedStore)
+			result, err := graph.Run(ctx, item)
 			if err != nil {
 				return err
 			}

@@ -61,7 +61,7 @@ Pocket is a decision graph framework that lets you build complex workflows as co
    - Build workflows as directed graphs
    - Each node decides the next step dynamically
    - Non-deterministic transitions based on runtime logic
-   - Clear execution flow visualization
+   - Clear execution graph visualization
 
 2. **Enforced Read/Write Separation** 
    - Prep step: Read-only access
@@ -105,9 +105,9 @@ func main() {
     
     // Run it
     store := pocket.NewStore()
-    flow := pocket.NewFlow(greet, store)
+    graph := pocket.NewGraph(greet, store)
     
-    result, _ := flow.Run(context.Background(), "World")
+    result, _ := graph.Run(context.Background(), "World")
     fmt.Println(result) // "Hello, World!"
 }
 ```
@@ -211,7 +211,7 @@ validator := pocket.NewNode[User, ValidationResult]("validate",
 )
 ```
 
-#### 2. Initialization-Time Safety (ValidateFlow)
+#### 2. Initialization-Time Safety (ValidateGraph)
 
 Validate type compatibility across your entire workflow graph before execution:
 
@@ -225,13 +225,13 @@ userProcessor.Connect("success", emailSender)    // ✅ Types match
 userProcessor.Connect("failure", wrongNode)       // ❌ Type mismatch
 
 // Validate the entire graph before running
-if err := pocket.ValidateFlow(userProcessor); err != nil {
+if err := pocket.ValidateGraph(userProcessor); err != nil {
     // Error: "type mismatch at connection 'process'->'wrong': 
     //         node 'process' outputs ProcessedUser but node 'wrong' expects DifferentType"
     log.Fatal(err)
 }
 
-// ValidateFlow checks:
+// ValidateGraph checks:
 // - Exact type matches
 // - Interface satisfaction
 // - Type assignability
@@ -259,9 +259,9 @@ flexNode := pocket.NewNode[any, any]("flexible",
 )
 
 // Runtime validation when executing
-flow := pocket.NewFlow(flexNode, store)
-_, err := flow.Run(ctx, "string input")  // ✅ Works
-_, err = flow.Run(ctx, 123)              // ❌ Returns error: "unsupported type: int"
+graph := pocket.NewGraph(flexNode, store)
+_, err := graph.Run(ctx, "string input")  // ✅ Works
+_, err = graph.Run(ctx, 123)              // ❌ Returns error: "unsupported type: int"
 ```
 
 #### Mixed Type Safety
@@ -282,7 +282,7 @@ logger := pocket.NewNode[any, any]("logger",
     }),
 )
 
-// Connect them - ValidateFlow handles mixed scenarios
+// Connect them - ValidateGraph handles mixed scenarios
 validator.Connect("default", logger)  // ✅ any accepts ValidationResult
 ```
 
@@ -302,9 +302,9 @@ err = userStore.Set(ctx, "user:456", "not a user")    // ❌ Compile error
 user, exists, err := userStore.Get(ctx, "user:123")   // user is User, not any
 ```
 
-#### How ValidateFlow Works Internally
+#### How ValidateGraph Works Internally
 
-ValidateFlow performs a depth-first search traversal of your workflow graph:
+ValidateGraph performs a depth-first search traversal of your workflow graph:
 
 ```mermaid
 graph TD
@@ -358,11 +358,11 @@ node := pocket.NewNode[User, Response]("process",
 )
 ```
 
-**2. Initialization-Time Errors (ValidateFlow)**
+**2. Initialization-Time Errors (ValidateGraph)**
 
 When connected nodes have incompatible types:
 ```go
-err := pocket.ValidateFlow(startNode)
+err := pocket.ValidateGraph(startNode)
 // Error: "type mismatch: node "process" outputs *main.ProcessedUser but node "wrongHandler" expects *main.DifferentType (via action "success")"
 ```
 
@@ -390,15 +390,15 @@ When actual data doesn't match expected types:
 When validation passes, you'll know your graph is type-safe:
 
 ```go
-fmt.Println("Validating flow types...")
+fmt.Println("Validating graph types...")
 if err := pocket.ValidateFlow(startNode); err != nil {
-    log.Fatalf("Flow validation failed: %v", err)
+    log.Fatalf("Graph validation failed: %v", err)
 }
-fmt.Println("✅ Flow validation passed!")
+fmt.Println("✅ Graph validation passed!")
 // Your workflow graph is type-safe and ready to run
 ```
 
-ValidateFlow returns `nil` when:
+ValidateGraph returns `nil` when:
 - All connected nodes have compatible types
 - Interface implementations are satisfied
 - No type mismatches are found in the entire graph
@@ -416,7 +416,7 @@ if input == nil {
 **Interface{} (any) Types:**
 - Nodes with `any` input accept any output type
 - Nodes with `any` output can connect to any input type
-- ValidateFlow skips type checking when `any` is involved
+- ValidateGraph skips type checking when `any` is involved
 
 **Type Priority:**
 1. Exact type match (fastest)
@@ -427,7 +427,7 @@ if input == nil {
 #### Best Practices
 
 1. **Use generics by default** - Get compile-time safety whenever possible
-2. **Always run ValidateFlow** - Catch connection mismatches before runtime
+2. **Always run ValidateGraph** - Catch connection mismatches before runtime
 3. **Use `any` sparingly** - Only for truly dynamic scenarios
 4. **Leverage type-safe wrappers** - Use TypedStore for state management
 5. **Handle type assertions** - Always check error returns from type assertions
@@ -495,7 +495,7 @@ validate.Connect("failure", errorHandler)
 enrich.Connect("default", notify)
 
 // Using the builder pattern
-flow, err := pocket.NewBuilder(store).
+graph, err := pocket.NewBuilder(store).
     Add(validate).
     Add(enrich).
     Add(notify).
@@ -685,8 +685,8 @@ node := pocket.NewNode[any, any]("observable",
     }),
 )
 
-// Flow-level logging and tracing
-flow := pocket.NewFlow(start, store,
+// Graph-level logging and tracing
+graph := pocket.NewGraph(start, store,
     pocket.WithLogger(logger),
     pocket.WithTracer(tracer),
 )
@@ -835,20 +835,20 @@ processPayment.Connect("compensate", compensate)
 
 ### Advanced Patterns
 
-#### Flow Composition
+#### Graph Composition
 
-Convert entire flows into reusable nodes for modular design:
+Convert entire graphs into reusable nodes for modular design:
 
 ```mermaid
 graph TB
-    subgraph "Main Flow"
+    subgraph "Main Graph"
         M1[Main Start] --> M2[Pre-Process]
-        M2 --> SF[Sub-Flow Node]
+        M2 --> SF[Sub-Graph Node]
         SF --> M3[Post-Process]
         M3 --> M4[Main End]
     end
     
-    subgraph "Sub-Flow (as Node)"
+    subgraph "Sub-Graph (as Node)"
         direction LR
         S1[Validate] --> S2[Transform]
         S2 --> S3[Enrich]
@@ -862,7 +862,7 @@ graph TB
 ```
 
 ```go
-// Build a complex sub-flow
+// Build a complex sub-graph
 validate := pocket.NewNode[any, any]("validate",
     pocket.WithExec(validateFunc),
 )
@@ -873,15 +873,15 @@ enrich := pocket.NewNode[any, any]("enrich",
     pocket.WithExec(enrichFunc),
 )
 
-// Connect sub-flow nodes
+// Connect sub-graph nodes
 validate.Connect("default", transform)
 transform.Connect("default", enrich)
 
-// Convert the flow into a reusable node
-subFlow := pocket.NewFlow(validate, store)
-subFlowNode := subFlow.AsNode("data-processor")
+// Convert the graph into a reusable node
+subGraph := pocket.NewGraph(validate, store)
+subGraphNode := subGraph.AsNode("data-processor")
 
-// Use in main flow
+// Use in main graph
 preProcess := pocket.NewNode[any, any]("pre-process",
     pocket.WithExec(preProcessFunc),
 )
@@ -889,19 +889,19 @@ postProcess := pocket.NewNode[any, any]("post-process",
     pocket.WithExec(postProcessFunc),
 )
 
-preProcess.Connect("default", subFlowNode)
-subFlowNode.Connect("default", postProcess)
+preProcess.Connect("default", subGraphNode)
+subGraphNode.Connect("default", postProcess)
 
-mainFlow := pocket.NewFlow(preProcess, store)
+mainGraph := pocket.NewGraph(preProcess, store)
 ```
 
-#### Dynamic Flow Building
+#### Dynamic Graph Building
 
-Build flows dynamically based on configuration:
+Build graphs dynamically based on configuration:
 
 ```mermaid
 graph TD
-    C[Config] --> FB[Flow Builder]
+    C[Config] --> FB[Graph Builder]
     FB --> D1{Decision}
     D1 -->|Type A| A1[Node A1]
     D1 -->|Type B| B1[Node B1]
@@ -918,8 +918,8 @@ graph TD
 ```
 
 ```go
-// Dynamic flow construction based on config
-func BuildFlow(config FlowConfig, store pocket.Store) (*pocket.Flow, error) {
+// Dynamic graph construction based on config
+func BuildGraph(config FlowConfig, store pocket.Store) (*pocket.Graph, error) {
     builder := pocket.NewBuilder(store)
     
     // Add nodes based on config
@@ -977,9 +977,9 @@ yamlNode := yaml.YAMLNode("formatter",
     }),
 )
 
-// Load flows from YAML definitions
+// Load graphs from YAML definitions
 loader := yaml.NewLoader()
-flow, err := loader.LoadFile("workflow.yaml", store)
+graph, err := loader.LoadFile("workflow.yaml", store)
 ```
 
 ### Complete Examples
@@ -993,7 +993,7 @@ Explore our example implementations:
 - [**Parallel Processing**](examples/parallel/) - Batch document processing
 - [**Saga Pattern**](examples/saga/) - Distributed transactions with compensation
 - [**Type Safety Demo**](examples/typed/) - Leveraging Go's type system
-- [**Advanced Features**](examples/advanced/) - Flow composition, YAML, fallbacks
+- [**Advanced Features**](examples/advanced/) - Graph composition, YAML, fallbacks
 
 ## Migration Guide
 
@@ -1042,14 +1042,14 @@ For detailed API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/a
 
 ### Core Types
 - `Node[In, Out]` - Type-safe computation unit
-- `Flow` - Orchestrates node execution
+- `Graph` - Orchestrates node execution
 - `Store` - Thread-safe state management
-- `Builder` - Fluent API for flow construction
+- `Builder` - Fluent API for graph construction
 
 ### Key Functions
 - `NewNode[In, Out]()` - Create typed nodes
-- `NewFlow()` - Create executable flows
-- `ValidateFlow()` - Type-check your workflow
+- `NewGraph()` - Create executable graphs
+- `ValidateGraphs()` - Type-check your workflow
 - `RunConcurrent()` - Parallel execution
 - `Pipeline()` - Sequential processing
 - `FanOut()` / `FanIn()` - Scatter-gather patterns

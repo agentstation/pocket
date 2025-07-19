@@ -210,8 +210,8 @@ func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any)
 	}
 
 	// Execute node
-	flow := pocket.NewFlow(n.Node, store)
-	result, err := flow.Run(ctx, input)
+	graph := pocket.NewGraph(n.Node, store)
+	result, err := graph.Run(ctx, input)
 	if err != nil {
 		return nil, err
 	}

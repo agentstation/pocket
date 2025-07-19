@@ -1,4 +1,4 @@
-// Package main demonstrates flow-as-node composition where entire workflows
+// Package main demonstrates graph-as-node composition where entire workflows
 // can be treated as single nodes within larger workflows, enabling modular
 // and reusable workflow design with the Prep/Exec/Post lifecycle.
 package main
@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/internal/flow"
+	"github.com/agentstation/pocket/internal/graph"
 )
 
 // TextProcessor represents a reusable text processing workflow
-func createTextProcessorFlow(store pocket.Store) *pocket.Flow {
+func createTextProcessorGraph(store pocket.Store) *pocket.Graph {
 	// Node 1: Clean text
 	cleaner := pocket.NewNode[any, any]("clean",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -49,11 +49,11 @@ func createTextProcessorFlow(store pocket.Store) *pocket.Flow {
 	// Connect nodes
 	cleaner.Connect("default", analyzer)
 
-	return pocket.NewFlow(cleaner, store)
+	return pocket.NewGraph(cleaner, store)
 }
 
-// TranslationFlow simulates a translation workflow
-func createTranslationFlow(store pocket.Store) *pocket.Flow {
+// TranslationGraph simulates a translation workflow
+func createTranslationGraph(store pocket.Store) *pocket.Graph {
 	translator := pocket.NewNode[any, any]("translate",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Extract text from analysis if provided
@@ -84,11 +84,11 @@ func createTranslationFlow(store pocket.Store) *pocket.Flow {
 		}),
 	)
 
-	return pocket.NewFlow(translator, store)
+	return pocket.NewGraph(translator, store)
 }
 
-// QualityCheckFlow performs quality checks on translations
-func createQualityCheckFlow(store pocket.Store) *pocket.Flow {
+// QualityCheckGraph performs quality checks on translations
+func createQualityCheckGraph(store pocket.Store) *pocket.Graph {
 	checker := pocket.NewNode[any, any]("quality-check",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			data, ok := input.(map[string]interface{})
@@ -143,7 +143,7 @@ func createQualityCheckFlow(store pocket.Store) *pocket.Flow {
 		}),
 	)
 
-	return pocket.NewFlow(checker, store)
+	return pocket.NewGraph(checker, store)
 }
 
 func abs(x float64) float64 {
@@ -157,19 +157,19 @@ func main() {
 	store := pocket.NewStore()
 	ctx := context.Background()
 
-	fmt.Println("=== Flow-as-Node Composition Demo ===")
+	fmt.Println("=== Graph-as-Node Composition Demo ===")
 	fmt.Println()
 
-	// Create individual flows
-	textProcessor := createTextProcessorFlow(store)
-	translator := createTranslationFlow(store)
-	qualityChecker := createQualityCheckFlow(store)
+	// Create individual graphs
+	textProcessor := createTextProcessorGraph(store)
+	translator := createTranslationGraph(store)
+	qualityChecker := createQualityCheckGraph(store)
 
-	// Method 1: Using Flow.AsNode() method
-	fmt.Println("Method 1: Using Flow.AsNode()")
+	// Method 1: Using Graph.AsNode() method
+	fmt.Println("Method 1: Using Graph.AsNode()")
 	fmt.Println("-----------------------------")
 
-	// Convert flows to nodes
+	// Convert graphs to nodes
 	processNode := textProcessor.AsNode("text-processor")
 	translateNode := translator.AsNode("translator")
 	qualityNode := qualityChecker.AsNode("quality-checker")
@@ -199,15 +199,15 @@ func main() {
 		}),
 	)
 
-	// Connect the flow nodes
+	// Connect the graph nodes
 	processNode.Connect("default", translateNode)
 	translateNode.Connect("default", qualityNode)
 	qualityNode.Connect("approved", approveHandler)
 	qualityNode.Connect("review", reviewHandler)
 	qualityNode.Connect("rejected", rejectHandler)
 
-	// Create the composite flow
-	pipeline := pocket.NewFlow(processNode, store)
+	// Create the composite graph
+	pipeline := pocket.NewGraph(processNode, store)
 
 	// Test with different inputs
 	testInputs := []string{
@@ -229,49 +229,49 @@ func main() {
 		}
 	}
 
-	// Method 2: Using NestedFlowBuilder
-	fmt.Println("\n\nMethod 2: Using NestedFlowBuilder")
+	// Method 2: Using NestedGraphBuilder
+	fmt.Println("\n\nMethod 2: Using NestedGraphBuilder")
 	fmt.Println("---------------------------------")
 
-	// Create a nested flow with store isolation
-	nestedFlow, err := flow.NewNestedFlowBuilder("translation-pipeline", store).
-		AddFlow("process", textProcessor).
-		AddFlow("translate", translator).
-		AddFlow("quality", qualityChecker).
+	// Create a nested graph with store isolation
+	nestedGraph, err := graph.NewNestedGraphBuilder("translation-pipeline", store).
+		AddGraph("process", textProcessor).
+		AddGraph("translate", translator).
+		AddGraph("quality", qualityChecker).
 		Connect("process", "default", "translate").
 		Connect("translate", "default", "quality").
 		Build()
 
 	if err != nil {
-		log.Fatalf("Failed to build nested flow: %v", err)
+		log.Fatalf("Failed to build nested graph: %v", err)
 	}
 
-	// Run the nested flow
-	result, err := nestedFlow.Run(ctx, "  Nested   flow   test   with   spaces  ")
+	// Run the nested graph
+	result, err := nestedGraph.Run(ctx, "  Nested   graph   test   with   spaces  ")
 	if err != nil {
-		log.Fatalf("Nested flow error: %v", err)
+		log.Fatalf("Nested graph error: %v", err)
 	}
 
 	if quality, ok := result.(map[string]interface{}); ok {
-		fmt.Printf("\nNested Flow Result:\n")
+		fmt.Printf("\nNested Graph Result:\n")
 		fmt.Printf("Original: %s\n", quality["original"])
 		fmt.Printf("Translated: %s\n", quality["translated"])
 		fmt.Printf("Quality Score: %.2f\n", quality["qualityScore"])
 	}
 
-	// Method 3: Parallel flow composition
-	fmt.Println("\n\nMethod 3: Parallel Flow Composition")
+	// Method 3: Parallel graph composition
+	fmt.Println("\n\nMethod 3: Parallel Graph Composition")
 	fmt.Println("-----------------------------------")
 
-	// Create multiple translation flows for different "languages"
-	translationFlows := []*pocket.Flow{
-		createTranslationFlow(store),
-		createTranslationFlow(store),
-		createTranslationFlow(store),
+	// Create multiple translation graphs for different "languages"
+	translationGraphs := []*pocket.Graph{
+		createTranslationGraph(store),
+		createTranslationGraph(store),
+		createTranslationGraph(store),
 	}
 
 	// Process the same text through multiple translators in parallel
-	parallelResults, err := flow.ParallelFlows(ctx, store, translationFlows...)
+	parallelResults, err := graph.ParallelGraphs(ctx, store, translationGraphs...)
 	if err != nil {
 		log.Printf("Parallel execution error: %v", err)
 	} else {
@@ -283,16 +283,16 @@ func main() {
 		}
 	}
 
-	// Method 4: Flow composition with state sharing
-	fmt.Println("\n\nMethod 4: Flow Composition with Shared State")
+	// Method 4: Graph composition with state sharing
+	fmt.Println("\n\nMethod 4: Graph Composition with Shared State")
 	fmt.Println("-------------------------------------------")
 
 	// Store configuration in shared store
 	store.Set(ctx, "config:maxLength", 100)
 	store.Set(ctx, "config:targetLanguage", "es")
 
-	// Create a flow that uses shared configuration
-	configAwareFlow := pocket.NewFlow(
+	// Create a graph that uses shared configuration
+	configAwareGraph := pocket.NewGraph(
 		pocket.NewNode[any, any]("config-processor",
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				maxLen, _ := store.Get(ctx, "config:maxLength")
@@ -319,12 +319,12 @@ func main() {
 		store,
 	)
 
-	// Use as node in larger flow
-	configNode := configAwareFlow.AsNode("config-aware")
+	// Use as node in larger graph
+	configNode := configAwareGraph.AsNode("config-aware")
 
-	result, err = pocket.NewFlow(configNode, store).Run(ctx, "This is a very long text that might need to be truncated based on configuration settings")
+	result, err = pocket.NewGraph(configNode, store).Run(ctx, "This is a very long text that might need to be truncated based on configuration settings")
 	if err != nil {
-		log.Printf("Config flow error: %v", err)
+		log.Printf("Config graph error: %v", err)
 	} else {
 		fmt.Printf("\nConfig-aware result: %s\n", result)
 	}

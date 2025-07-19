@@ -7,7 +7,7 @@ This guide explains the three levels of type safety in the Pocket workflow frame
 Pocket provides type safety at three distinct levels:
 
 1. **Compile-time**: Generic type parameters ensure function signatures match
-2. **Initialization-time**: ValidateFlow checks type compatibility across connected nodes
+2. **Initialization-time**: ValidateGraph checks type compatibility across connected nodes
 3. **Runtime**: Type assertions ensure data integrity during execution
 
 ## The New Unified API
@@ -51,9 +51,9 @@ badNode := pocket.NewNode[User, ValidationResult]("bad",
 */
 ```
 
-### 2. Initialization-Time Type Safety (ValidateFlow)
+### 2. Initialization-Time Type Safety (ValidateGraph)
 
-Before running your workflow, use `ValidateFlow` to check type compatibility between connected nodes:
+Before running your workflow, use `ValidateGraph` to check type compatibility between connected nodes:
 
 ```go
 // Build your workflow
@@ -62,15 +62,15 @@ emailSender := pocket.NewNode[ProcessedUser, EmailResult]("email", ...)
 userProcessor.Connect("success", emailSender)
 
 // Validate the entire graph before execution
-if err := pocket.ValidateFlow(userProcessor); err != nil {
+if err := pocket.ValidateGraph(userProcessor); err != nil {
     // Error: "type mismatch: node 'process' outputs ProcessedUser 
     //         but node 'wrongNode' expects DifferentType"
     log.Fatal(err)
 }
 
 // Now safe to execute
-flow := pocket.NewFlow(userProcessor, store)
-result, err := flow.Run(ctx, User{ID: "123"})
+graph := pocket.NewGraph(userProcessor, store)
+result, err := graph.Run(ctx, User{ID: "123"})
 ```
 
 ### 3. Runtime Type Safety
@@ -88,8 +88,8 @@ node := pocket.NewNode[User, Response]("processor",
 )
 
 // Runtime check prevents type errors
-flow := pocket.NewFlow(node, store)
-_, err := flow.Run(ctx, WrongType{}) // Error: invalid input type
+graph := pocket.NewGraph(node, store)
+_, err := graph.Run(ctx, WrongType{}) // Error: invalid input type
 ```
 
 ## Migration Guide
@@ -136,11 +136,11 @@ userNode := pocket.NewNode[User, ProcessedUser]("process", ...)
 userNode := pocket.NewNode[any, any]("process", ...)
 ```
 
-### 2. Validate Flows Before Execution
+### 2. Validate Graphs Before Execution
 
 ```go
 // Always validate your workflow graph
-if err := pocket.ValidateFlow(startNode); err != nil {
+if err := pocket.ValidateGraph(startNode); err != nil {
     return fmt.Errorf("workflow validation failed: %w", err)
 }
 ```
@@ -203,7 +203,7 @@ validateUser.Connect("valid", enrichUser)
 enrichUser.Connect("default", notifyUser)
 
 // Validate ensures type compatibility
-if err := pocket.ValidateFlow(fetchUser); err != nil {
+if err := pocket.ValidateGraph(fetchUser); err != nil {
     log.Fatal("Pipeline type mismatch:", err)
 }
 ```
@@ -222,7 +222,7 @@ logger := pocket.NewNode[any, any]("logger",
     }),
 )
 
-// Connect them - ValidateFlow will skip type checking for untyped nodes
+// Connect them - ValidateGraph will skip type checking for untyped nodes
 validator.Connect("default", logger)
 ```
 
