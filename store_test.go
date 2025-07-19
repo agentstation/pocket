@@ -14,6 +14,7 @@ const (
 
 func TestStoreConcurrency(t *testing.T) {
 	store := pocket.NewStore()
+	ctx := context.Background()
 	var wg sync.WaitGroup
 
 	// Concurrent writes
@@ -22,7 +23,7 @@ func TestStoreConcurrency(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			key := string(rune('a' + n%26))
-			store.Set(key, n)
+			store.Set(ctx, key, n)
 		}(i)
 	}
 
@@ -32,14 +33,14 @@ func TestStoreConcurrency(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			key := string(rune('a' + n%26))
-			store.Get(key)
+			store.Get(ctx, key)
 		}(i)
 	}
 
 	wg.Wait()
 
 	// Verify some values
-	val, ok := store.Get("a")
+	val, ok := store.Get(ctx, "a")
 	if !ok {
 		t.Error("Expected value for key 'a'")
 	}
@@ -101,7 +102,7 @@ func TestTypedStore(t *testing.T) {
 			name: "type mismatch",
 			op: func() error {
 				// Store a different type
-				store.Set("user:bad", "not a user")
+				store.Set(ctx, "user:bad", "not a user")
 				return nil
 			},
 			check: func(t *testing.T) {
@@ -143,59 +144,62 @@ func TestTypedStore(t *testing.T) {
 
 func TestScopedStore(t *testing.T) {
 	baseStore := pocket.NewStore()
-	userStore := pocket.NewScopedStore(baseStore, "user")
-	adminStore := pocket.NewScopedStore(baseStore, "admin")
+	userStore := baseStore.Scope("user")
+	adminStore := baseStore.Scope("admin")
+	ctx := context.Background()
 
 	// Set values in different scopes
-	userStore.Set("name", testUserName)
-	adminStore.Set("name", "Bob")
+	userStore.Set(ctx, "name", testUserName)
+	adminStore.Set(ctx, "name", "Bob")
 
 	// Check isolation
-	userName, ok := userStore.Get("name")
+	userName, ok := userStore.Get(ctx, "name")
 	if !ok || userName != testUserName {
 		t.Errorf("userStore.Get(name) = %v, %v; want Alice, true", userName, ok)
 	}
 
-	adminName, ok := adminStore.Get("name")
+	adminName, ok := adminStore.Get(ctx, "name")
 	if !ok || adminName != "Bob" {
 		t.Errorf("adminStore.Get(name) = %v, %v; want Bob, true", adminName, ok)
 	}
 
 	// Check that base store has prefixed keys
-	userPrefixed, ok := baseStore.Get("user:name")
+	userPrefixed, ok := baseStore.Get(ctx, "user:name")
 	if !ok || userPrefixed != testUserName {
 		t.Errorf("baseStore.Get(user:name) = %v, %v; want Alice, true", userPrefixed, ok)
 	}
 
 	// Test delete
-	userStore.Delete("name")
-	_, ok = userStore.Get("name")
+	userStore.Delete(ctx, "name")
+	_, ok = userStore.Get(ctx, "name")
 	if ok {
 		t.Error("userStore.Get(name) after delete returned true, want false")
 	}
 
 	// Admin scope should still have its value
-	adminName, ok = adminStore.Get("name")
+	adminName, ok = adminStore.Get(ctx, "name")
 	if !ok || adminName != "Bob" {
 		t.Errorf("adminStore.Get(name) after user delete = %v, %v; want Bob, true", adminName, ok)
 	}
 }
 
 func BenchmarkStore(b *testing.B) {
+	ctx := context.Background()
+	
 	b.Run("Set", func(b *testing.B) {
 		store := pocket.NewStore()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			store.Set("key", i)
+			store.Set(ctx, "key", i)
 		}
 	})
 
 	b.Run("Get", func(b *testing.B) {
 		store := pocket.NewStore()
-		store.Set("key", "value")
+		store.Set(ctx, "key", "value")
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			store.Get("key")
+			store.Get(ctx, "key")
 		}
 	})
 
@@ -205,9 +209,9 @@ func BenchmarkStore(b *testing.B) {
 			i := 0
 			for pb.Next() {
 				if i%2 == 0 {
-					store.Set("key", i)
+					store.Set(ctx, "key", i)
 				} else {
-					store.Get("key")
+					store.Get(ctx, "key")
 				}
 				i++
 			}

@@ -1,9 +1,14 @@
+// Package main demonstrates parallel document processing using Pocket's
+// concurrency patterns and the Prep/Exec/Post lifecycle for efficient
+// batch processing with FanOut and Pipeline patterns.
 package main
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/agentstation/pocket"
@@ -27,14 +32,14 @@ type ProcessedDoc struct {
 }
 
 // extractDocuments retrieves documents from the store or creates test data.
-func extractDocuments(ctx context.Context, store pocket.Store) ([]Document, error) {
+func extractDocuments(ctx context.Context, store pocket.StoreReader) ([]Document, error) {
 	// In a real app, might load from database
 	return []Document{
-		{ID: 1, Title: "Go Concurrency", Content: "Goroutines and channels are the foundation of Go's concurrency model"},
-		{ID: 2, Title: "Error Handling", Content: "Go uses explicit error returns instead of exceptions for error handling"},
-		{ID: 3, Title: "Interfaces", Content: "Go interfaces are satisfied implicitly, enabling flexible and composable designs"},
-		{ID: 4, Title: "Testing", Content: "Go has built-in testing support with the testing package and go test command"},
-		{ID: 5, Title: "Modules", Content: "Go modules provide dependency management with semantic versioning"},
+		{ID: 1, Title: "Go Concurrency", Content: "Goroutines and channels are the foundation of Go's concurrency model. They enable efficient parallel execution."},
+		{ID: 2, Title: "Error Handling", Content: "Go uses explicit error returns instead of exceptions for error handling. This makes error paths clear."},
+		{ID: 3, Title: "Interfaces", Content: "Go interfaces are satisfied implicitly, enabling flexible and composable designs without explicit declarations."},
+		{ID: 4, Title: "Testing", Content: "Go has built-in testing support with the testing package and go test command for comprehensive testing."},
+		{ID: 5, Title: "Modules", Content: "Go modules provide dependency management with semantic versioning for reproducible builds."},
 	}, nil
 }
 
@@ -46,9 +51,26 @@ func processDocument(ctx context.Context, doc Document) (ProcessedDoc, error) {
 	processingTime := time.Duration(50+len(doc.Content)) * time.Millisecond
 	time.Sleep(processingTime)
 
-	// Simulate processing
-	summary := fmt.Sprintf("Summary of %s: %s...", doc.Title, doc.Content[:30])
-	keywords := []string{doc.Title, "Go", "Programming"}
+	// Simulate processing - extract keywords
+	words := strings.Fields(strings.ToLower(doc.Content))
+	keywords := []string{doc.Title}
+	keywordMap := make(map[string]bool)
+	
+	for _, word := range words {
+		if len(word) > 5 && !keywordMap[word] {
+			keywords = append(keywords, word)
+			keywordMap[word] = true
+			if len(keywords) >= 5 {
+				break
+			}
+		}
+	}
+
+	// Create summary
+	summary := fmt.Sprintf("Summary of %s: %s", doc.Title, doc.Content[:40])
+	if len(doc.Content) > 40 {
+		summary += "..."
+	}
 
 	return ProcessedDoc{
 		ID:       doc.ID,
@@ -76,10 +98,23 @@ func aggregateResults(ctx context.Context, results []ProcessedDoc) (any, error) 
 		"totalDuration":      totalDuration,
 		"avgDuration":        totalDuration / time.Duration(len(results)),
 		"uniqueKeywords":     len(allKeywords),
+		"topKeywords":        getTopKeywords(allKeywords, 5),
 		"results":            results,
 	}
 
 	return report, nil
+}
+
+func getTopKeywords(keywords map[string]int, n int) []string {
+	// Simple top-N selection (in real app, use a heap)
+	var top []string
+	for k := range keywords {
+		top = append(top, k)
+		if len(top) >= n {
+			break
+		}
+	}
+	return top
 }
 
 func main() {
@@ -88,70 +123,147 @@ func main() {
 
 	fmt.Println("=== Parallel Document Processing Demo ===")
 
-	// Create a parallel batch processor
-	parallelProcessor := batch.MapReduce(
-		extractDocuments,
-		processDocument,
-		aggregateResults,
-		batch.WithConcurrency(3), // Process up to 3 documents concurrently
+	// Create a parallel batch processor using lifecycle pattern
+	parallelProcessor := pocket.NewNode[any, any]("parallel-batch",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Extract documents in prep phase
+			docs, err := extractDocuments(ctx, store)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract documents: %w", err)
+			}
+			
+			// Return docs along with metadata to be stored in post
+			return map[string]interface{}{
+				"docs":       docs,
+				"doc_count": len(docs),
+				"start_time": time.Now(),
+			}, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+			// Extract documents from prep result
+			data := prepData.(map[string]interface{})
+			documents := data["docs"].([]Document)
+			results := make([]ProcessedDoc, len(documents))
+			
+			// Use errgroup for parallel processing
+			var processed int32
+			ch := make(chan struct{}, 3) // Limit concurrency to 3
+			
+			for i, doc := range documents {
+				i, doc := i, doc // Capture loop variables
+				ch <- struct{}{} // Acquire semaphore
+				
+				go func() {
+					defer func() { <-ch }() // Release semaphore
+					
+					result, err := processDocument(ctx, doc)
+					if err != nil {
+						log.Printf("Error processing doc %d: %v", doc.ID, err)
+						return
+					}
+					
+					results[i] = result
+					current := atomic.AddInt32(&processed, 1)
+					fmt.Printf("Processed document %d/%d: %s\n", current, len(documents), doc.Title)
+				}()
+			}
+			
+			// Wait for all goroutines
+			for i := 0; i < cap(ch); i++ {
+				ch <- struct{}{}
+			}
+			
+			return results, nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, results any) (any, string, error) {
+			// Store metadata from prep phase
+			data := prepData.(map[string]interface{})
+			store.Set(ctx, "doc_count", data["doc_count"])
+			store.Set(ctx, "start_time", data["start_time"])
+			
+			// Aggregate results in post phase
+			processedDocs := results.([]ProcessedDoc)
+			report, err := aggregateResults(ctx, processedDocs)
+			if err != nil {
+				return nil, "", err
+			}
+			
+			// Calculate total time
+			totalTime := time.Since(data["start_time"].(time.Time))
+			
+			// Add total time to report
+			if r, ok := report.(map[string]any); ok {
+				r["totalExecutionTime"] = totalTime
+			}
+			
+			return report, "done", nil
+		}),
 	)
 
-	// Create a sequential processor for comparison
-	sequentialProcessor := batch.MapReduce(
-		extractDocuments,
-		processDocument,
-		aggregateResults,
-		batch.WithConcurrency(1), // Sequential processing
-	)
-
-	// Run parallel processing
-	fmt.Println("Running parallel processing (3 workers)...")
-	parallelStart := time.Now()
-
-	parallelNode := pocket.NewNode("parallel", parallelProcessor)
-	parallelFlow := pocket.NewFlow(parallelNode, store)
-
-	parallelResult, err := parallelFlow.Run(ctx, store)
+	// Create flow and run
+	flow := pocket.NewFlow(parallelProcessor, store)
+	
+	result, err := flow.Run(ctx, nil)
 	if err != nil {
-		log.Fatalf("Parallel processing failed: %v", err)
+		log.Fatalf("Processing failed: %v", err)
 	}
-	parallelDuration := time.Since(parallelStart)
 
-	// Run sequential processing
-	fmt.Println("\nRunning sequential processing...")
-	sequentialStart := time.Now()
-
-	sequentialNode := pocket.NewNode("sequential", sequentialProcessor)
-	sequentialFlow := pocket.NewFlow(sequentialNode, store)
-
-	_, err = sequentialFlow.Run(ctx, store)
-	if err != nil {
-		log.Fatalf("Sequential processing failed: %v", err)
-	}
-	sequentialDuration := time.Since(sequentialStart)
-
-	// Compare results
-	fmt.Println("\n=== Performance Comparison ===")
-	fmt.Printf("Parallel execution time: %v\n", parallelDuration)
-	fmt.Printf("Sequential execution time: %v\n", sequentialDuration)
-	fmt.Printf("Speedup: %.2fx\n", float64(sequentialDuration)/float64(parallelDuration))
-
-	// Show results
-	if report, ok := parallelResult.(map[string]any); ok {
-		fmt.Printf("\nDocuments processed: %v\n", report["documentsProcessed"])
-		fmt.Printf("Average processing time: %v\n", report["avgDuration"])
+	// Display results
+	if report, ok := result.(map[string]any); ok {
+		fmt.Println("\n=== Processing Report ===")
+		fmt.Printf("Documents processed: %v\n", report["documentsProcessed"])
+		fmt.Printf("Total execution time: %v\n", report["totalExecutionTime"])
+		fmt.Printf("Average processing time per doc: %v\n", report["avgDuration"])
 		fmt.Printf("Unique keywords found: %v\n", report["uniqueKeywords"])
+		fmt.Printf("Top keywords: %v\n", report["topKeywords"])
 	}
 
-	// Demonstrate FanOut pattern
-	fmt.Println("\n=== FanOut Pattern Demo ===")
+	// Demonstrate FanOut pattern with lifecycle
+	fmt.Println("\n=== FanOut Pattern with Lifecycle ===")
 
-	// Create a simple processor node
-	summarizer := pocket.NewNode("summarize",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-			doc := input.(Document)
-			time.Sleep(100 * time.Millisecond) // Simulate work
-			return fmt.Sprintf("Doc %d: %s", doc.ID, doc.Title), nil
+	// Create a document processor node
+	docProcessor := pocket.NewNode[any, any]("doc-processor",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Validate input is a document
+			doc, ok := input.(Document)
+			if !ok {
+				return nil, fmt.Errorf("expected Document, got %T", input)
+			}
+			
+			// Prepare processing context
+			return map[string]interface{}{
+				"document":  doc,
+				"startTime": time.Now(),
+			}, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+			// Extract and process document
+			d := data.(map[string]interface{})
+			doc := d["document"].(Document)
+			
+			// Simulate processing
+			time.Sleep(100 * time.Millisecond)
+			
+			// Extract key information
+			wordCount := len(strings.Fields(doc.Content))
+			
+			return map[string]interface{}{
+				"id":        doc.ID,
+				"title":     doc.Title,
+				"wordCount": wordCount,
+				"summary":   fmt.Sprintf("Doc %d: %s (%d words)", doc.ID, doc.Title, wordCount),
+			}, nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+			// Calculate processing time
+			d := prep.(map[string]interface{})
+			startTime := d["startTime"].(time.Time)
+			duration := time.Since(startTime)
+			
+			r := result.(map[string]interface{})
+			r["duration"] = duration
+			
+			return r["summary"], "done", nil
 		}),
 	)
 
@@ -160,7 +272,7 @@ func main() {
 
 	// Process all documents concurrently
 	fanOutStart := time.Now()
-	summaries, err := pocket.FanOut(ctx, summarizer, store, docs)
+	summaries, err := pocket.FanOut(ctx, docProcessor, store, docs)
 	if err != nil {
 		log.Fatalf("FanOut failed: %v", err)
 	}
@@ -171,37 +283,83 @@ func main() {
 		fmt.Printf("  %d. %v\n", i+1, summary)
 	}
 
-	// Demonstrate Pipeline pattern
-	fmt.Println("\n=== Pipeline Pattern Demo ===")
+	// Demonstrate Pipeline pattern with lifecycle
+	fmt.Println("\n=== Pipeline Pattern with Lifecycle ===")
 
-	// Create pipeline stages
-	stage1 := pocket.NewNode("extract",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-			doc := input.(Document)
-			return doc.Content, nil
+	// Create pipeline stages using lifecycle
+	extract := pocket.NewNode[any, any]("extract",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Validate document
+			doc, ok := input.(Document)
+			if !ok {
+				return nil, fmt.Errorf("expected Document")
+			}
+			return doc, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, doc any) (any, error) {
+			// Extract content
+			d := doc.(Document)
+			return map[string]string{
+				"title":   d.Title,
+				"content": d.Content,
+			}, nil
 		}),
 	)
 
-	stage2 := pocket.NewNode("analyze",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-			content := input.(string)
-			wordCount := len(content) / 5 // Rough estimate
-			return wordCount, nil
+	analyze := pocket.NewNode[any, any]("analyze",
+		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+			// Analyze content
+			d := data.(map[string]string)
+			content := d["content"]
+			
+			words := strings.Fields(content)
+			sentences := strings.Count(content, ".") + strings.Count(content, "!") + strings.Count(content, "?")
+			
+			return map[string]interface{}{
+				"title":     d["title"],
+				"wordCount": len(words),
+				"sentences": sentences,
+				"avgWords":  float64(len(words)) / float64(sentences),
+			}, nil
 		}),
 	)
 
-	stage3 := pocket.NewNode("format",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-			count := input.(int)
-			return fmt.Sprintf("Word count: ~%d", count), nil
+	format := pocket.NewNode[any, any]("format",
+		pocket.WithExec(func(ctx context.Context, analysis any) (any, error) {
+			// Format results
+			a := analysis.(map[string]interface{})
+			return fmt.Sprintf("%s: %d words, %d sentences, %.1f words/sentence",
+				a["title"], a["wordCount"], a["sentences"], a["avgWords"]), nil
 		}),
 	)
 
 	// Run pipeline on first document
-	pipelineResult, err := pocket.Pipeline(ctx, []*pocket.Node{stage1, stage2, stage3}, store, docs[0])
+	pipelineResult, err := pocket.Pipeline(ctx, []*pocket.Node{extract, analyze, format}, store, docs[0])
 	if err != nil {
 		log.Fatalf("Pipeline failed: %v", err)
 	}
 
-	fmt.Printf("Pipeline result for '%s': %v\n", docs[0].Title, pipelineResult)
+	fmt.Printf("\nPipeline analysis: %v\n", pipelineResult)
+
+	// Demonstrate MapReduce pattern from batch package
+	fmt.Println("\n=== MapReduce Pattern Demo ===")
+
+	mapReduceNode := batch.MapReduce(
+		"mapreduce",
+		extractDocuments,
+		processDocument,
+		aggregateResults,
+		batch.WithConcurrency(5),
+	)
+
+	mrFlow := pocket.NewFlow(mapReduceNode, store)
+	mrResult, err := mrFlow.Run(ctx, nil)
+	if err != nil {
+		log.Fatalf("MapReduce failed: %v", err)
+	}
+
+	if report, ok := mrResult.(map[string]any); ok {
+		fmt.Printf("MapReduce processed %v documents with %v unique keywords\n",
+			report["documentsProcessed"], report["uniqueKeywords"])
+	}
 }

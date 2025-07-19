@@ -30,3 +30,26 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Example binaries
+examples/*/[!.]?*
+!examples/*/*.go
+!examples/*/*.md
+!examples/*/*.yml
+!examples/*/*.yaml
+
+# Build artifacts in root
+/advanced
+/agent
+/chat
+/flow-composition
+/parallel
+/rag
+/saga
+/stateful
+/typed
+/workflow
+/yaml
+
+# Temporary scripts
+*.sh

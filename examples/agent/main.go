@@ -1,3 +1,6 @@
+// Package main demonstrates an autonomous agent with a think-act loop pattern
+// using Pocket's Prep/Exec/Post lifecycle. The agent cycles through thinking,
+// researching, and drafting phases to produce a final report.
 package main
 
 import (
@@ -19,128 +22,109 @@ type Task struct {
 	Steps       []string
 }
 
-// ThinkNode represents the agent's reasoning process.
-type ThinkNode struct {
-	store pocket.Store
-}
-
-// Process analyzes the current state and decides next action.
-func (t *ThinkNode) Process(ctx context.Context, input any) (any, error) {
-	// Load task from store
-	taskData, _ := t.store.Get("task")
-	task := taskData.(*Task)
-
-	fmt.Printf("\n[THINK] Task: %s\n", task.Description)
-	fmt.Printf("[THINK] Completed steps: %v\n", task.Steps)
-
-	// Simple task decomposition logic
-	switch {
-	case len(task.Steps) == 0 && strings.Contains(task.Description, "write"):
-		return "research", nil
-	case len(task.Steps) == 1:
-		return "draft", nil
-	case len(task.Steps) == 2:
-		return "review", nil
-	default:
-		return completeAction, nil
-	}
-}
-
-// Route determines the next action based on thinking.
-func (t *ThinkNode) Route(ctx context.Context, result any) (string, error) {
-	action := result.(string)
-	return action, nil
-}
-
-// ActionNode executes a specific action.
-type ActionNode struct {
-	actionType string
-	store      pocket.Store
-}
-
-// Process performs the action.
-func (a *ActionNode) Process(ctx context.Context, input any) (any, error) {
-	// Get current task
-	taskData, _ := a.store.Get("task")
-	task := taskData.(*Task)
-
-	var result string
-
-	// Simulate action execution
-	switch a.actionType {
-	case "research":
-		fmt.Printf("[ACT] Researching: %s\n", task.Description)
-		result = "Research completed: Found best practices for Go concurrency"
-
-	case "draft":
-		fmt.Printf("[ACT] Drafting: %s\n", task.Description)
-		result = "Draft created: Comprehensive guide on goroutines and channels"
-
-	case "review":
-		fmt.Printf("[ACT] Reviewing: %s\n", task.Description)
-		result = "Review completed: Content polished and examples added"
-
-	case completeAction:
-		fmt.Printf("[ACT] Completing: %s\n", task.Description)
-		result = fmt.Sprintf("Task completed: %s", task.Description)
-		return result, nil
-
-	default:
-		return nil, fmt.Errorf("unknown action: %s", a.actionType)
-	}
-
-	// Update task steps
-	task.Steps = append(task.Steps, fmt.Sprintf("%s: %s", a.actionType, result))
-	a.store.Set("task", task)
-
-	return result, nil
-}
-
-// Route always goes back to think (except for complete).
-func (a *ActionNode) Route(ctx context.Context, result any) (string, error) {
-	if a.actionType == completeAction {
-		return "done", nil
-	}
-	return "think", nil
-}
-
 func main() {
 	// Create store and set initial task
 	store := pocket.NewStore()
+	ctx := context.Background()
+	
 	task := &Task{
 		Description: "write a blog post about Go concurrency patterns",
 		Steps:       []string{},
 	}
-	store.Set("task", task)
+	store.Set(ctx, "task", task)
 
-	// Create think node
-	think := pocket.NewNode("think", &ThinkNode{store: store})
-	think.Router = &ThinkNode{store: store}
+	// Create think node that analyzes the task and decides next action
+	think := pocket.NewNode[any, any]("think",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Load current task state
+			taskData, exists := store.Get(ctx, "task")
+			if !exists {
+				return nil, fmt.Errorf("no task found")
+			}
+			return taskData, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, task any) (any, error) {
+			// Analyze task and decide next action
+			t := task.(*Task)
+			
+			fmt.Printf("\n[THINK] Task: %s\n", t.Description)
+			fmt.Printf("[THINK] Completed steps: %v\n", t.Steps)
+			
+			// Simple task decomposition logic
+			switch {
+			case len(t.Steps) == 0 && strings.Contains(t.Description, "write"):
+				return "research", nil
+			case len(t.Steps) == 1:
+				return "draft", nil
+			case len(t.Steps) == 2:
+				return "review", nil
+			default:
+				return completeAction, nil
+			}
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, task, action any) (any, string, error) {
+			// Route to the chosen action
+			actionStr := action.(string)
+			fmt.Printf("[THINK] Next action: %s\n", actionStr)
+			return action, actionStr, nil
+		}),
+	)
+
+	// Create action nodes using a helper function
+	createActionNode := func(actionType string) *pocket.Node {
+		return pocket.NewNode[any, any](actionType,
+			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare: get current task
+				task, _ := store.Get(ctx, "task")
+				return task, nil
+			}),
+			pocket.WithExec(func(ctx context.Context, task any) (any, error) {
+				// Execute: perform the action
+				t := task.(*Task)
+				var result string
+				
+				fmt.Printf("[ACT] Performing: %s\n", actionType)
+				
+				switch actionType {
+				case "research":
+					result = "Research completed: Found best practices for Go concurrency"
+				case "draft":
+					result = "Draft created: Comprehensive guide on goroutines and channels"
+				case "review":
+					result = "Review completed: Content polished and examples added"
+				case completeAction:
+					result = fmt.Sprintf("Task completed: %s", t.Description)
+				default:
+					return nil, fmt.Errorf("unknown action: %s", actionType)
+				}
+				
+				return result, nil
+			}),
+			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, task, result any) (any, string, error) {
+				// Post: update task steps and decide routing
+				t := task.(*Task)
+				resultStr := result.(string)
+				
+				// Update task steps (except for complete)
+				if actionType != completeAction {
+					t.Steps = append(t.Steps, fmt.Sprintf("%s: %s", actionType, resultStr))
+					store.Set(ctx, "task", t)
+				}
+				
+				// Decide next step
+				if actionType == completeAction {
+					return resultStr, "done", nil // End the flow (no successor for "done")
+				}
+				return resultStr, "think", nil // Back to thinking
+			}),
+		)
+	}
 
 	// Create action nodes
-	research := pocket.NewNode("research", &ActionNode{
-		actionType: "research",
-		store:      store,
-	})
-	research.Router = &ActionNode{actionType: "research", store: store}
-
-	draft := pocket.NewNode("draft", &ActionNode{
-		actionType: "draft",
-		store:      store,
-	})
-	draft.Router = &ActionNode{actionType: "draft", store: store}
-
-	review := pocket.NewNode("review", &ActionNode{
-		actionType: "review",
-		store:      store,
-	})
-	review.Router = &ActionNode{actionType: "review", store: store}
-
-	complete := pocket.NewNode(completeAction, &ActionNode{
-		actionType: completeAction,
-		store:      store,
-	})
-	complete.Router = &ActionNode{actionType: completeAction, store: store}
+	research := createActionNode("research")
+	draft := createActionNode("draft")
+	review := createActionNode("review")
+	complete := createActionNode(completeAction)
 
 	// Connect nodes - think decides which action
 	think.Connect("research", research)
@@ -158,16 +142,23 @@ func main() {
 	fmt.Println("=== Autonomous Agent Demo ===")
 	flow := pocket.NewFlow(think, store)
 
-	ctx := context.Background()
 	result, err := flow.Run(ctx, nil)
 	if err != nil {
 		log.Fatalf("Agent failed: %v", err)
 	}
 
-	fmt.Printf("\n[FINAL] %v\n", result)
+	if result == nil {
+		// Get the final task state since result is nil
+		finalTask, _ := store.Get(ctx, "task")
+		if t, ok := finalTask.(*Task); ok && len(t.Steps) > 0 {
+			fmt.Printf("\n[FINAL] Task completed with %d steps\n", len(t.Steps))
+		}
+	} else {
+		fmt.Printf("\n[FINAL] %v\n", result)
+	}
 
 	// Show execution trace
-	finalTask, _ := store.Get("task")
+	finalTask, _ := store.Get(ctx, "task")
 	if taskData, ok := finalTask.(*Task); ok {
 		fmt.Println("\n=== Execution Trace ===")
 		for i, step := range taskData.Steps {
@@ -183,30 +174,38 @@ func main() {
 		Description: "analyze complex data and generate insights",
 		Steps:       []string{},
 	}
-	store.Set("task", task2)
+	store.Set(ctx, "task", task2)
 
 	// Create a flaky action that sometimes fails
 	attempts := 0
-	analyze := pocket.NewNode("analyze",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	analyze := pocket.NewNode[any, any]("analyze",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			fmt.Printf("[PREP] Preparing analysis (attempt %d)\n", attempts+1)
+			return input, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			attempts++
 			if attempts < 2 {
 				return nil, fmt.Errorf("temporary analysis failure")
 			}
 			return "Analysis completed successfully", nil
 		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+			fmt.Printf("[POST] Analysis result: %v\n", result)
+			return result, "done", nil
+		}),
 		pocket.WithRetry(3, 0), // Retry up to 3 times
 	)
 
 	// Simple flow: think -> analyze
-	think2 := pocket.NewNode("think2",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-			return "analyze", nil
+	think2 := pocket.NewNode[any, any]("think2",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			return "Starting analysis", nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+			return exec, "analyze", nil
 		}),
 	)
-	think2.Router = pocket.RouterFunc(func(ctx context.Context, result any) (string, error) {
-		return result.(string), nil
-	})
 
 	think2.Connect("analyze", analyze)
 

@@ -5,29 +5,35 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/agentstation/pocket"
 )
 
-const (
-	successResult = "success"
-)
+// ExampleNode demonstrates using the Prep/Exec/Post lifecycle.
+func ExampleNode() {
+	// Create a node with lifecycle phases
+	uppercase := pocket.NewNode[any, any]("uppercase",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Validate input is a string
+			text, ok := input.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string, got %T", input)
+			}
+			return text, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, text any) (any, error) {
+			// Transform to uppercase
+			return strings.ToUpper(text.(string)), nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
+			// Return result and routing
+			return result, "done", nil
+		}),
+	)
 
-// ExampleProcessorFunc demonstrates using a simple function as a processor.
-func ExampleProcessorFunc() {
-	// Create a processor from a function
-	uppercase := pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-		text, ok := input.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string, got %T", input)
-		}
-		return strings.ToUpper(text), nil
-	})
-
-	// Use it in a node
-	node := pocket.NewNode("uppercase", uppercase)
 	store := pocket.NewStore()
-	flow := pocket.NewFlow(node, store)
+	flow := pocket.NewFlow(uppercase, store)
 
 	result, err := flow.Run(context.Background(), "hello world")
 	if err != nil {
@@ -42,24 +48,37 @@ func ExampleProcessorFunc() {
 func ExampleBuilder() {
 	store := pocket.NewStore()
 
-	// Define processors
-	validate := pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-		email := input.(string)
-		if !strings.Contains(email, "@") {
-			return nil, fmt.Errorf("invalid email")
-		}
-		return email, nil
-	})
+	// Define nodes with lifecycle
+	validate := pocket.NewNode[any, any]("validate",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			email, ok := input.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string")
+			}
+			return email, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, email any) (any, error) {
+			if !strings.Contains(email.(string), "@") {
+				return nil, fmt.Errorf("invalid email")
+			}
+			return email, nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+			return result, "default", nil
+		}),
+	)
 
-	normalize := pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
-		email := input.(string)
-		return strings.ToLower(strings.TrimSpace(email)), nil
-	})
+	normalize := pocket.NewNode[any, any]("normalize",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			email := input.(string)
+			return strings.ToLower(strings.TrimSpace(email)), nil
+		}),
+	)
 
 	// Build the flow
 	flow, err := pocket.NewBuilder(store).
-		Add(pocket.NewNode("validate", validate)).
-		Add(pocket.NewNode("normalize", normalize)).
+		Add(validate).
+		Add(normalize).
 		Connect("validate", "default", "normalize").
 		Start("validate").
 		Build()
@@ -82,30 +101,28 @@ func ExampleNode_routing() {
 	store := pocket.NewStore()
 
 	// Router node that checks input
-	router := pocket.NewNode("router",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	router := pocket.NewNode[any, any]("router",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return input, nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+			value := result.(int)
+			if value > 100 {
+				return result, "large", nil
+			}
+			return result, "small", nil
 		}),
 	)
 
-	// Set up routing logic
-	router.Router = pocket.RouterFunc(func(ctx context.Context, result any) (string, error) {
-		value := result.(int)
-		if value > 100 {
-			return "large", nil
-		}
-		return "small", nil
-	})
-
 	// Handler nodes
-	largeHandler := pocket.NewNode("large",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	largeHandler := pocket.NewNode[any, any]("large",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return fmt.Sprintf("Large number: %v", input), nil
 		}),
 	)
 
-	smallHandler := pocket.NewNode("small",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	smallHandler := pocket.NewNode[any, any]("small",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return fmt.Sprintf("Small number: %v", input), nil
 		}),
 	)
@@ -130,8 +147,8 @@ func ExampleNode_routing() {
 // ExampleFanOut demonstrates parallel processing of items.
 func ExampleFanOut() {
 	// Create a processor that simulates work
-	processor := pocket.NewNode("process",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	processor := pocket.NewNode[any, any]("process",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			num := input.(int)
 			return num * num, nil
 		}),
@@ -163,20 +180,20 @@ func ExamplePipeline() {
 	store := pocket.NewStore()
 
 	// Create a pipeline of transformations
-	double := pocket.NewNode("double",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	double := pocket.NewNode[any, any]("double",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return input.(int) * 2, nil
 		}),
 	)
 
-	addTen := pocket.NewNode("addTen",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	addTen := pocket.NewNode[any, any]("addTen",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return input.(int) + 10, nil
 		}),
 	)
 
-	toString := pocket.NewNode("toString",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	toString := pocket.NewNode[any, any]("toString",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return fmt.Sprintf("Result: %d", input.(int)), nil
 		}),
 	)
@@ -229,15 +246,15 @@ func ExampleWithRetry() {
 	attempts := 0
 
 	// Create a node that fails twice before succeeding
-	flaky := pocket.NewNode("flaky",
-		pocket.ProcessorFunc(func(ctx context.Context, input any) (any, error) {
+	flaky := pocket.NewNode[any, any]("flaky",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			attempts++
 			if attempts < 3 {
 				return nil, fmt.Errorf("temporary failure %d", attempts)
 			}
-			return successResult, nil
+			return "success", nil
 		}),
-		pocket.WithRetry(3, 0), // 3 retries, no delay for example
+		pocket.WithRetry(2, 10*time.Millisecond), // Retry up to 2 times
 	)
 
 	store := pocket.NewStore()
@@ -250,4 +267,51 @@ func ExampleWithRetry() {
 
 	fmt.Printf("Result after %d attempts: %v\n", attempts, result)
 	// Output: Result after 3 attempts: success
+}
+
+// Example_lifecycle demonstrates the full Prep/Exec/Post lifecycle.
+func Example_lifecycle() {
+	// Create a node that uses all three phases
+	processor := pocket.NewNode[any, any]("processor",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Prepare: validate and transform input
+			data := input.(map[string]int)
+			if len(data) == 0 {
+				return nil, fmt.Errorf("empty data")
+			}
+			return data, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+			// Execute: calculate sum
+			m := data.(map[string]int)
+			sum := 0
+			for _, v := range m {
+				sum += v
+			}
+			return sum, nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, sum any) (any, string, error) {
+			// Post: decide routing based on result
+			total := sum.(int)
+			if total > 100 {
+				return fmt.Sprintf("High total: %d", total), "high", nil
+			}
+			return fmt.Sprintf("Low total: %d", total), "low", nil
+		}),
+	)
+
+	store := pocket.NewStore()
+	flow := pocket.NewFlow(processor, store)
+
+	result, err := flow.Run(context.Background(), map[string]int{
+		"a": 10,
+		"b": 20,
+		"c": 30,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(result)
+	// Output: Low total: 60
 }
