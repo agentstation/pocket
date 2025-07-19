@@ -23,7 +23,7 @@ type DifferentType struct {
 	Data int
 }
 
-// TestNewNodeGeneric tests the new generic NewNode function
+// TestNewNodeGeneric tests the new generic NewNode function.
 func TestNewNodeGeneric(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -82,7 +82,7 @@ func TestNewNodeGeneric(t *testing.T) {
 	}
 }
 
-// TestNodeOptions tests the unified option functions with type safety
+// TestNodeOptions tests the unified option functions with type safety.
 func TestNodeOptions(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
@@ -224,7 +224,7 @@ func TestNodeOptions(t *testing.T) {
 	})
 }
 
-// TestRuntimeTypeSafety tests runtime type checking with regular options
+// TestRuntimeTypeSafety tests runtime type checking with regular options.
 func TestRuntimeTypeSafety(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()

@@ -123,7 +123,7 @@ func ParallelFlows(ctx context.Context, store pocket.Store, flows ...*pocket.Flo
 	// Create nodes from flows
 	nodes := make([]*pocket.Node, len(flows))
 	inputs := make([]any, len(flows))
-	
+
 	for i, flow := range flows {
 		nodes[i] = AsNode(flow, fmt.Sprintf("parallel-%d", i))
 		inputs[i] = nil // Could accept input array
@@ -179,7 +179,7 @@ func (b *NestedFlowBuilder) AddFlowWithStore(name string, flow *pocket.Flow, inp
 // Connect connects two flows by name with a specific action.
 func (b *NestedFlowBuilder) Connect(from, action, to string) *NestedFlowBuilder {
 	var fromNode, toNode *pocket.Node
-	
+
 	for _, node := range b.nodes {
 		if node.Name == from {
 			fromNode = node
@@ -210,6 +210,6 @@ func (b *NestedFlowBuilder) Build() (*pocket.Flow, error) {
 	if b.start == nil {
 		return nil, fmt.Errorf("no nodes added to builder")
 	}
-	
+
 	return pocket.NewFlow(b.start, b.store), nil
 }

@@ -36,22 +36,22 @@ func main() {
 		pocket.WithExec(func(ctx context.Context, message any) (any, error) {
 			// Analyze message (in real world, this could use LLM)
 			msg := message.(string)
-			
+
 			// Simple analysis based on content
 			analysis := map[string]interface{}{
-				"message":    msg,
-				"length":     len(msg),
-				"hasQuestion": strings.Contains(msg, "?"),
-				"isComplex":  len(msg) > 50 || strings.Contains(strings.ToLower(msg), "explain"),
+				"message":       msg,
+				"length":        len(msg),
+				"hasQuestion":   strings.Contains(msg, "?"),
+				"isComplex":     len(msg) > 50 || strings.Contains(strings.ToLower(msg), "explain"),
 				"needsCreative": strings.ContainsAny(strings.ToLower(msg), "story poem joke creative"),
 			}
-			
+
 			return analysis, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, message, analysis any) (any, string, error) {
 			// Route based on analysis
 			a := analysis.(map[string]interface{})
-			
+
 			if a["needsCreative"].(bool) {
 				return input, "creative", nil
 			} else if a["isComplex"].(bool) {
@@ -77,13 +77,13 @@ func main() {
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
 			bot := d["bot"].(string)
-			
+
 			// Simulate simple response
 			response := fmt.Sprintf("[%s] I can help with that! %s", bot, message)
 			if strings.Contains(message, "?") {
 				response = fmt.Sprintf("[%s] Good question! The answer is: it depends.", bot)
 			}
-			
+
 			return response, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
@@ -91,12 +91,12 @@ func main() {
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
 			message := d["message"].(string)
-			
-			history = append(history, 
+
+			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
 			store.Set(ctx, "history", history)
-			
+
 			return response, "done", nil
 		}),
 	)
@@ -117,13 +117,13 @@ func main() {
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
 			bot := d["bot"].(string)
-			
+
 			// Simulate expert analysis
 			response := fmt.Sprintf("[%s] Let me provide a detailed analysis: %s", bot, message)
 			response += "\n  • First, I'll break down your query"
 			response += "\n  • Then, I'll provide comprehensive insights"
 			response += "\n  • Finally, I'll offer actionable recommendations"
-			
+
 			return response, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
@@ -131,12 +131,12 @@ func main() {
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
 			message := d["message"].(string)
-			
+
 			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
 			store.Set(ctx, "history", history)
-			
+
 			return response, "done", nil
 		}),
 	)
@@ -157,10 +157,10 @@ func main() {
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
 			bot := d["bot"].(string)
-			
+
 			// Simulate creative response
 			response := fmt.Sprintf("[%s] 🎨 How delightful! Here's something creative: ", bot)
-			
+
 			if strings.Contains(strings.ToLower(message), "story") {
 				response += "Once upon a time in a digital realm..."
 			} else if strings.Contains(strings.ToLower(message), "poem") {
@@ -170,7 +170,7 @@ func main() {
 			} else {
 				response += "Let me paint you a word picture of possibilities..."
 			}
-			
+
 			return response, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
@@ -178,12 +178,12 @@ func main() {
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
 			message := d["message"].(string)
-			
+
 			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
 			store.Set(ctx, "history", history)
-			
+
 			return response, "done", nil
 		}),
 	)

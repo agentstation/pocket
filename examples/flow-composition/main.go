@@ -75,7 +75,7 @@ func createTranslationFlow(store pocket.Store) *pocket.Flow {
 			for i := 0; i < len(words)/2; i++ {
 				words[i], words[len(words)-1-i] = words[len(words)-1-i], words[i]
 			}
-			
+
 			return map[string]interface{}{
 				"original":   original,
 				"translated": strings.Join(words, " "),
@@ -101,11 +101,11 @@ func createQualityCheckFlow(store pocket.Store) *pocket.Flow {
 
 			// Simple quality metrics
 			quality := map[string]interface{}{
-				"original":          original,
-				"translated":        translated,
-				"lengthRatio":       float64(len(translated)) / float64(len(original)),
-				"preservedWords":    0,
-				"qualityScore":      0.0,
+				"original":       original,
+				"translated":     translated,
+				"lengthRatio":    float64(len(translated)) / float64(len(original)),
+				"preservedWords": 0,
+				"qualityScore":   0.0,
 			}
 
 			// Count preserved words
@@ -132,7 +132,7 @@ func createQualityCheckFlow(store pocket.Store) *pocket.Flow {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
 			quality := result.(map[string]interface{})
 			score := quality["qualityScore"].(float64)
-			
+
 			// Route based on quality
 			if score > 0.7 {
 				return quality, "approved", nil
@@ -297,7 +297,7 @@ func main() {
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				maxLen, _ := store.Get(ctx, "config:maxLength")
 				targetLang, _ := store.Get(ctx, "config:targetLanguage")
-				
+
 				return map[string]interface{}{
 					"text":       input,
 					"maxLength":  maxLen,
@@ -308,11 +308,11 @@ func main() {
 				cfg := config.(map[string]interface{})
 				text := cfg["text"].(string)
 				maxLen := cfg["maxLength"].(int)
-				
+
 				if len(text) > maxLen {
 					text = text[:maxLen] + "..."
 				}
-				
+
 				return fmt.Sprintf("Processed for %s: %s", cfg["targetLang"], text), nil
 			}),
 		),
@@ -321,7 +321,7 @@ func main() {
 
 	// Use as node in larger flow
 	configNode := configAwareFlow.AsNode("config-aware")
-	
+
 	result, err = pocket.NewFlow(configNode, store).Run(ctx, "This is a very long text that might need to be truncated based on configuration settings")
 	if err != nil {
 		log.Printf("Config flow error: %v", err)

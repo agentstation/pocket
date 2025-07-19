@@ -108,7 +108,7 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 	// Store metadata in the store
 	if def.Metadata != nil {
 		for k, v := range def.Metadata {
-			store.Set(context.Background(), fmt.Sprintf("flow:metadata:%s", k), v)
+			_ = store.Set(context.Background(), fmt.Sprintf("flow:metadata:%s", k), v)
 		}
 	}
 
@@ -206,8 +206,8 @@ func (f *defaultNodeFactory) createGenericNode(def NodeDefinition) (*pocket.Node
 			actualInput := data["input"]
 			
 			// Store node config
-			store.Set(ctx, fmt.Sprintf("node:%s:config", nodeName), nodeConfig)
-			store.Set(ctx, fmt.Sprintf("node:%s:type", nodeName), nodeType)
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:config", nodeName), nodeConfig)
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:type", nodeName), nodeType)
 			
 			// Return the actual input
 			return actualInput, "default", nil

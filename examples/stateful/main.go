@@ -236,7 +236,7 @@ func main() {
 			// Generate final report
 			data := prepData.(map[string]interface{})
 			
-			report := fmt.Sprintf("=== Processing Report ===\n")
+			report := "=== Processing Report ===\n"
 			report += fmt.Sprintf("Final Data: %s\n", data["finalData"])
 			report += fmt.Sprintf("Total Items Processed: %d\n", data["processCount"])
 			

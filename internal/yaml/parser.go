@@ -54,7 +54,7 @@ func (p *Parser) MarshalToFile(fd *FlowDefinition, filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0600)
+	return os.WriteFile(filename, data, 0o600)
 }
 
 // Example shows what a YAML flow definition would look like.
