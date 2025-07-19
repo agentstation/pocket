@@ -10,14 +10,14 @@
 A simple LLM decision graph package, written in golang, and inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s Prep/Exec/Post workflow pattern. Avoid large LLM framework lock-in.
 
 Build composable LLM workflows via directed graphs with:
-- powerful decision graph flexiblity
-- robust resilancy
-    - configurable retrys
+- powerful decision graph flexibility
+- robust resiliency
+    - configurable retries
     - fallback support
-- buisness logic orchistration
+- business logic orchestration
     - node steps (prep, exec, post)
     - hooks
-    - tracability & observability
+    - traceability & observability
     - layered graph composability
 - go type safety w/ generics
 - built-in concurrency via goroutines
