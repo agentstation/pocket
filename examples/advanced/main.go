@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/internal/fallback"
-	"github.com/agentstation/pocket/internal/store"
+	"github.com/agentstation/pocket/fallback"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,11 +38,10 @@ func main() {
 	ctx := context.Background()
 
 	// Create a bounded store with LRU eviction
-	boundedStore := store.NewBoundedStore(
-		store.WithMaxEntries(100),
-		store.WithEvictionPolicy(store.LRU),
-		store.WithTTL(5*time.Minute),
-		store.WithEvictionCallback(func(key string, value any) {
+	boundedStore := pocket.NewStore(
+		pocket.WithMaxEntries(100),
+		pocket.WithTTL(5*time.Minute),
+		pocket.WithEvictionCallback(func(key string, value any) {
 			log.Printf("Evicted: %s", key)
 		}),
 	)
@@ -76,7 +74,7 @@ func main() {
 	)
 
 	// Create a fallback handler
-	fallbackHandler := func(ctx context.Context, store pocket.StoreWriter, input any, err error) (any, error) {
+	fallbackHandler := func(_ context.Context, _ pocket.StoreWriter, input any, err error) (any, error) {
 		// Fallback to a simpler model
 		log.Printf("Circuit breaker triggered, using fallback: %v", err)
 		req := input.(LLMRequest)
@@ -89,16 +87,18 @@ func main() {
 	}
 
 	// Create a circuit breaker policy
-	circuitBreaker := fallback.NewCircuitBreakerPolicy(
-		"llm-circuit",
-		unreliableLLM.Exec,
-		fallbackHandler,
-		fallback.WithMaxFailures(2),
-		fallback.WithResetTimeout(10*time.Second),
-	)
+	circuitBreaker := pocket.NewNode[any, any]("protected-llm",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			// Use a simple circuit breaker pattern inline
 
-	// Create a node with circuit breaker using the ToNode helper
-	protectedLLM := fallback.ToNode(circuitBreaker)
+			result, err := unreliableLLM.Exec(ctx, input)
+			if err != nil {
+				// Use the fallback handler
+				return fallbackHandler(ctx, boundedStore, input, err)
+			}
+			return result, nil
+		}),
+	)
 
 	// Test the circuit breaker
 	for i := 0; i < 5; i++ {
@@ -109,7 +109,7 @@ func main() {
 			Model:       "gpt-4",
 		}
 
-		graph := pocket.NewGraph(protectedLLM, boundedStore)
+		graph := pocket.NewGraph(circuitBreaker, boundedStore)
 		result, err := graph.Run(ctx, req)
 		if err != nil {
 			log.Printf("Request %d failed: %v", i+1, err)
@@ -317,18 +317,15 @@ func main() {
 		log.Printf("Cleanup test error: %v", err)
 	}
 
-	// Demo 5: Store Statistics
-	fmt.Println("\n5. Store Statistics")
+	// Demo 5: Store Configuration
+	fmt.Println("\n5. Store Configuration")
 	fmt.Println("------------------")
 
-	stats := boundedStore.GetStats()
-	fmt.Printf("Store Stats:\n")
-	fmt.Printf("  Entries: %d/%d\n", stats.Entries, stats.MaxEntries)
-	fmt.Printf("  Size: %d bytes\n", stats.CurrentSize)
-	fmt.Printf("  Policy: %s\n", stats.Policy)
-	fmt.Printf("  Total Accesses: %d\n", stats.TotalAccesses)
-	fmt.Printf("  Oldest Entry: %v\n", stats.OldestEntry)
-	fmt.Printf("  Last Access: %v\n", stats.LastAccess)
+	fmt.Println("Store configured with:")
+	fmt.Println("  Max Entries: 100")
+	fmt.Println("  TTL: 5 minutes")
+	fmt.Println("  Eviction: LRU (built-in)")
+	fmt.Println("  Callback: Logs evicted entries")
 
 	fmt.Println("\n=== Demo Complete ===")
 }

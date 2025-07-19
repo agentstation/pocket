@@ -1,4 +1,5 @@
-// Package fallback provides fallback mechanisms for pocket workflows.
+// Package fallback provides fallback mechanisms for pocket workflows including
+// circuit breakers and sophisticated fallback chains.
 package fallback
 
 import (
@@ -7,7 +8,6 @@ import (
 	"time"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/internal/retry"
 )
 
 // Policy defines a fallback strategy.
@@ -160,54 +160,57 @@ func (p *ChainPolicy) Execute(ctx context.Context, store pocket.Store, input any
 	return nil, fmt.Errorf("all %d handlers failed", len(p.handlers))
 }
 
-// RetryWithFallbackPolicy combines retry and fallback strategies.
-type RetryWithFallbackPolicy struct {
-	name        string
-	primary     pocket.ExecFunc
-	fallback    Handler
-	retryPolicy retry.Policy
-}
+// TODO: RetryWithFallbackPolicy - Commented out as it depends on internal retry package
+// Consider using middleware.Retry() instead or creating a public retry package
 
-// NewRetryWithFallbackPolicy creates a policy that retries before falling back.
-func NewRetryWithFallbackPolicy(name string, primary pocket.ExecFunc, fallback Handler, retryPolicy retry.Policy) *RetryWithFallbackPolicy {
-	return &RetryWithFallbackPolicy{
-		name:        name,
-		primary:     primary,
-		fallback:    fallback,
-		retryPolicy: retryPolicy,
-	}
-}
+// // RetryWithFallbackPolicy combines retry and fallback strategies.
+// type RetryWithFallbackPolicy struct {
+// 	name        string
+// 	primary     pocket.ExecFunc
+// 	fallback    Handler
+// 	retryPolicy retry.Policy
+// }
 
-// Name returns the policy name.
-func (p *RetryWithFallbackPolicy) Name() string {
-	return p.name
-}
+// // NewRetryWithFallbackPolicy creates a policy that retries before falling back.
+// func NewRetryWithFallbackPolicy(name string, primary pocket.ExecFunc, fallback Handler, retryPolicy retry.Policy) *RetryWithFallbackPolicy {
+// 	return &RetryWithFallbackPolicy{
+// 		name:        name,
+// 		primary:     primary,
+// 		fallback:    fallback,
+// 		retryPolicy: retryPolicy,
+// 	}
+// }
 
-// Execute runs with retry and fallback support.
-func (p *RetryWithFallbackPolicy) Execute(ctx context.Context, store pocket.Store, input any) (any, error) {
-	// Try with retry first
-	var primaryErr error
-	err := p.retryPolicy.Do(ctx, func() error {
-		result, err := p.primary(ctx, input)
-		if err != nil {
-			primaryErr = err
-			return err
-		}
-		// Store successful result
-		_ = store.Set(ctx, fmt.Sprintf("fallback:%s:result", p.name), result)
-		return nil
-	})
+// // Name returns the policy name.
+// func (p *RetryWithFallbackPolicy) Name() string {
+// 	return p.name
+// }
 
-	if err == nil {
-		// Retrieve the result
-		result, _ := store.Get(ctx, fmt.Sprintf("fallback:%s:result", p.name))
-		return result, nil
-	}
+// // Execute runs with retry and fallback support.
+// func (p *RetryWithFallbackPolicy) Execute(ctx context.Context, store pocket.Store, input any) (any, error) {
+// 	// Try with retry first
+// 	var primaryErr error
+// 	err := p.retryPolicy.Do(ctx, func() error {
+// 		result, err := p.primary(ctx, input)
+// 		if err != nil {
+// 			primaryErr = err
+// 			return err
+// 		}
+// 		// Store successful result
+// 		_ = store.Set(ctx, fmt.Sprintf("fallback:%s:result", p.name), result)
+// 		return nil
+// 	})
 
-	// All retries failed, use fallback
-	_ = store.Set(ctx, fmt.Sprintf("fallback:%s:retry_failed", p.name), primaryErr)
-	return p.fallback(ctx, store, input, primaryErr)
-}
+// 	if err == nil {
+// 		// Retrieve the result
+// 		result, _ := store.Get(ctx, fmt.Sprintf("fallback:%s:result", p.name))
+// 		return result, nil
+// 	}
+
+// 	// All retries failed, use fallback
+// 	_ = store.Set(ctx, fmt.Sprintf("fallback:%s:retry_failed", p.name), primaryErr)
+// 	return p.fallback(ctx, store, input, primaryErr)
+// }
 
 // CachedFallbackPolicy uses cached results as fallback.
 type CachedFallbackPolicy struct {
@@ -347,7 +350,7 @@ func (b *PolicyBuilder) Build() Policy {
 }
 
 // ToNode converts a fallback policy to a pocket Node.
-func ToNode(policy Policy) *pocket.Node {
+func ToNode(policy Policy) pocket.Node {
 	return pocket.NewNode[any, any](policy.Name(),
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Pass input and store to exec step

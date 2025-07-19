@@ -72,7 +72,7 @@ func main() {
 	)
 
 	// Create action nodes using a helper function
-	createActionNode := func(actionType string) *pocket.Node {
+	createActionNode := func(actionType string) pocket.Node {
 		return pocket.NewNode[any, any](actionType,
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				// Prepare: get current task

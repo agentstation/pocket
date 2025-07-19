@@ -64,7 +64,7 @@ func BenchmarkLifecycleSteps(b *testing.B) {
 
 // Benchmark pipeline execution with multiple nodes.
 func BenchmarkPipelineMultiNode(b *testing.B) {
-	nodes := make([]*pocket.Node, 5)
+	nodes := make([]pocket.Node, 5)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any]("bench",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -83,7 +83,7 @@ func BenchmarkPipelineMultiNode(b *testing.B) {
 
 // Benchmark concurrent execution with many nodes.
 func BenchmarkRunConcurrentManyNodes(b *testing.B) {
-	nodes := make([]*pocket.Node, 10)
+	nodes := make([]pocket.Node, 10)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any]("bench",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {

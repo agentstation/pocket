@@ -3,9 +3,11 @@ package node
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/agentstation/pocket"
+	"github.com/agentstation/pocket/middleware"
 )
 
 // Hook represents a lifecycle hook.
@@ -93,129 +95,155 @@ func (m *HookManager) Trigger(ctx context.Context, event *Event) error {
 }
 
 // WithHooks adds hook support to a node.
-func WithHooks(manager *HookManager) Middleware {
-	return func(node *pocket.Node) *pocket.Node {
-		originalPrep := node.Prep
-		originalExec := node.Exec
-		originalPost := node.Post
-
-		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Trigger pre-prep event
-			_ = manager.Trigger(ctx, &Event{
-				Type:     EventPrep,
-				NodeName: node.Name,
-				Phase:    "before",
-				Input:    input,
-				Metadata: map[string]any{"stage": "prep"},
-			})
-
-			result, err := originalPrep(ctx, store, input)
-
-			// Trigger post-prep event
-			event := Event{
-				Type:     EventPrep,
-				NodeName: node.Name,
-				Phase:    "after",
-				Input:    input,
-				Output:   result,
-				Error:    err,
-				Metadata: map[string]any{"stage": "prep"},
-			}
-
-			if err != nil {
-				event.Type = EventError
-			}
-
-			_ = manager.Trigger(ctx, &event)
-			return result, err
+func WithHooks(manager *HookManager) middleware.Middleware {
+	return func(node pocket.Node) pocket.Node {
+		return &hookedNode{
+			inner:   node,
+			manager: manager,
 		}
-
-		node.Exec = func(ctx context.Context, input any) (any, error) {
-			// Trigger pre-exec event
-			_ = manager.Trigger(ctx, &Event{
-				Type:     EventExec,
-				NodeName: node.Name,
-				Phase:    "before",
-				Input:    input,
-				Metadata: map[string]any{"stage": "exec"},
-			})
-
-			result, err := originalExec(ctx, input)
-
-			// Trigger post-exec event
-			event := Event{
-				Type:     EventExec,
-				NodeName: node.Name,
-				Phase:    "after",
-				Input:    input,
-				Output:   result,
-				Error:    err,
-				Metadata: map[string]any{"stage": "exec"},
-			}
-
-			if err != nil {
-				event.Type = EventError
-			} else {
-				_ = manager.Trigger(ctx, &Event{
-					Type:     EventSuccess,
-					NodeName: node.Name,
-					Phase:    "exec",
-					Output:   result,
-				})
-			}
-
-			_ = manager.Trigger(ctx, &event)
-			return result, err
-		}
-
-		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			// Trigger pre-post event
-			_ = manager.Trigger(ctx, &Event{
-				Type:     EventPost,
-				NodeName: node.Name,
-				Phase:    "before",
-				Input:    input,
-				Metadata: map[string]any{
-					"stage": "post",
-					"prep":  prep,
-					"exec":  exec,
-				},
-			})
-
-			output, next, err := originalPost(ctx, store, input, prep, exec)
-
-			// Trigger post-post event
-			event := Event{
-				Type:     EventPost,
-				NodeName: node.Name,
-				Phase:    "after",
-				Input:    input,
-				Output:   output,
-				Error:    err,
-				Metadata: map[string]any{
-					"stage": "post",
-					"next":  next,
-				},
-			}
-
-			if err == nil {
-				// Trigger routing event
-				_ = manager.Trigger(ctx, &Event{
-					Type:     EventRoute,
-					NodeName: node.Name,
-					Metadata: map[string]any{
-						"next":   next,
-						"output": output,
-					},
-				})
-			}
-
-			_ = manager.Trigger(ctx, &event)
-			return output, next, err
-		}
-
-		return node
 	}
+}
+
+// hookedNode wraps a node with hook support.
+type hookedNode struct {
+	inner   pocket.Node
+	manager *HookManager
+}
+
+func (h *hookedNode) Name() string {
+	return h.inner.Name()
+}
+
+func (h *hookedNode) Prep(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	// Trigger pre-prep event
+	_ = h.manager.Trigger(ctx, &Event{
+		Type:     EventPrep,
+		NodeName: h.inner.Name(),
+		Phase:    "before",
+		Input:    input,
+		Metadata: map[string]any{"stage": "prep"},
+	})
+
+	result, err := h.inner.Prep(ctx, store, input)
+
+	// Trigger post-prep event
+	event := Event{
+		Type:     EventPrep,
+		NodeName: h.inner.Name(),
+		Phase:    "after",
+		Input:    input,
+		Output:   result,
+		Error:    err,
+		Metadata: map[string]any{"stage": "prep"},
+	}
+
+	if err != nil {
+		event.Type = EventError
+	}
+
+	_ = h.manager.Trigger(ctx, &event)
+	return result, err
+}
+
+func (h *hookedNode) Exec(ctx context.Context, input any) (any, error) {
+	// Trigger pre-exec event
+	_ = h.manager.Trigger(ctx, &Event{
+		Type:     EventExec,
+		NodeName: h.inner.Name(),
+		Phase:    "before",
+		Input:    input,
+		Metadata: map[string]any{"stage": "exec"},
+	})
+
+	result, err := h.inner.Exec(ctx, input)
+
+	// Trigger post-exec event
+	event := Event{
+		Type:     EventExec,
+		NodeName: h.inner.Name(),
+		Phase:    "after",
+		Input:    input,
+		Output:   result,
+		Error:    err,
+		Metadata: map[string]any{"stage": "exec"},
+	}
+
+	if err != nil {
+		event.Type = EventError
+	} else {
+		_ = h.manager.Trigger(ctx, &Event{
+			Type:     EventSuccess,
+			NodeName: h.inner.Name(),
+			Phase:    "exec",
+			Output:   result,
+		})
+	}
+
+	_ = h.manager.Trigger(ctx, &event)
+	return result, err
+}
+
+func (h *hookedNode) Post(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (output any, next string, err error) {
+	// Trigger pre-post event
+	_ = h.manager.Trigger(ctx, &Event{
+		Type:     EventPost,
+		NodeName: h.inner.Name(),
+		Phase:    "before",
+		Input:    input,
+		Metadata: map[string]any{
+			"stage": "post",
+			"prep":  prep,
+			"exec":  exec,
+		},
+	})
+
+	output, next, err = h.inner.Post(ctx, store, input, prep, exec)
+
+	// Trigger post-post event
+	event := Event{
+		Type:     EventPost,
+		NodeName: h.inner.Name(),
+		Phase:    "after",
+		Input:    input,
+		Output:   output,
+		Error:    err,
+		Metadata: map[string]any{
+			"stage": "post",
+			"next":  next,
+		},
+	}
+
+	if err == nil {
+		// Trigger routing event
+		_ = h.manager.Trigger(ctx, &Event{
+			Type:     EventRoute,
+			NodeName: h.inner.Name(),
+			Metadata: map[string]any{
+				"next":   next,
+				"output": output,
+			},
+		})
+	}
+
+	_ = h.manager.Trigger(ctx, &event)
+	return output, next, err
+}
+
+func (h *hookedNode) Connect(action string, next pocket.Node) pocket.Node {
+	h.inner.Connect(action, next)
+	return h
+}
+
+func (h *hookedNode) Successors() map[string]pocket.Node {
+	return h.inner.Successors()
+}
+
+func (h *hookedNode) InputType() reflect.Type {
+	return h.inner.InputType()
+}
+
+func (h *hookedNode) OutputType() reflect.Type {
+	return h.inner.OutputType()
 }
 
 // Common hook implementations
@@ -258,11 +286,11 @@ func (h *LoggingHook) Execute(ctx context.Context, event *Event) error {
 // MetricsHook collects metrics from events.
 type MetricsHook struct {
 	name      string
-	collector MetricsCollector
+	collector middleware.MetricsCollector
 }
 
 // NewMetricsHook creates a metrics collection hook.
-func NewMetricsHook(collector MetricsCollector) *MetricsHook {
+func NewMetricsHook(collector middleware.MetricsCollector) *MetricsHook {
 	return &MetricsHook{
 		name:      "metrics",
 		collector: collector,

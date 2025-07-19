@@ -79,22 +79,44 @@ type Store interface {
 	Scope(prefix string) Store
 }
 
-// Node represents a processing unit in a workflow with Prep/Exec/Post lifecycle.
-type Node struct {
-	// Name identifies the node in the graph.
-	Name string
+// Node is the core interface for all execution units in a workflow.
+// Both simple nodes and graphs implement this interface.
+type Node interface {
+	// Name returns the node's identifier.
+	Name() string
 
-	// Lifecycle methods (never nil - have defaults).
-	Prep PrepFunc
-	Exec ExecFunc
-	Post PostFunc
+	// Lifecycle methods for the Prep/Exec/Post pattern.
+	Prep(ctx context.Context, store StoreReader, input any) (prepResult any, err error)
+	Exec(ctx context.Context, prepResult any) (execResult any, err error)
+	Post(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
+
+	// Connect adds a successor node for the given action.
+	Connect(action string, next Node) Node
+
+	// Successors returns all connected nodes.
+	Successors() map[string]Node
 
 	// Type information for validation (optional).
-	InputType  reflect.Type
-	OutputType reflect.Type
+	InputType() reflect.Type
+	OutputType() reflect.Type
+}
+
+// node is the private implementation of Node for simple execution units.
+type node struct {
+	// Name identifies the node in the graph.
+	name string
+
+	// Lifecycle methods (never nil - have defaults).
+	prep PrepFunc
+	exec ExecFunc
+	post PostFunc
+
+	// Type information for validation (optional).
+	inputType  reflect.Type
+	outputType reflect.Type
 
 	// Successors maps action names to next nodes.
-	successors map[string]*Node
+	successors map[string]Node
 
 	// Options
 	opts nodeOptions
@@ -300,6 +322,58 @@ func WithOnComplete(fn func(ctx context.Context, store StoreWriter)) Option {
 	}
 }
 
+// Implementation of Node interface for node struct
+
+// Name returns the node's identifier.
+func (n *node) Name() string {
+	return n.name
+}
+
+// Prep implements the preparation phase of the node lifecycle.
+func (n *node) Prep(ctx context.Context, store StoreReader, input any) (any, error) {
+	if n.prep != nil {
+		return n.prep(ctx, store, input)
+	}
+	return defaultPrep(ctx, store, input)
+}
+
+// Exec implements the execution phase of the node lifecycle.
+func (n *node) Exec(ctx context.Context, prepResult any) (any, error) {
+	if n.exec != nil {
+		return n.exec(ctx, prepResult)
+	}
+	return defaultExec(ctx, prepResult)
+}
+
+// Post implements the post-processing phase of the node lifecycle.
+func (n *node) Post(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error) {
+	if n.post != nil {
+		return n.post(ctx, store, input, prepResult, execResult)
+	}
+	return defaultPost(ctx, store, input, prepResult, execResult)
+}
+
+// Connect adds a successor node for the given action.
+func (n *node) Connect(action string, next Node) Node {
+	n.successors[action] = next
+	return n
+}
+
+// Successors returns all connected nodes.
+func (n *node) Successors() map[string]Node {
+	return n.successors
+}
+
+// InputType returns the expected input type for validation.
+func (n *node) InputType() reflect.Type {
+	return n.inputType
+}
+
+// OutputType returns the expected output type for validation.
+func (n *node) OutputType() reflect.Type {
+	return n.outputType
+}
+
 // Default implementations for lifecycle methods.
 func defaultPrep(ctx context.Context, store StoreReader, input any) (any, error) {
 	return input, nil // pass through
@@ -326,48 +400,48 @@ func isAnyType(t reflect.Type) bool {
 
 // newNodeBase creates a basic node without type parameters.
 // This is an internal helper used by the new generic NewNode function.
-func newNodeBase(name string, opts ...Option) *Node {
+func newNodeBase(name string, opts ...Option) *node {
 	// Get global defaults
 	defaultPrep, defaultExec, defaultPost, defaultOpts := getDefaults()
 
 	// Create node with defaults
-	node := &Node{
-		Name:       name,
-		Prep:       defaultPrep,
-		Exec:       defaultExec,
-		Post:       defaultPost,
-		successors: make(map[string]*Node),
+	n := &node{
+		name:       name,
+		prep:       defaultPrep,
+		exec:       defaultExec,
+		post:       defaultPost,
+		successors: make(map[string]Node),
 		opts:       defaultOpts,
 	}
 
 	// Apply lifecycle functions from defaults if set
 	if defaultOpts.prep != nil {
-		node.Prep = defaultOpts.prep
+		n.prep = defaultOpts.prep
 	}
 	if defaultOpts.exec != nil {
-		node.Exec = defaultOpts.exec
+		n.exec = defaultOpts.exec
 	}
 	if defaultOpts.post != nil {
-		node.Post = defaultOpts.post
+		n.post = defaultOpts.post
 	}
 
 	// Apply provided options (override defaults)
 	for _, opt := range opts {
-		opt(&node.opts)
+		opt(&n.opts)
 	}
 
 	// Apply lifecycle functions from options
-	if node.opts.prep != nil {
-		node.Prep = node.opts.prep
+	if n.opts.prep != nil {
+		n.prep = n.opts.prep
 	}
-	if node.opts.exec != nil {
-		node.Exec = node.opts.exec
+	if n.opts.exec != nil {
+		n.exec = n.opts.exec
 	}
-	if node.opts.post != nil {
-		node.Post = node.opts.post
+	if n.opts.post != nil {
+		n.post = n.opts.post
 	}
 
-	return node
+	return n
 }
 
 // NewNode creates a new node with optional compile-time type safety.
@@ -404,9 +478,9 @@ func newNodeBase(name string, opts ...Option) *Node {
 //	        return processData(input), nil
 //	    }),
 //	)
-func NewNode[In, Out any](name string, opts ...Option) *Node {
+func NewNode[In, Out any](name string, opts ...Option) Node {
 	// Create base node using existing logic
-	node := newNodeBase(name, opts...)
+	n := newNodeBase(name, opts...)
 
 	// Determine if types are specified (not 'any')
 	inType := reflect.TypeOf((*In)(nil)).Elem()
@@ -415,31 +489,32 @@ func NewNode[In, Out any](name string, opts ...Option) *Node {
 	// Set type information on node if types are not 'any'
 	// This enables ValidateFlow to check type compatibility between nodes
 	if !isAnyType(inType) {
-		node.InputType = inType
+		n.inputType = inType
 	}
 	if !isAnyType(outType) {
-		node.OutputType = outType
+		n.outputType = outType
 	}
 
-	return node
-}
-
-// Connect adds a successor node for the given action.
-func (n *Node) Connect(action string, next *Node) *Node {
-	n.successors[action] = next
 	return n
 }
 
-// Default connects to the default next node.
-func (n *Node) Default(next *Node) *Node {
+// Default is a helper function to connect to the default next node.
+func Default(n, next Node) Node {
 	return n.Connect("default", next)
 }
 
-// Graph orchestrates the execution of connected nodes.
+// graph is the private implementation of Node for composite execution.
+type graph struct {
+	name       string
+	start      Node
+	store      Store
+	successors map[string]Node
+	opts       graphOptions
+}
+
+// Graph is the public handle to a graph for backward compatibility.
 type Graph struct {
-	start *Node
-	store Store
-	opts  graphOptions
+	*graph // embed private graph
 }
 
 // graphOptions holds configuration for a Graph.
@@ -465,18 +540,75 @@ func WithTracer(tracer Tracer) GraphOption {
 	}
 }
 
+// Implementation of Node interface for graph struct
+
+// Name returns the graph's identifier.
+func (g *graph) Name() string {
+	return g.name
+}
+
+// Prep for a graph doesn't need to do anything special.
+func (g *graph) Prep(ctx context.Context, store StoreReader, input any) (any, error) {
+	// Graphs use their own internal store, so just pass through the input
+	return input, nil
+}
+
+// Exec runs the graph workflow.
+func (g *graph) Exec(ctx context.Context, input any) (any, error) {
+	// Create a new Graph wrapper to use existing Run logic
+	wrapper := &Graph{graph: g}
+	return wrapper.Run(ctx, input)
+}
+
+// Post handles the graph execution results.
+func (g *graph) Post(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error) {
+	// Return the result and default routing
+	return execResult, "default", nil
+}
+
+// Connect adds a successor node for when the graph is used as a node.
+func (g *graph) Connect(action string, next Node) Node {
+	if g.successors == nil {
+		g.successors = make(map[string]Node)
+	}
+	g.successors[action] = next
+	return g
+}
+
+// Successors returns all connected nodes.
+func (g *graph) Successors() map[string]Node {
+	return g.successors
+}
+
+// InputType returns nil for graphs (dynamic typing).
+func (g *graph) InputType() reflect.Type {
+	return nil
+}
+
+// OutputType returns nil for graphs (dynamic typing).
+func (g *graph) OutputType() reflect.Type {
+	return nil
+}
+
 // NewGraph creates a new graph starting from the given node.
-func NewGraph(start *Node, store Store, opts ...GraphOption) *Graph {
-	f := &Graph{
-		start: start,
-		store: store,
+func NewGraph(start Node, store Store, opts ...GraphOption) *Graph {
+	name := "graph"
+	if start != nil {
+		name = "graph-" + start.Name()
+	}
+
+	g := &graph{
+		name:       name,
+		start:      start,
+		store:      store,
+		successors: make(map[string]Node),
 	}
 
 	for _, opt := range opts {
-		opt(&f.opts)
+		opt(&g.opts)
 	}
 
-	return f
+	return &Graph{graph: g}
 }
 
 // ValidateGraph provides initialization-time type safety by validating the entire workflow graph.
@@ -516,21 +648,21 @@ func NewGraph(start *Node, store Store, opts ...GraphOption) *Graph {
 //	// Safe to execute - types are verified
 //	graph := NewGraph(validator, store)
 //	result, err := graph.Run(ctx, user)
-func ValidateGraph(start *Node) error {
+func ValidateGraph(start Node) error {
 	visited := make(map[string]bool)
 	return validateNode(start, visited)
 }
 
-func validateNode(node *Node, visited map[string]bool) error {
-	if node == nil || visited[node.Name] {
+func validateNode(node Node, visited map[string]bool) error {
+	if node == nil || visited[node.Name()] {
 		return nil
 	}
-	visited[node.Name] = true
+	visited[node.Name()] = true
 
 	// If this node has no type information, skip validation
-	if node.OutputType == nil {
+	if node.OutputType() == nil {
 		// Still validate successors
-		for _, successor := range node.successors {
+		for _, successor := range node.Successors() {
 			if err := validateNode(successor, visited); err != nil {
 				return err
 			}
@@ -539,12 +671,12 @@ func validateNode(node *Node, visited map[string]bool) error {
 	}
 
 	// Check each successor
-	for action, successor := range node.successors {
-		if successor.InputType != nil {
+	for action, successor := range node.Successors() {
+		if successor.InputType() != nil {
 			// Both types are specified, check compatibility
-			if !isTypeCompatible(node.OutputType, successor.InputType) {
+			if !isTypeCompatible(node.OutputType(), successor.InputType()) {
 				return fmt.Errorf("type mismatch: node %q outputs %v but node %q expects %v (via action %q)",
-					node.Name, node.OutputType, successor.Name, successor.InputType, action)
+					node.Name(), node.OutputType(), successor.Name(), successor.InputType(), action)
 			}
 		}
 
@@ -593,20 +725,21 @@ func (g *Graph) Run(ctx context.Context, input any) (output any, err error) {
 	for current != nil {
 		// Log node execution
 		if g.opts.logger != nil {
-			g.opts.logger.Debug(ctx, "executing node", "name", current.Name)
+			g.opts.logger.Debug(ctx, "executing node", "name", current.Name())
 		}
 
 		// Execute node with lifecycle
 		output, next, err := g.executeNode(ctx, current, currentInput)
 		if err != nil {
-			return nil, fmt.Errorf("node %s: %w", current.Name, err)
+			return nil, fmt.Errorf("node %s: %w", current.Name(), err)
 		}
 
 		// Save the output
 		lastOutput = output
 
 		// Move to next node
-		current = current.successors[next]
+		successors := current.Successors()
+		current = successors[next]
 		currentInput = output
 	}
 
@@ -623,28 +756,31 @@ func (g *Graph) Run(ctx context.Context, input any) (output any, err error) {
 // This is where runtime type checking occurs, complementing compile-time and init-time checks.
 // For typed nodes using generic options like WithExec, type assertions are handled
 // automatically through Go's type inference.
-func (g *Graph) executeNode(ctx context.Context, node *Node, input any) (output any, next string, err error) {
+func (g *Graph) executeNode(ctx context.Context, n Node, input any) (output any, next string, err error) {
 	// Runtime type check: Validate input matches node's expected type
 	// This catches any type mismatches that slipped through earlier checks
-	if node.InputType != nil && input != nil {
+	if n.InputType() != nil && input != nil {
 		inputType := reflect.TypeOf(input)
-		if !isTypeCompatible(inputType, node.InputType) {
+		if !isTypeCompatible(inputType, n.InputType()) {
 			return nil, "", fmt.Errorf("%w: node %q expects %v but got %v",
-				ErrInvalidInput, node.Name, node.InputType, inputType)
+				ErrInvalidInput, n.Name(), n.InputType(), inputType)
 		}
 	}
-	// Apply timeout to entire lifecycle if configured
-	if node.opts.timeout > 0 {
+
+	// Check if this is a simple node with options
+	if simpleNode, ok := n.(*node); ok && simpleNode.opts.timeout > 0 {
+		// Apply timeout to entire lifecycle if configured
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, node.opts.timeout)
+		ctx, cancel = context.WithTimeout(ctx, simpleNode.opts.timeout)
 		defer cancel()
 	}
 
 	// Execute lifecycle with retry support for each step
-	output, next, err = g.executeLifecycle(ctx, node, input)
+	output, next, err = g.executeLifecycle(ctx, n, input)
 	if err != nil {
-		if node.opts.onError != nil {
-			node.opts.onError(err)
+		// Check if this is a simple node with error handler
+		if simpleNode, ok := n.(*node); ok && simpleNode.opts.onError != nil {
+			simpleNode.opts.onError(err)
 		}
 		return nil, "", err
 	}
@@ -653,47 +789,56 @@ func (g *Graph) executeNode(ctx context.Context, node *Node, input any) (output 
 }
 
 // executeLifecycle runs the Prep/Exec/Post steps.
-func (g *Graph) executeLifecycle(ctx context.Context, node *Node, input any) (output any, next string, err error) {
+func (g *Graph) executeLifecycle(ctx context.Context, n Node, input any) (output any, next string, err error) {
+	// Check if this is a simple node with hooks
+	var simpleNode *node
+	if sn, ok := n.(*node); ok {
+		simpleNode = sn
+	}
+
 	// Ensure cleanup hooks run
 	defer func() {
+		if simpleNode == nil {
+			return
+		}
 		// Run success or failure hook based on error state first
 		if err != nil {
-			if node.opts.onFailure != nil {
-				node.opts.onFailure(ctx, g.store, err)
+			if simpleNode.opts.onFailure != nil {
+				simpleNode.opts.onFailure(ctx, g.store, err)
 			}
 		} else {
-			if node.opts.onSuccess != nil {
-				node.opts.onSuccess(ctx, g.store, output)
+			if simpleNode.opts.onSuccess != nil {
+				simpleNode.opts.onSuccess(ctx, g.store, output)
 			}
 		}
 
 		// Always run onComplete last
-		if node.opts.onComplete != nil {
-			node.opts.onComplete(ctx, g.store)
+		if simpleNode.opts.onComplete != nil {
+			simpleNode.opts.onComplete(ctx, g.store)
 		}
 	}()
 
 	// Prep step with retry
-	prepResult, err := g.executeWithRetry(ctx, node, func() (any, error) {
-		return node.Prep(ctx, g.store, input)
+	prepResult, err := g.executeWithRetry(ctx, n, func() (any, error) {
+		return n.Prep(ctx, g.store, input)
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("prep failed: %w", err)
 	}
 
 	// Exec step with retry
-	execResult, err := g.executeWithRetry(ctx, node, func() (any, error) {
-		return node.Exec(ctx, prepResult)
+	execResult, err := g.executeWithRetry(ctx, n, func() (any, error) {
+		return n.Exec(ctx, prepResult)
 	})
 	if err != nil {
 		// Check if node has a fallback
-		if node.opts.fallback != nil {
+		if simpleNode != nil && simpleNode.opts.fallback != nil {
 			if g.opts.logger != nil {
-				g.opts.logger.Debug(ctx, "executing fallback", "name", node.Name, "error", err)
+				g.opts.logger.Debug(ctx, "executing fallback", "name", n.Name(), "error", err)
 			}
 
 			// Execute fallback with original input
-			fallbackResult, fallbackErr := node.opts.fallback(ctx, input, err)
+			fallbackResult, fallbackErr := simpleNode.opts.fallback(ctx, input, err)
 			if fallbackErr != nil {
 				return nil, "", fmt.Errorf("exec failed and fallback failed: primary=%w, fallback=%v", err, fallbackErr)
 			}
@@ -706,7 +851,7 @@ func (g *Graph) executeLifecycle(ctx context.Context, node *Node, input any) (ou
 	}
 
 	// Post step (no retry for routing decisions)
-	output, next, err = node.Post(ctx, g.store, input, prepResult, execResult)
+	output, next, err = n.Post(ctx, g.store, input, prepResult, execResult)
 	if err != nil {
 		return nil, "", fmt.Errorf("post failed: %w", err)
 	}
@@ -715,9 +860,17 @@ func (g *Graph) executeLifecycle(ctx context.Context, node *Node, input any) (ou
 }
 
 // executeWithRetry handles retry logic for lifecycle steps.
-func (g *Graph) executeWithRetry(ctx context.Context, node *Node, fn func() (any, error)) (any, error) {
+func (g *Graph) executeWithRetry(ctx context.Context, n Node, fn func() (any, error)) (any, error) {
 	attempts := 0
-	maxAttempts := node.opts.maxRetries + 1
+	maxAttempts := 1 // default no retry
+	var retryDelay time.Duration
+
+	// Check if this is a simple node with retry options
+	if simpleNode, ok := n.(*node); ok {
+		maxAttempts = simpleNode.opts.maxRetries + 1
+		retryDelay = simpleNode.opts.retryDelay
+	}
+
 	var lastErr error
 
 	for attempts < maxAttempts {
@@ -725,7 +878,7 @@ func (g *Graph) executeWithRetry(ctx context.Context, node *Node, fn func() (any
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(node.opts.retryDelay):
+			case <-time.After(retryDelay):
 			}
 		}
 
@@ -739,7 +892,7 @@ func (g *Graph) executeWithRetry(ctx context.Context, node *Node, fn func() (any
 		if attempts < maxAttempts {
 			if g.opts.logger != nil {
 				g.opts.logger.Debug(ctx, "retrying node step",
-					"name", node.Name,
+					"name", n.Name(),
 					"attempt", attempts,
 					"error", err)
 			}
@@ -749,16 +902,15 @@ func (g *Graph) executeWithRetry(ctx context.Context, node *Node, fn func() (any
 	return nil, fmt.Errorf("failed after %d attempts: %w", attempts, lastErr)
 }
 
-// AsNode converts this Graph into a Node that can be used within another Graph.
-// This enables graph composition where entire workflows become single nodes.
-func (g *Graph) AsNode(name string) *Node {
-	return NewNode[any, any](name,
-		WithExec(func(ctx context.Context, input any) (any, error) {
-			// Run the graph with the provided input
-			// The graph uses its own store, maintaining isolation
-			return g.Run(ctx, input)
-		}),
-	)
+// AsNode returns the graph as a Node interface.
+// Since graph already implements Node, we just return it.
+// This method exists for backward compatibility.
+func (g *Graph) AsNode(name string) Node {
+	// Update the graph's name if provided
+	if name != "" {
+		g.name = name
+	}
+	return g.graph
 }
 
 // Logger provides structured logging.

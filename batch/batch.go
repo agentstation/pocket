@@ -79,7 +79,7 @@ func NewProcessor[T, R any](
 }
 
 // ToNode converts the batch processor into a pocket Node.
-func (p *Processor[T, R]) ToNode(name string) *pocket.Node {
+func (p *Processor[T, R]) ToNode(name string) pocket.Node {
 	return pocket.NewNode[any, any](name,
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// The store is passed as prep result for exec step
@@ -186,7 +186,7 @@ func MapReduce[T, R any](
 	mapper func(context.Context, T) (R, error),
 	reducer func(context.Context, []R) (any, error),
 	opts ...Option,
-) *pocket.Node {
+) pocket.Node {
 	p := NewProcessor(extract, mapper, reducer, opts...)
 	return p.ToNode(name)
 }
@@ -197,7 +197,7 @@ func ForEach[T any](
 	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	process func(context.Context, T) error,
 	opts ...Option,
-) *pocket.Node {
+) pocket.Node {
 	transform := func(ctx context.Context, item T) (struct{}, error) {
 		return struct{}{}, process(ctx, item)
 	}
@@ -216,7 +216,7 @@ func Filter[T any](
 	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	predicate func(context.Context, T) (bool, error),
 	opts ...Option,
-) *pocket.Node {
+) pocket.Node {
 	type result struct {
 		item T
 		keep bool

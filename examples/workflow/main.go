@@ -475,7 +475,7 @@ func main() {
 	fmt.Println("\n=== Workflow Builder Pattern ===")
 
 	// Create a monitoring wrapper node
-	monitor := func(name string, node *pocket.Node) *pocket.Node {
+	monitor := func(name string, node pocket.Node) pocket.Node {
 		return pocket.NewNode[any, any](name+"-monitor",
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				fmt.Printf("[Monitor] Entering stage: %s\n", name)

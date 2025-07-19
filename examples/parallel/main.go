@@ -334,7 +334,7 @@ func main() {
 	)
 
 	// Run pipeline on first document
-	pipelineResult, err := pocket.Pipeline(ctx, []*pocket.Node{extract, analyze, format}, store, docs[0])
+	pipelineResult, err := pocket.Pipeline(ctx, []pocket.Node{extract, analyze, format}, store, docs[0])
 	if err != nil {
 		log.Fatalf("Pipeline failed: %v", err)
 	}

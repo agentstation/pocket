@@ -22,7 +22,7 @@ type hookTracker struct {
 }
 
 // createNodeWithHooks creates a node with hooks and returns the tracker.
-func createNodeWithHooks(t *testing.T, execFunc pocket.ExecFunc, tracker *hookTracker) *pocket.Node {
+func createNodeWithHooks(t *testing.T, execFunc pocket.ExecFunc, tracker *hookTracker) pocket.Node {
 	return pocket.NewNode[any, any]("test",
 		pocket.WithExec(execFunc),
 		pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {

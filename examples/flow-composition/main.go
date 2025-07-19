@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/internal/graph"
+	"github.com/agentstation/pocket/compose"
 )
 
 // TextProcessor represents a reusable text processing workflow
@@ -234,7 +234,7 @@ func main() {
 	fmt.Println("---------------------------------")
 
 	// Create a nested graph with store isolation
-	nestedGraph, err := graph.NewNestedGraphBuilder("translation-pipeline", store).
+	nestedGraph, err := compose.NewBuilder("translation-pipeline", store).
 		AddGraph("process", textProcessor).
 		AddGraph("translate", translator).
 		AddGraph("quality", qualityChecker).
@@ -271,7 +271,7 @@ func main() {
 	}
 
 	// Process the same text through multiple translators in parallel
-	parallelResults, err := graph.ParallelGraphs(ctx, store, translationGraphs...)
+	parallelResults, err := compose.ParallelGraphs(ctx, store, translationGraphs...)
 	if err != nil {
 		log.Printf("Parallel execution error: %v", err)
 	} else {

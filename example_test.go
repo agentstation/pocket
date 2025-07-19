@@ -200,7 +200,7 @@ func ExamplePipeline() {
 		}),
 	)
 
-	nodes := []*pocket.Node{double, addTen, toString}
+	nodes := []pocket.Node{double, addTen, toString}
 
 	result, err := pocket.Pipeline(context.Background(), nodes, store, 5)
 	if err != nil {

@@ -330,7 +330,7 @@ func (p *CircuitBreakerPolicy) Execute(ctx context.Context, store pocket.Store, 
 }
 
 // ToNode converts a circuit breaker policy to a pocket Node.
-func ToCircuitBreakerNode(name string, primary pocket.ExecFunc, fallback Handler, opts ...CircuitOption) *pocket.Node {
+func ToCircuitBreakerNode(name string, primary pocket.ExecFunc, fallback Handler, opts ...CircuitOption) pocket.Node {
 	policy := NewCircuitBreakerPolicy(name, primary, fallback, opts...)
 
 	return pocket.NewNode[any, any](name,

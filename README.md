@@ -57,23 +57,35 @@ Pocket is a decision graph framework that lets you build complex workflows as co
 
 ### What Makes Pocket Special?
 
-1. **Decision Graph Architecture**
+1. **Interface-Based Architecture**
+   - Node is an interface, not a struct
+   - Graph implements Node for natural composition
+   - Extensible - create custom node implementations
+   - No migration needed - existing code continues to work
+
+2. **Decision Graph Architecture**
    - Build workflows as directed graphs
    - Each node decides the next step dynamically
    - Non-deterministic transitions based on runtime logic
    - Clear execution graph visualization
 
-2. **Enforced Read/Write Separation** 
-   - Prep step: Read-only access
-   - Exec step: Pure functions, no store
-   - Post step: Full read/write access
+3. **Enforced Read/Write Separation** 
+   - Prep step: Read-only access via StoreReader
+   - Exec step: Pure functions, no store access
+   - Post step: Full read/write access via StoreWriter
 
-3. **Go's Strengths**
+4. **Built-in Bounded Store**
+   - LRU eviction when capacity exceeded
+   - TTL support for automatic expiration
+   - Eviction callbacks for cleanup
+   - Thread-safe and context-aware
+
+5. **Go's Strengths**
    - Optional compile-time type safety
    - Built-in concurrency primitives
    - Production-grade performance
 
-4. **Zero Dependencies**
+6. **Zero Dependencies**
    - Pure Go standard library
    - No vendor lock-in
    - Easy to understand and modify
@@ -112,7 +124,32 @@ func main() {
 }
 ```
 
+> **Note**: `Node` is an interface in Pocket, enabling powerful composition. The familiar `pocket.NewNode()` creates a node that implements this interface.
+
 ## Core Concepts
+
+### Node as Interface
+
+In Pocket, `Node` is now an interface, not a struct. This powerful design enables composition and flexibility:
+
+```go
+type Node interface {
+    Name() string
+    Prep(ctx context.Context, store StoreReader, input any) (any, error)
+    Exec(ctx context.Context, prepData any) (any, error)
+    Post(ctx context.Context, store StoreWriter, input, prepData, result any) (any, string, error)
+    Connect(action string, next Node)
+    Successors() map[string]Node
+    InputType() reflect.Type
+    OutputType() reflect.Type
+}
+```
+
+This means:
+- Graphs implement the Node interface, so graphs can be nested within other graphs
+- Custom node implementations are possible
+- The familiar `pocket.NewNode()` syntax is preserved
+- No migration needed - existing code continues to work
 
 ### The Prep/Exec/Post Lifecycle
 
@@ -509,7 +546,7 @@ graph, err := pocket.NewBuilder(store).
 
 ### State Management
 
-Thread-safe state management with context support:
+Thread-safe state management with built-in bounded functionality:
 
 ```go
 // Basic store operations
@@ -517,6 +554,15 @@ store := pocket.NewStore()
 store.Set(ctx, "user:123", user)
 value, exists := store.Get(ctx, "user:123")
 store.Delete(ctx, "user:123")
+
+// Store with LRU eviction and TTL
+boundedStore := pocket.NewStore(
+    pocket.WithMaxEntries(1000),           // Limit to 1000 entries
+    pocket.WithTTL(5 * time.Minute),       // 5-minute TTL
+    pocket.WithEvictionCallback(func(key string, value any) {
+        log.Printf("Evicted: %s", key)
+    }),
+)
 
 // Scoped stores for isolation
 userStore := store.Scope("user")
@@ -655,7 +701,7 @@ node := pocket.NewNode[any, any]("with-fallback",
 )
 
 // Circuit breaker pattern
-import "github.com/agentstation/pocket/internal/fallback"
+import "github.com/agentstation/pocket/fallback"
 
 cb := fallback.NewCircuitBreaker("external-api",
     fallback.WithMaxFailures(3),
@@ -837,7 +883,7 @@ processPayment.Connect("compensate", compensate)
 
 #### Graph Composition
 
-Convert entire graphs into reusable nodes for modular design:
+Since `Graph` implements the `Node` interface, graphs can be naturally composed:
 
 ```mermaid
 graph TB
@@ -877,11 +923,10 @@ enrich := pocket.NewNode[any, any]("enrich",
 validate.Connect("default", transform)
 transform.Connect("default", enrich)
 
-// Convert the graph into a reusable node
+// Create a graph - it automatically implements Node interface
 subGraph := pocket.NewGraph(validate, store)
-subGraphNode := subGraph.AsNode("data-processor")
 
-// Use in main graph
+// Use the graph directly as a node in the main graph
 preProcess := pocket.NewNode[any, any]("pre-process",
     pocket.WithExec(preProcessFunc),
 )
@@ -889,10 +934,14 @@ postProcess := pocket.NewNode[any, any]("post-process",
     pocket.WithExec(postProcessFunc),
 )
 
-preProcess.Connect("default", subGraphNode)
-subGraphNode.Connect("default", postProcess)
+// Connect graph directly - no AsNode() needed!
+preProcess.Connect("default", subGraph)
+subGraph.Connect("default", postProcess)
 
 mainGraph := pocket.NewGraph(preProcess, store)
+
+// Note: AsNode() is still available for backward compatibility
+// subGraphNode := subGraph.AsNode("data-processor")  // Still works but not needed
 ```
 
 #### Dynamic Graph Building
@@ -960,7 +1009,7 @@ func createNodeFromConfig(cfg NodeConfig) *pocket.Node {
 Structured output for LLM interactions:
 
 ```go
-import "github.com/agentstation/pocket/internal/yaml"
+import "github.com/agentstation/pocket/yaml"
 
 // Create YAML-formatted output nodes
 yamlNode := yaml.YAMLNode("formatter",
@@ -997,9 +1046,46 @@ Explore our example implementations:
 
 ## Migration Guide
 
+### From Previous Pocket Versions
+
+**No migration needed!** The interface-based architecture maintains full backward compatibility:
+
+```go
+// Your existing code continues to work:
+node := pocket.NewNode[Input, Output]("processor",
+    pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
+        return processInput(input), nil
+    }),
+)
+
+// Graphs work the same:
+graph := pocket.NewGraph(node, store)
+result, err := graph.Run(ctx, input)
+```
+
+### What's New (No Code Changes Required)
+
+1. **Direct graph composition**:
+```go
+// Graphs can now be connected directly as nodes
+mainNode.Connect("success", subGraph)  // Works without AsNode()!
+```
+
+2. **Built-in store bounds**:
+```go
+store := pocket.NewStore(
+    pocket.WithMaxEntries(1000),
+    pocket.WithTTL(5 * time.Minute),
+)
+```
+
+3. **Interface-based extensibility** - create custom nodes if needed
+
+### From Traditional Workflow Engines
+
 Moving from a traditional workflow engine? Here's how Pocket's approach differs:
 
-### Traditional Approach
+#### Traditional Approach
 ```python
 def process_node(input):
     # All logic mixed together
@@ -1009,7 +1095,7 @@ def process_node(input):
     return result
 ```
 
-### Pocket Approach
+#### Pocket Approach
 ```go
 pocket.NewNode[Input, Output]("process",
     pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input Input) (any, error) {
@@ -1034,17 +1120,18 @@ pocket.NewNode[Input, Output]("process",
 1. **Explicit steps** - Prep/Exec/Post are separate functions
 2. **Type safety** - Optional but recommended
 3. **Concurrency** - Built-in patterns vs external libraries
-4. **State access** - Controlled by step
+4. **State access** - Controlled by step with read/write separation
 
 ## API Reference
 
 For detailed API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/agentstation/pocket).
 
 ### Core Types
-- `Node[In, Out]` - Type-safe computation unit
-- `Graph` - Orchestrates node execution
-- `Store` - Thread-safe state management
+- `Node` - Interface for computation units (implemented by both nodes and graphs)
+- `Graph` - Orchestrates node execution and implements Node interface
+- `Store` - Thread-safe state management with built-in bounded functionality
 - `Builder` - Fluent API for graph construction
+- `StoreReader` / `StoreWriter` - Interfaces for read/write separation
 
 ### Key Functions
 - `NewNode[In, Out]()` - Create typed nodes

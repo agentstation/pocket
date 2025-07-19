@@ -16,19 +16,19 @@ type GraphNode struct {
 	graph      *pocket.Graph
 	inputKey   string
 	outputKey  string
-	successors map[string]*pocket.Node
+	successors map[string]pocket.Node
 }
 
 // NewGraphNode creates a new GraphNode that wraps the given graph.
 // The inputKey and outputKey specify where in the store to read input
 // and write output, enabling proper state isolation.
-func NewGraphNode(name string, graph *pocket.Graph, inputKey, outputKey string) *pocket.Node {
+func NewGraphNode(name string, graph *pocket.Graph, inputKey, outputKey string) pocket.Node {
 	fn := &GraphNode{
 		name:       name,
 		graph:      graph,
 		inputKey:   inputKey,
 		outputKey:  outputKey,
-		successors: make(map[string]*pocket.Node),
+		successors: make(map[string]pocket.Node),
 	}
 
 	// Create a pocket.Node with our lifecycle implementation
@@ -78,15 +78,9 @@ func (fn *GraphNode) post(ctx context.Context, store pocket.StoreWriter, input, 
 	return result, "default", nil
 }
 
-// AsNode converts a Graph into a Node that can be used within another Graph.
-// This is a convenience function that creates a GraphNode with default settings.
-func AsNode(graph *pocket.Graph, name string) *pocket.Node {
-	return NewGraphNode(name, graph, "", "")
-}
-
 // AsNodeWithStore converts a Graph into a Node with specific store keys for
 // input and output, enabling better state isolation.
-func AsNodeWithStore(graph *pocket.Graph, name, inputKey, outputKey string) *pocket.Node {
+func AsNodeWithStore(graph *pocket.Graph, name, inputKey, outputKey string) pocket.Node {
 	return NewGraphNode(name, graph, inputKey, outputKey)
 }
 
@@ -98,10 +92,10 @@ func ComposeGraphs(name string, store pocket.Store, graphs ...*pocket.Graph) (*p
 	}
 
 	// Create nodes from graphs
-	nodes := make([]*pocket.Node, len(graphs))
+	nodes := make([]pocket.Node, len(graphs))
 	for i, graph := range graphs {
 		nodeName := fmt.Sprintf("%s-%d", name, i)
-		nodes[i] = AsNode(graph, nodeName)
+		nodes[i] = graph.AsNode(nodeName)
 	}
 
 	// Connect nodes in sequence
@@ -121,11 +115,11 @@ func ParallelGraphs(ctx context.Context, store pocket.Store, graphs ...*pocket.G
 	}
 
 	// Create nodes from graphs
-	nodes := make([]*pocket.Node, len(graphs))
+	nodes := make([]pocket.Node, len(graphs))
 	inputs := make([]any, len(graphs))
 
 	for i, graph := range graphs {
-		nodes[i] = AsNode(graph, fmt.Sprintf("parallel-%d", i))
+		nodes[i] = graph.AsNode(fmt.Sprintf("parallel-%d", i))
 		inputs[i] = nil // Could accept input array
 	}
 
@@ -140,11 +134,12 @@ func ParallelGraphs(ctx context.Context, store pocket.Store, graphs ...*pocket.G
 
 // NestedGraphBuilder provides a fluent API for building nested graph structures.
 type NestedGraphBuilder struct {
-	name   string
-	store  pocket.Store
-	nodes  []*pocket.Node
-	start  *pocket.Node
-	errors []error
+	name       string
+	store      pocket.Store
+	nodes      []pocket.Node
+	start      pocket.Node
+	startIsSet bool
+	errors     []error
 }
 
 // NewNestedGraphBuilder creates a new builder for nested graphs.
@@ -152,16 +147,17 @@ func NewNestedGraphBuilder(name string, store pocket.Store) *NestedGraphBuilder 
 	return &NestedGraphBuilder{
 		name:  name,
 		store: store,
-		nodes: []*pocket.Node{},
+		nodes: []pocket.Node{},
 	}
 }
 
 // AddGraph adds a graph as a node in the nested structure.
 func (b *NestedGraphBuilder) AddGraph(name string, graph *pocket.Graph) *NestedGraphBuilder {
-	node := AsNode(graph, name)
+	node := graph.AsNode(name)
 	b.nodes = append(b.nodes, node)
-	if b.start == nil {
+	if !b.startIsSet {
 		b.start = node
+		b.startIsSet = true
 	}
 	return b
 }
@@ -170,30 +166,34 @@ func (b *NestedGraphBuilder) AddGraph(name string, graph *pocket.Graph) *NestedG
 func (b *NestedGraphBuilder) AddGraphWithStore(name string, graph *pocket.Graph, inputKey, outputKey string) *NestedGraphBuilder {
 	node := AsNodeWithStore(graph, name, inputKey, outputKey)
 	b.nodes = append(b.nodes, node)
-	if b.start == nil {
+	if !b.startIsSet {
 		b.start = node
+		b.startIsSet = true
 	}
 	return b
 }
 
 // Connect connects two graphs by name with a specific action.
 func (b *NestedGraphBuilder) Connect(from, action, to string) *NestedGraphBuilder {
-	var fromNode, toNode *pocket.Node
+	var fromNode, toNode pocket.Node
+	var fromFound, toFound bool
 
 	for _, node := range b.nodes {
-		if node.Name == from {
+		if node.Name() == from {
 			fromNode = node
+			fromFound = true
 		}
-		if node.Name == to {
+		if node.Name() == to {
 			toNode = node
+			toFound = true
 		}
 	}
 
-	if fromNode == nil {
+	if !fromFound {
 		b.errors = append(b.errors, fmt.Errorf("node %q not found", from))
 		return b
 	}
-	if toNode == nil {
+	if !toFound {
 		b.errors = append(b.errors, fmt.Errorf("node %q not found", to))
 		return b
 	}
@@ -207,7 +207,7 @@ func (b *NestedGraphBuilder) Build() (*pocket.Graph, error) {
 	if len(b.errors) > 0 {
 		return nil, fmt.Errorf("builder errors: %v", b.errors)
 	}
-	if b.start == nil {
+	if !b.startIsSet {
 		return nil, fmt.Errorf("no nodes added to builder")
 	}
 

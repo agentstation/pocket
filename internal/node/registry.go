@@ -19,7 +19,7 @@ type Registry struct {
 }
 
 // Builder creates nodes of a specific type.
-type Builder func(config map[string]any) (*pocket.Node, error)
+type Builder func(config map[string]any) (pocket.Node, error)
 
 // Metadata contains information about a node type.
 type Metadata struct {
@@ -73,7 +73,7 @@ func (r *Registry) Register(nodeType string, builder Builder, metadata *Metadata
 }
 
 // Create creates a node instance.
-func (r *Registry) Create(nodeType string, config map[string]any) (*pocket.Node, error) {
+func (r *Registry) Create(nodeType string, config map[string]any) (pocket.Node, error) {
 	r.mu.RLock()
 	builder, exists := r.builders[nodeType]
 	metadata := r.metadata[nodeType]
@@ -253,7 +253,7 @@ func isTypeCompatible(outputType, inputType reflect.Type) bool {
 func RegisterCommonTypes(registry *Registry) {
 	// Transform node
 	_ = registry.Register("transform",
-		func(config map[string]any) (*pocket.Node, error) {
+		func(config map[string]any) (pocket.Node, error) {
 			transformFn, ok := config["function"].(func(any) (any, error))
 			if !ok {
 				return nil, fmt.Errorf("transform function required")
@@ -281,7 +281,7 @@ func RegisterCommonTypes(registry *Registry) {
 
 	// Filter node
 	_ = registry.Register("filter",
-		func(config map[string]any) (*pocket.Node, error) {
+		func(config map[string]any) (pocket.Node, error) {
 			predicateFn, ok := config["predicate"].(func(any) bool)
 			if !ok {
 				return nil, fmt.Errorf("predicate function required")
@@ -312,7 +312,7 @@ func RegisterCommonTypes(registry *Registry) {
 
 	// Delay node
 	_ = registry.Register("delay",
-		func(config map[string]any) (*pocket.Node, error) {
+		func(config map[string]any) (pocket.Node, error) {
 			duration, ok := config["duration"].(time.Duration)
 			if !ok {
 				return nil, fmt.Errorf("duration required")
@@ -345,7 +345,7 @@ func RegisterCommonTypes(registry *Registry) {
 
 	// Logger node
 	_ = registry.Register("logger",
-		func(config map[string]any) (*pocket.Node, error) {
+		func(config map[string]any) (pocket.Node, error) {
 			level, _ := config["level"].(string)
 			if level == "" {
 				level = "info"
@@ -394,7 +394,7 @@ func (f *Factory) SetDefaults(nodeType string, defaults map[string]any) {
 }
 
 // Create creates a node with factory defaults applied.
-func (f *Factory) Create(nodeType string, config map[string]any) (*pocket.Node, error) {
+func (f *Factory) Create(nodeType string, config map[string]any) (pocket.Node, error) {
 	// Merge with factory defaults
 	mergedConfig := make(map[string]any)
 

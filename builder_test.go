@@ -15,7 +15,7 @@ func TestRunConcurrent(t *testing.T) {
 	counter := int32(0)
 
 	// Create nodes that increment a counter
-	nodes := make([]*pocket.Node, 5)
+	nodes := make([]pocket.Node, 5)
 	for i := range nodes {
 		i := i
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
@@ -80,7 +80,7 @@ func TestPipeline(t *testing.T) {
 		}),
 	)
 
-	nodes := []*pocket.Node{double, addTen, toString}
+	nodes := []pocket.Node{double, addTen, toString}
 
 	tests := []struct {
 		name  string
@@ -267,7 +267,7 @@ func BenchmarkPipeline(b *testing.B) {
 	store := pocket.NewStore()
 
 	// Create simple pipeline
-	nodes := make([]*pocket.Node, 3)
+	nodes := make([]pocket.Node, 3)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -291,7 +291,7 @@ func BenchmarkRunConcurrent(b *testing.B) {
 	store := pocket.NewStore()
 
 	// Create nodes
-	nodes := make([]*pocket.Node, 10)
+	nodes := make([]pocket.Node, 10)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {

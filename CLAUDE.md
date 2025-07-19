@@ -20,46 +20,99 @@ This structured approach provides:
 
 ## Architecture
 
-### Node Structure
+### Node as Interface
+
+Node is now an interface, not a struct. This fundamental change enables powerful composition patterns:
 
 ```go
-type Node struct {
-    Name       string
-    Prep       PrepFunc
-    Exec       ExecFunc
-    Post       PostFunc
-    InputType  reflect.Type  // Optional type validation
-    OutputType reflect.Type  // Optional type validation
-    successors map[string]*Node
+type Node interface {
+    Name() string
+    Prep(ctx context.Context, store StoreReader, input any) (any, error)
+    Exec(ctx context.Context, prepData any) (any, error)
+    Post(ctx context.Context, store StoreWriter, input, prepData, result any) (any, string, error)
+    Connect(action string, next Node)
+    Successors() map[string]Node
+    InputType() reflect.Type
+    OutputType() reflect.Type
+}
+```
+
+The concrete implementation is internal:
+
+```go
+type node struct {
+    name       string
+    prep       PrepFunc
+    exec       ExecFunc
+    post       PostFunc
+    inputType  reflect.Type
+    outputType reflect.Type
+    successors map[string]Node  // Now stores Node interface, not *node
     opts       nodeOptions
 }
 ```
 
-### Lifecycle Functions
+Key benefits:
+- **Graph implements Node**: Enables natural composition
+- **Custom implementations**: Users can create their own Node types
+- **Interface-based connections**: More flexible graph structures
+- **Backward compatibility**: `pocket.NewNode()` still works as before
+
+### Lifecycle Functions with Read/Write Separation
 
 ```go
-type PrepFunc func(ctx context.Context, store Store, input any) (prepResult any, err error)
-type ExecFunc func(ctx context.Context, store Store, prepResult any) (execResult any, err error)
-type PostFunc func(ctx context.Context, store Store, input, prepResult, execResult any) (output any, next string, err error)
+type PrepFunc func(ctx context.Context, store StoreReader, input any) (prepResult any, err error)
+type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err error)
+type PostFunc func(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
 ```
 
 Key aspects:
-- **Prep** receives the original input and prepares data for execution
-- **Exec** receives the prep result and performs the main logic
-- **Post** receives all three values (input, prep result, exec result) and decides routing
+- **Prep** receives the original input and a read-only store (StoreReader)
+- **Exec** receives only the prep result - no store access for pure functions
+- **Post** receives all values and a read-write store (StoreWriter) for state mutations
 
-### Store Interface
+This enforces the read/write separation at the type level.
+
+### Store Interfaces
+
+The store now uses separate interfaces for read and write operations:
 
 ```go
-type Store interface {
+type StoreReader interface {
     Get(ctx context.Context, key string) (value any, exists bool)
+}
+
+type StoreWriter interface {
+    StoreReader
     Set(ctx context.Context, key string, value any) error
     Delete(ctx context.Context, key string) error
+}
+
+type Store interface {
+    StoreWriter
     Scope(prefix string) Store
 }
 ```
 
-The Store is context-aware and supports scoping for isolation between concurrent operations.
+The Store implementation now has built-in bounded functionality:
+
+```go
+// Create a bounded store with LRU eviction and TTL
+store := pocket.NewStore(
+    pocket.WithMaxEntries(10000),
+    pocket.WithTTL(30 * time.Minute),
+    pocket.WithEvictionCallback(func(key string, value any) {
+        log.Printf("Evicted: %s", key)
+    }),
+)
+```
+
+Features:
+- **LRU eviction**: When max entries exceeded
+- **TTL support**: Automatic expiration
+- **Context-aware**: All operations use context
+- **Thread-safe**: Safe for concurrent use
+- **Scoping**: Create isolated key namespaces
 
 ## Design Decisions
 
@@ -98,6 +151,7 @@ pocket.SetDefaults(
     pocket.WithDefaultExec(globalExecFunc),
     pocket.WithDefaultPost(globalPostFunc),
 )
+```
 
 ### 4. Type Safety with Generics
 
@@ -105,13 +159,19 @@ NewNode provides compile-time type checking while maintaining flexibility:
 ```go
 // NewNode with generic options provides type safety out of the box!
 node := pocket.NewNode[Input, Output]("processor",
-    pocket.WithPrep(func(ctx context.Context, store pocket.Store, in Input) (any, error) {
-        // Type-safe prep function - Go infers the type
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, in Input) (any, error) {
+        // Type-safe prep function - store is read-only
+        data, _ := store.Get(ctx, "config")
         return processedInput, nil
     }),
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, in Input) (Output, error) {
-        // Type-safe exec function - no wrapper needed
-        return Output{Result: process(in)}, nil
+    pocket.WithExec(func(ctx context.Context, prepData any) (Output, error) {
+        // Type-safe exec function - pure, no store access
+        return Output{Result: process(prepData)}, nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, in Input, prep any, result Output) (Output, string, error) {
+        // Post has full read/write access
+        store.Set(ctx, "lastResult", result)
+        return result, "next", nil
     }),
     pocket.WithRetry(3, time.Second),  // Regular options work!
     pocket.WithTimeout(5*time.Second),
@@ -127,6 +187,35 @@ Instead of external libraries, we provide idiomatic Go patterns:
 - `Pipeline`: Sequential processing with output chaining
 - `FanOut`: Process items concurrently
 - `FanIn`: Aggregate from multiple sources
+
+### 6. Graph as Node
+
+Graphs now implement the Node interface, enabling powerful composition:
+
+```go
+// Graph implements Node
+type Graph struct {
+    start Node
+    store Store
+    // ... other fields
+}
+
+func (g *Graph) Name() string { return g.name }
+func (g *Graph) Prep(ctx context.Context, store StoreReader, input any) (any, error) {
+    // Delegates to start node
+}
+func (g *Graph) Exec(ctx context.Context, prepData any) (any, error) {
+    // Runs the graph execution
+}
+func (g *Graph) Post(ctx context.Context, store StoreWriter, input, prepData, result any) (any, string, error) {
+    // Returns graph result
+}
+```
+
+This means:
+- Graphs can be used anywhere a Node is expected
+- Natural composition without wrapper functions
+- `AsNode()` method retained for backward compatibility
 
 ## Implementation Details
 
@@ -168,10 +257,16 @@ func ValidateGraph(start *Node) error {
 
 ### Graph Composition
 
-Graphs can be converted to nodes for composition:
+Since graphs implement the Node interface, composition is natural:
 ```go
+// Create a sub-graph
 subGraph := pocket.NewGraph(startNode, store)
-compositeNode := subGraph.AsNode("sub-workflow")
+
+// Use it directly as a node - no conversion needed!
+mainNode.Connect("action", subGraph)
+
+// AsNode() still works for backward compatibility
+compositeNode := subGraph.AsNode("sub-workflow")  // Optional, returns the graph itself
 ```
 
 ### YAML Support
@@ -189,7 +284,7 @@ yamlNode := pocket.NewNode[any, any]("output",
 ### Fallback Mechanisms
 
 - Node-level fallbacks with `WithFallback`
-- Circuit breaker pattern in `internal/fallback`
+- Circuit breaker pattern in `fallback`
 - Fallback chains with multiple strategies
 
 ### Cleanup Hooks
@@ -201,10 +296,11 @@ Lifecycle hooks for resource management:
 
 ### Memory Management
 
-Advanced store implementations:
-- `BoundedStore`: Size limits with eviction policies (LRU, LFU, FIFO, TTL)
-- `MultiTieredStore`: Hot/cold storage tiers
-- `ShardedStore`: Distributed storage across shards
+The core Store now includes bounded functionality:
+- LRU eviction when max entries exceeded
+- TTL-based expiration
+- Eviction callbacks
+- Thread-safe with scoping support
 
 ## Usage Patterns
 
@@ -284,9 +380,15 @@ orderStore := store.Scope("order")
 When types are known, use typed nodes:
 ```go
 processor := pocket.NewNode[Order, Invoice]("processor",
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, order Order) (Invoice, error) {
-        // Process order and return invoice - types are inferred!
-        return createInvoice(order), nil
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, order Order) (any, error) {
+        // Read-only access to store
+        config, _ := store.Get(ctx, "invoiceConfig")
+        return map[string]any{"order": order, "config": config}, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (Invoice, error) {
+        // Pure function - process order and return invoice
+        data := prepData.(map[string]any)
+        return createInvoice(data["order"].(Order), data["config"]), nil
     }),
 )
 ```
@@ -294,8 +396,8 @@ processor := pocket.NewNode[Order, Invoice]("processor",
 For dynamic typing, be explicit with `[any, any]`:
 ```go
 flexible := pocket.NewNode[any, any]("flexible",
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, input any) (any, error) {
-        // Handle any input type
+    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+        // Handle any input type - exec has no store access
         return processAny(input), nil
     }),
 )
@@ -321,33 +423,54 @@ result, err := node.Exec(ctx, mockStore, prepResult)
 output, next, err := node.Post(ctx, mockStore, input, prepResult, execResult)
 ```
 
-## Migration from Simple Processors
+## Migration Guide
 
-If migrating from a simple processor pattern:
+### No Migration Needed!
 
-Old pattern:
+The interface-based architecture maintains full backward compatibility:
+
 ```go
-func Process(ctx context.Context, input any) (any, error) {
-    // All logic mixed together
-}
-```
-
-New pattern:
-```go
-node := pocket.NewNode[any, any]("processor",
-    pocket.WithPrep(func(ctx context.Context, store pocket.Store, input any) (any, error) {
-        // Validation and prep
-        return input, nil
-    }),
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, input any) (any, error) {
-        // Core logic
-        return result, nil
-    }),
-    pocket.WithPost(func(ctx context.Context, store pocket.Store, input, prep, result any) (any, string, error) {
-        // Routing decision
-        return result, "done", nil
+// This code still works exactly as before:
+node := pocket.NewNode[Input, Output]("processor",
+    pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
+        return processInput(input), nil
     }),
 )
+
+// Graphs still work the same:
+graph := pocket.NewGraph(node, store)
+result, err := graph.Run(ctx, input)
+
+// AsNode() still works but is now optional:
+subGraph.AsNode("name")  // Returns the graph itself since it implements Node
+```
+
+### What's New
+
+1. **Direct graph composition** - no AsNode() needed:
+```go
+mainNode.Connect("success", subGraph)  // Works directly!
+```
+
+2. **Built-in store bounds**:
+```go
+store := pocket.NewStore(
+    pocket.WithMaxEntries(1000),
+    pocket.WithTTL(5 * time.Minute),
+)
+```
+
+3. **Interface-based extensibility** - create custom Node implementations:
+```go
+type CustomNode struct {
+    // your fields
+}
+
+func (c *CustomNode) Name() string { return c.name }
+func (c *CustomNode) Prep(ctx context.Context, store StoreReader, input any) (any, error) {
+    // custom prep logic
+}
+// ... implement other methods
 ```
 
 ## Performance Considerations
@@ -404,6 +527,16 @@ func TestGraph(t *testing.T) {
 4. **Check Store State**: Inspect store between steps
 5. **Trace Execution**: Use WithTracer for distributed tracing
 
+## Implementation Benefits
+
+The interface-based architecture provides:
+
+1. **Natural Composition**: Graphs are nodes, enabling nested workflows
+2. **Type Safety**: Interface contracts ensure correctness
+3. **Extensibility**: Custom node implementations possible
+4. **Zero Migration**: Existing code continues to work
+5. **Clean Separation**: Read/write store interfaces enforce proper access
+
 ## Future Enhancements
 
 Potential areas for enhancement:
@@ -429,9 +562,12 @@ When contributing:
 | Core Pattern | Prep/Exec/Post | Prep/Exec/Post |
 | Type Safety | No | Optional with generics |
 | Concurrency | External | Built-in patterns |
-| State Management | External | Integrated Store |
+| State Management | External | Integrated Store with bounds |
 | Error Handling | Basic | Retries, timeouts, handlers |
 | Language | Python | Go |
+| Architecture | Class-based | Interface-based |
+| Composition | Manual | Natural (Graph implements Node) |
+| Store Access | Unrestricted | Read/Write separation |
 
 ## Conclusion
 

@@ -10,8 +10,8 @@ import (
 
 // Builder provides a fluent API for constructing graphs.
 type Builder struct {
-	nodes map[string]*Node
-	start *Node
+	nodes map[string]Node
+	start Node
 	store Store
 	opts  []GraphOption
 }
@@ -19,14 +19,14 @@ type Builder struct {
 // NewBuilder creates a new graph builder.
 func NewBuilder(store Store) *Builder {
 	return &Builder{
-		nodes: make(map[string]*Node),
+		nodes: make(map[string]Node),
 		store: store,
 	}
 }
 
 // Add registers a node in the graph.
-func (b *Builder) Add(node *Node) *Builder {
-	b.nodes[node.Name] = node
+func (b *Builder) Add(node Node) *Builder {
+	b.nodes[node.Name()] = node
 	if b.start == nil {
 		b.start = node
 	}
@@ -73,7 +73,7 @@ func (b *Builder) Build() (*Graph, error) {
 }
 
 // RunConcurrent executes multiple nodes concurrently.
-func RunConcurrent(ctx context.Context, nodes []*Node, store Store, inputs []any) ([]any, error) {
+func RunConcurrent(ctx context.Context, nodes []Node, store Store, inputs []any) ([]any, error) {
 	if len(nodes) == 0 {
 		return nil, nil
 	}
@@ -100,7 +100,7 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store, inputs []any
 			graph := NewGraph(node, scopedStore)
 			result, err := graph.Run(ctx, input)
 			if err != nil {
-				return fmt.Errorf("node %s: %w", node.Name, err)
+				return fmt.Errorf("node %s: %w", node.Name(), err)
 			}
 
 			mu.Lock()
@@ -119,14 +119,14 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store, inputs []any
 }
 
 // Pipeline executes nodes sequentially, passing output to input.
-func Pipeline(ctx context.Context, nodes []*Node, store Store, input any) (any, error) {
+func Pipeline(ctx context.Context, nodes []Node, store Store, input any) (any, error) {
 	current := input
 
 	for _, node := range nodes {
 		graph := NewGraph(node, store)
 		output, err := graph.Run(ctx, current)
 		if err != nil {
-			return nil, fmt.Errorf("pipeline failed at %s: %w", node.Name, err)
+			return nil, fmt.Errorf("pipeline failed at %s: %w", node.Name(), err)
 		}
 		current = output
 	}
@@ -135,7 +135,7 @@ func Pipeline(ctx context.Context, nodes []*Node, store Store, input any) (any, 
 }
 
 // FanOut executes a node for each input item concurrently.
-func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]any, error) {
+func FanOut[T any](ctx context.Context, node Node, store Store, items []T) ([]any, error) {
 	g, ctx := errgroup.WithContext(ctx)
 	results := make([]any, len(items))
 	mu := &sync.Mutex{}
@@ -168,12 +168,12 @@ func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]a
 
 // FanIn collects results from multiple sources.
 type FanIn struct {
-	sources []*Node
+	sources []Node
 	combine func([]any) (any, error)
 }
 
 // NewFanIn creates a fan-in pattern.
-func NewFanIn(combine func([]any) (any, error), sources ...*Node) *FanIn {
+func NewFanIn(combine func([]any) (any, error), sources ...Node) *FanIn {
 	return &FanIn{
 		sources: sources,
 		combine: combine,

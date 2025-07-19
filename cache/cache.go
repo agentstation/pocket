@@ -1,10 +1,13 @@
-package memory
+// Package cache provides computation memoization for expensive node operations,
+// with LRU and TTL-based eviction strategies.
+package cache
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -182,14 +185,14 @@ func (c *LRUCache) evictOldest() {
 
 // CachedNode wraps a node with caching.
 type CachedNode struct {
-	*pocket.Node
+	Node    pocket.Node
 	cache   Cache
 	keyFunc func(input any) string
 	ttl     time.Duration
 }
 
 // NewCachedNode creates a node with caching.
-func NewCachedNode(node *pocket.Node, cache Cache, keyFunc func(any) string, ttl time.Duration) *CachedNode {
+func NewCachedNode(node pocket.Node, cache Cache, keyFunc func(any) string, ttl time.Duration) *CachedNode {
 	return &CachedNode{
 		Node:    node,
 		cache:   cache,
@@ -198,54 +201,65 @@ func NewCachedNode(node *pocket.Node, cache Cache, keyFunc func(any) string, ttl
 	}
 }
 
-// Execute runs the node with caching.
-func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any) (any, error) {
-	key := n.keyFunc(input)
+// Name returns the node's name.
+func (n *CachedNode) Name() string {
+	return n.Node.Name()
+}
+
+// Prep implements the Node interface.
+func (n *CachedNode) Prep(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	return n.Node.Prep(ctx, store, input)
+}
+
+// Exec implements the Node interface with caching.
+func (n *CachedNode) Exec(ctx context.Context, prepResult any) (any, error) {
+	key := n.keyFunc(prepResult)
 
 	// Check cache
 	if cached, exists := n.cache.Get(key); exists {
-		// Store cache hit metadata
-		_ = store.Set(ctx, fmt.Sprintf("node:%s:cache_hit", n.Name), true)
 		return cached, nil
 	}
 
-	// Execute node
-	graph := pocket.NewGraph(n.Node, store)
-	result, err := graph.Run(ctx, input)
-	if err != nil {
-		return nil, err
+	// Execute original
+	result, err := n.Node.Exec(ctx, prepResult)
+	if err == nil {
+		n.cache.Set(key, result, n.ttl)
 	}
 
-	// Cache result
-	n.cache.Set(key, result, n.ttl)
-	_ = store.Set(ctx, fmt.Sprintf("node:%s:cache_miss", n.Name), true)
+	return result, err
+}
 
-	return result, nil
+// Post implements the Node interface.
+func (n *CachedNode) Post(ctx context.Context, store pocket.StoreWriter, input, prepResult, execResult any) (output any, next string, err error) {
+	return n.Node.Post(ctx, store, input, prepResult, execResult)
+}
+
+// Connect implements the Node interface.
+func (n *CachedNode) Connect(action string, next pocket.Node) pocket.Node {
+	n.Node.Connect(action, next)
+	return n
+}
+
+// Successors implements the Node interface.
+func (n *CachedNode) Successors() map[string]pocket.Node {
+	return n.Node.Successors()
+}
+
+// InputType implements the Node interface.
+func (n *CachedNode) InputType() reflect.Type {
+	return n.Node.InputType()
+}
+
+// OutputType implements the Node interface.
+func (n *CachedNode) OutputType() reflect.Type {
+	return n.Node.OutputType()
 }
 
 // CacheMiddleware creates a caching middleware for nodes.
-func CacheMiddleware(cache Cache, keyFunc func(any) string, ttl time.Duration) func(*pocket.Node) *pocket.Node {
-	return func(node *pocket.Node) *pocket.Node {
-		originalExec := node.Exec
-
-		node.Exec = func(ctx context.Context, input any) (any, error) {
-			key := keyFunc(input)
-
-			// Check cache
-			if cached, exists := cache.Get(key); exists {
-				return cached, nil
-			}
-
-			// Execute original
-			result, err := originalExec(ctx, input)
-			if err == nil {
-				cache.Set(key, result, ttl)
-			}
-
-			return result, err
-		}
-
-		return node
+func CacheMiddleware(cache Cache, keyFunc func(any) string, ttl time.Duration) func(pocket.Node) pocket.Node {
+	return func(node pocket.Node) pocket.Node {
+		// Return a new CachedNode which properly wraps the node
+		return NewCachedNode(node, cache, keyFunc, ttl)
 	}
 }
 

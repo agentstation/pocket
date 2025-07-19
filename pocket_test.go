@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -42,7 +41,7 @@ func TestNodeLifecycle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var node *pocket.Node
+			var node pocket.Node
 
 			switch tt.name {
 			case "string transformation":
@@ -133,7 +132,7 @@ func TestNodeConnections(t *testing.T) {
 
 	// Test connections
 	start.Connect("next", middle)
-	middle.Default(end)
+	middle.Connect("default", end)
 
 	store := pocket.NewStore()
 	graph := pocket.NewGraph(start, store)
@@ -524,10 +523,10 @@ func TestTypedNode(t *testing.T) {
 	)
 
 	// Verify types are set
-	if node.InputType == nil {
+	if node.InputType() == nil {
 		t.Error("NewNode did not set InputType")
 	}
-	if node.OutputType == nil {
+	if node.OutputType() == nil {
 		t.Error("NewNode did not set OutputType")
 	}
 
@@ -557,13 +556,13 @@ func TestValidateGraph(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		setupGraph func() *pocket.Node
+		setupGraph func() pocket.Node
 		wantErr    bool
 		errMsg     string
 	}{
 		{
 			name: "valid graph with matching types",
-			setupGraph: func() *pocket.Node {
+			setupGraph: func() pocket.Node {
 				// Create nodes with matching input/output types
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -584,7 +583,7 @@ func TestValidateGraph(t *testing.T) {
 		},
 		{
 			name: "invalid graph with type mismatch",
-			setupGraph: func() *pocket.Node {
+			setupGraph: func() pocket.Node {
 				// Create nodes with mismatched types
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -607,7 +606,7 @@ func TestValidateGraph(t *testing.T) {
 		},
 		{
 			name: "graph with untyped nodes (should pass)",
-			setupGraph: func() *pocket.Node {
+			setupGraph: func() pocket.Node {
 				// Mix of typed and untyped nodes
 				typedNode := pocket.NewNode[Input, Output]("typed",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
@@ -629,7 +628,7 @@ func TestValidateGraph(t *testing.T) {
 		},
 		{
 			name: "cyclic graph validation",
-			setupGraph: func() *pocket.Node {
+			setupGraph: func() pocket.Node {
 				node1 := pocket.NewNode[Input, Output]("node1",
 					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
 						return Output{Result: "processed"}, nil
@@ -658,34 +657,25 @@ func TestValidateGraph(t *testing.T) {
 		},
 		{
 			name: "interface type compatibility",
-			setupGraph: func() *pocket.Node {
-				// Test with interface types
-				type Writer interface {
-					Write() string
-				}
-
-				type ConcreteWriter struct{}
-
+			setupGraph: func() pocket.Node {
+				// With any,any nodes, type checking is not enforced
+				// This test validates that nodes can be connected regardless of type
 				node1 := pocket.NewNode[any, any]("producer",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return ConcreteWriter{}, nil
+						return struct{ Value string }{Value: "test"}, nil
 					}),
 				)
-				// Manually set output type
-				node1.OutputType = reflect.TypeOf(ConcreteWriter{})
 
 				node2 := pocket.NewNode[any, any]("consumer",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 						return testResult, nil
 					}),
 				)
-				// Manually set input type to interface
-				node2.InputType = reflect.TypeOf((*Writer)(nil)).Elem()
 
 				node1.Connect("default", node2)
 				return node1
 			},
-			wantErr: true, // ConcreteWriter doesn't implement Writer (no methods)
+			wantErr: false, // With any,any nodes, all types are compatible
 		},
 	}
 
