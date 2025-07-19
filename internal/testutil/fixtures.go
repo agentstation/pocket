@@ -213,7 +213,7 @@ func (f *Fixtures) LinearFlow(store pocket.Store, nodes ...*pocket.Node) *pocket
 }
 
 // BranchingFlow creates a flow with conditional branching.
-func (f *Fixtures) BranchingFlow(store pocket.Store, condition *pocket.Node, trueBranch, falseBranch *pocket.Node) *pocket.Flow {
+func (f *Fixtures) BranchingFlow(store pocket.Store, condition, trueBranch, falseBranch *pocket.Node) *pocket.Flow {
 	condition.Connect("true", trueBranch)
 	condition.Connect("false", falseBranch)
 	

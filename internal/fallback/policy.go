@@ -50,7 +50,7 @@ func (p *SimplePolicy) Execute(ctx context.Context, store pocket.Store, input an
 	}
 
 	// Log the primary failure
-	store.Set(ctx, fmt.Sprintf("fallback:%s:primary_error", p.name), err)
+	_ = store.Set(ctx, fmt.Sprintf("fallback:%s:primary_error", p.name), err)
 
 	// Execute fallback
 	return p.fallback(ctx, store, input, err)
@@ -145,8 +145,8 @@ func (p *ChainPolicy) Execute(ctx context.Context, store pocket.Store, input any
 		}
 
 		// Store intermediate results
-		store.Set(ctx, fmt.Sprintf("fallback:%s:handler_%d_result", p.name, i), result)
-		store.Set(ctx, fmt.Sprintf("fallback:%s:handler_%d_error", p.name, i), err)
+		_ = store.Set(ctx, fmt.Sprintf("fallback:%s:handler_%d_result", p.name, i), result)
+		_ = store.Set(ctx, fmt.Sprintf("fallback:%s:handler_%d_error", p.name, i), err)
 	}
 
 	if !p.options.stopOnFirstSuccess && lastResult != nil {

@@ -54,16 +54,16 @@ type entry struct {
 type BoundedStoreOption func(*BoundedStore)
 
 // WithMaxEntries sets the maximum number of entries.
-func WithMaxEntries(max int) BoundedStoreOption {
+func WithMaxEntries(maxEntries int) BoundedStoreOption {
 	return func(s *BoundedStore) {
-		s.maxEntries = max
+		s.maxEntries = maxEntries
 	}
 }
 
 // WithMaxSize sets the maximum total size in bytes.
-func WithMaxSize(max int64) BoundedStoreOption {
+func WithMaxSize(maxSize int64) BoundedStoreOption {
 	return func(s *BoundedStore) {
-		s.maxSize = max
+		s.maxSize = maxSize
 	}
 }
 

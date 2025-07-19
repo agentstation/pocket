@@ -408,7 +408,7 @@ func NewMockTracer() *MockTracer {
 }
 
 // StartSpan starts a new span.
-func (t *MockTracer) StartSpan(ctx context.Context, name string) (context.Context, func()) {
+func (t *MockTracer) StartSpan(ctx context.Context, name string) (spanCtx context.Context, finish func()) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -421,7 +421,7 @@ func (t *MockTracer) StartSpan(ctx context.Context, name string) (context.Contex
 	idx := len(t.spans)
 	t.spans = append(t.spans, span)
 
-	finish := func() {
+	finish = func() {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 		t.spans[idx].EndTime = time.Now()

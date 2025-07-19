@@ -309,7 +309,7 @@ func defaultExec(ctx context.Context, prepResult any) (any, error) {
 	return prepResult, nil // pass through
 }
 
-func defaultPost(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (any, string, error) {
+func defaultPost(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error) {
 	return execResult, "default", nil
 }
 

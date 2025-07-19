@@ -66,7 +66,7 @@ func (fn *FlowNode) exec(ctx context.Context, input any) (any, error) {
 }
 
 // post writes the result to the store if specified and determines routing.
-func (fn *FlowNode) post(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+func (fn *FlowNode) post(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (output any, next string, err error) {
 	// If outputKey is specified, write to store
 	if fn.outputKey != "" {
 		if err := store.Set(ctx, fn.outputKey, result); err != nil {
