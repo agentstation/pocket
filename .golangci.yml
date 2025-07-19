@@ -53,6 +53,7 @@ linters:
         linters:
           - gosec
           - errcheck
+          - gocyclo
       
       # Exclude examples directory
       - path: examples/
@@ -60,6 +61,7 @@ linters:
           - gosec
           - errcheck
           - godot
+          - gocyclo
 
 formatters:
   enable:

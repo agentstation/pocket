@@ -13,58 +13,69 @@ const (
 )
 
 func TestFunctionalOptions(t *testing.T) {
+	t.Run("simple node with just exec", testSimpleNodeWithExec)
+	t.Run("node with all lifecycle functions", testNodeWithAllLifecycle)
+	t.Run("node with error handler", testNodeWithErrorHandler)
+}
+
+func testSimpleNodeWithExec(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
 
-	t.Run("simple node with just exec", func(t *testing.T) {
-		node := pocket.NewNode[any, any]("simple",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return "processed: " + input.(string), nil
-			}),
-		)
+	node := pocket.NewNode[any, any]("simple",
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			return "processed: " + input.(string), nil
+		}),
+	)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, "test")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if result != "processed: test" {
-			t.Errorf("expected 'processed: test', got %v", result)
-		}
-	})
+	flow := pocket.NewFlow(node, store)
+	result, err := flow.Run(ctx, "test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "processed: test" {
+		t.Errorf("expected 'processed: test', got %v", result)
+	}
+}
 
-	t.Run("node with all lifecycle functions", func(t *testing.T) {
-		var prepCalled, execCalled, postCalled bool
+func testNodeWithAllLifecycle(t *testing.T) {
+	ctx := context.Background()
+	store := pocket.NewStore()
+	var prepCalled, execCalled, postCalled bool
 
-		node := pocket.NewNode[any, any]("full",
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-				prepCalled = true
-				return input.(string) + "-prep", nil
-			}),
-			pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-				execCalled = true
-				return prepResult.(string) + "-exec", nil
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-				postCalled = true
-				return exec.(string) + "-post", defaultRoute, nil
-			}),
-		)
+	node := pocket.NewNode[any, any]("full",
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			prepCalled = true
+			return input.(string) + "-prep", nil
+		}),
+		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
+			execCalled = true
+			return prepResult.(string) + "-exec", nil
+		}),
+		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+			postCalled = true
+			return exec.(string) + "-post", defaultRoute, nil
+		}),
+	)
 
-		flow := pocket.NewFlow(node, store)
-		result, err := flow.Run(ctx, "test")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+	flow := pocket.NewFlow(node, store)
+	result, err := flow.Run(ctx, "test")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-		if !prepCalled || !execCalled || !postCalled {
-			t.Error("not all lifecycle functions were called")
-		}
+	if !prepCalled || !execCalled || !postCalled {
+		t.Error("not all lifecycle functions were called")
+	}
 
-		if result != "test-prep-exec-post" {
-			t.Errorf("expected 'test-prep-exec-post', got %v", result)
-		}
-	})
+	if result != "test-prep-exec-post" {
+		t.Errorf("expected 'test-prep-exec-post', got %v", result)
+	}
+}
+
+func testNodeWithErrorHandler(t *testing.T) {
+	ctx := context.Background()
+	store := pocket.NewStore()
 
 	t.Run("node with options", func(t *testing.T) {
 		retryCount := 0
@@ -99,12 +110,12 @@ func TestFunctionalOptions(t *testing.T) {
 
 		node := pocket.NewNode[any, any]("hooks",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return testResult, nil
+				return successResult, nil
 			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				successCalled = true
-				if output != "result" {
-					t.Errorf("expected output 'result' in success hook, got %v", output)
+				if output != successResult {
+					t.Errorf("expected output '%s' in success hook, got %v", successResult, output)
 				}
 			}),
 			pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
