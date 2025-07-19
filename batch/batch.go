@@ -13,7 +13,7 @@ import (
 // Processor processes a batch of items of type T.
 type Processor[T, R any] struct {
 	// Extract retrieves items to process.
-	Extract func(ctx context.Context, store pocket.Store) ([]T, error)
+	Extract func(ctx context.Context, store pocket.StoreReader) ([]T, error)
 
 	// Transform processes a single item.
 	Transform func(ctx context.Context, item T) (R, error)
@@ -50,7 +50,7 @@ func WithOrdered() Option {
 
 // NewProcessor creates a new batch processor.
 func NewProcessor[T, R any](
-	extract func(context.Context, pocket.Store) ([]T, error),
+	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	transform func(context.Context, T) (R, error),
 	reduce func(context.Context, []R) (any, error),
 	opts ...Option,
@@ -78,31 +78,37 @@ func NewProcessor[T, R any](
 	return p
 }
 
-// Process implements pocket.Processor interface.
-func (p *Processor[T, R]) Process(ctx context.Context, input any) (any, error) {
-	// Extract items
-	store, ok := input.(pocket.Store)
-	if !ok {
-		return nil, fmt.Errorf("batch processor requires Store as input")
-	}
+// ToNode converts the batch processor into a pocket Node.
+func (p *Processor[T, R]) ToNode(name string) *pocket.Node {
+	return pocket.NewNode[any, any](name,
+		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// The store is passed as prep result for exec phase
+			return store, nil
+		}),
+		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
+			// Get store from prep result
+			store := prepResult.(pocket.StoreReader)
+			
+			// Extract items
+			items, err := p.Extract(ctx, store)
+			if err != nil {
+				return nil, fmt.Errorf("extract: %w", err)
+			}
 
-	items, err := p.Extract(ctx, store)
-	if err != nil {
-		return nil, fmt.Errorf("extract: %w", err)
-	}
+			if len(items) == 0 {
+				return p.Reduce(ctx, []R{})
+			}
 
-	if len(items) == 0 {
-		return p.Reduce(ctx, []R{})
-	}
+			// Process items
+			results, err := p.processItems(ctx, items)
+			if err != nil {
+				return nil, err
+			}
 
-	// Process items
-	results, err := p.processItems(ctx, items)
-	if err != nil {
-		return nil, err
-	}
-
-	// Reduce results
-	return p.Reduce(ctx, results)
+			// Reduce results
+			return p.Reduce(ctx, results)
+		}),
+	)
 }
 
 // processItems handles concurrent or sequential processing.
@@ -173,22 +179,25 @@ func (p *Processor[T, R]) processConcurrent(ctx context.Context, items []T) ([]R
 	return results, nil
 }
 
-// MapReduce creates a map-reduce batch processor.
+// MapReduce creates a map-reduce batch processor as a Node.
 func MapReduce[T, R any](
-	extract func(context.Context, pocket.Store) ([]T, error),
+	name string,
+	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	mapper func(context.Context, T) (R, error),
 	reducer func(context.Context, []R) (any, error),
 	opts ...Option,
-) pocket.Processor {
-	return NewProcessor(extract, mapper, reducer, opts...)
+) *pocket.Node {
+	p := NewProcessor(extract, mapper, reducer, opts...)
+	return p.ToNode(name)
 }
 
 // ForEach creates a batch processor that doesn't aggregate results.
 func ForEach[T any](
-	extract func(context.Context, pocket.Store) ([]T, error),
+	name string,
+	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	process func(context.Context, T) error,
 	opts ...Option,
-) pocket.Processor {
+) *pocket.Node {
 	transform := func(ctx context.Context, item T) (struct{}, error) {
 		return struct{}{}, process(ctx, item)
 	}
@@ -197,15 +206,17 @@ func ForEach[T any](
 		return len(results), nil
 	}
 
-	return NewProcessor(extract, transform, reduce, opts...)
+	p := NewProcessor(extract, transform, reduce, opts...)
+	return p.ToNode(name)
 }
 
 // Filter creates a batch processor that filters items.
 func Filter[T any](
-	extract func(context.Context, pocket.Store) ([]T, error),
+	name string,
+	extract func(context.Context, pocket.StoreReader) ([]T, error),
 	predicate func(context.Context, T) (bool, error),
 	opts ...Option,
-) pocket.Processor {
+) *pocket.Node {
 	type result struct {
 		item T
 		keep bool
@@ -226,5 +237,6 @@ func Filter[T any](
 		return filtered, nil
 	}
 
-	return NewProcessor(extract, transform, reduce, opts...)
+	p := NewProcessor(extract, transform, reduce, opts...)
+	return p.ToNode(name)
 }

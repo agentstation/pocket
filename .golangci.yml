@@ -1,6 +1,8 @@
 # golangci-lint configuration for Pocket
 # https://golangci-lint.run/usage/configuration/
 
+version: "2"
+
 run:
   timeout: 5m
   tests: true
@@ -9,14 +11,11 @@ linters:
   enable:
     # Default linters
     - errcheck
-    - gosimple
+    - staticcheck  # Now includes gosimple
     - govet
     - ineffassign
-    - staticcheck
     - unused
     # Additional linters
-    - gofmt
-    - goimports
     - gocyclo
     - gosec
     - unconvert
@@ -30,34 +29,39 @@ linters:
     - nilerr
     - godot
 
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-  nakedret:
-    max-func-lines: 30
-  godot:
-    scope: declarations
-    capital: true
+  settings:
+    gocyclo:
+      min-complexity: 15
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+    nakedret:
+      max-func-lines: 30
+    godot:
+      scope: declarations
+      capital: true
 
-issues:
-  exclude-rules:
-    # Exclude some linters from running on test files
-    - path: _test\.go
-      linters:
-        - gosec
-        - errcheck
-    
-    # Exclude examples directory
-    - path: examples/
-      linters:
-        - gosec
-        - errcheck
-        - godot
+  exclusions:
+    rules:
+      # Exclude some linters from running on test files
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+      
+      # Exclude examples directory
+      - path: examples/
+        linters:
+          - gosec
+          - errcheck
+          - godot
+
+formatters:
+  enable:
+    - gofmt
+    - goimports

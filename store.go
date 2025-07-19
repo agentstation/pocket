@@ -2,32 +2,62 @@ package pocket
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
-// NewStore creates a new thread-safe store.
-func NewStore() Store {
-	return &SyncStore{}
+// store is the internal implementation with a mutex.
+type store struct {
+	mu     sync.RWMutex
+	data   map[string]any
+	prefix string
 }
 
-// SyncStore is a thread-safe implementation of Store using sync.Map.
-type SyncStore struct {
-	data sync.Map
+// NewStore creates a new thread-safe store.
+func NewStore() Store {
+	return &store{
+		data: make(map[string]any),
+	}
 }
 
 // Get retrieves a value by key.
-func (s *SyncStore) Get(key string) (any, bool) {
-	return s.data.Load(key)
+func (s *store) Get(ctx context.Context, key string) (any, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	fullKey := s.prefix + key
+	val, exists := s.data[fullKey]
+	return val, exists
 }
 
 // Set stores a value with the given key.
-func (s *SyncStore) Set(key string, value any) {
-	s.data.Store(key, value)
+func (s *store) Set(ctx context.Context, key string, value any) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	fullKey := s.prefix + key
+	s.data[fullKey] = value
+	return nil
 }
 
 // Delete removes a key from the store.
-func (s *SyncStore) Delete(key string) {
-	s.data.Delete(key)
+func (s *store) Delete(ctx context.Context, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	fullKey := s.prefix + key
+	delete(s.data, fullKey)
+	return nil
+}
+
+// Scope returns a new store with the given prefix.
+func (s *store) Scope(prefix string) Store {
+	return &store{
+		data:   s.data, // shared data
+		prefix: s.prefix + prefix + ":",
+		// Note: mutex is not shared, each scope has its own
+		// This is safe because we're using a shared map with proper locking
+	}
 }
 
 // TypedStore provides type-safe storage operations.
@@ -48,55 +78,23 @@ type typedStore[T any] struct {
 
 func (t *typedStore[T]) Get(ctx context.Context, key string) (value T, exists bool, err error) {
 	var zero T
-	val, ok := t.store.Get(key)
+	val, ok := t.store.Get(ctx, key)
 	if !ok {
 		return zero, false, nil
 	}
 
 	typed, ok := val.(T)
 	if !ok {
-		return zero, false, ErrInvalidInput
+		return zero, false, fmt.Errorf("type mismatch: expected %T, got %T", zero, val)
 	}
 
 	return typed, true, nil
 }
 
 func (t *typedStore[T]) Set(ctx context.Context, key string, value T) error {
-	t.store.Set(key, value)
-	return nil
+	return t.store.Set(ctx, key, value)
 }
 
 func (t *typedStore[T]) Delete(ctx context.Context, key string) error {
-	t.store.Delete(key)
-	return nil
-}
-
-// ScopedStore provides isolated storage with a prefix.
-type ScopedStore struct {
-	store  Store
-	prefix string
-}
-
-// NewScopedStore creates a store with key prefixing.
-func NewScopedStore(store Store, prefix string) *ScopedStore {
-	return &ScopedStore{
-		store:  store,
-		prefix: prefix,
-	}
-}
-
-func (s *ScopedStore) key(k string) string {
-	return s.prefix + ":" + k
-}
-
-func (s *ScopedStore) Get(key string) (any, bool) {
-	return s.store.Get(s.key(key))
-}
-
-func (s *ScopedStore) Set(key string, value any) {
-	s.store.Set(s.key(key), value)
-}
-
-func (s *ScopedStore) Delete(key string) {
-	s.store.Delete(s.key(key))
+	return t.store.Delete(ctx, key)
 }

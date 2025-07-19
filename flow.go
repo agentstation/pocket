@@ -73,9 +73,18 @@ func (b *Builder) Build() (*Flow, error) {
 }
 
 // RunConcurrent executes multiple nodes concurrently.
-func RunConcurrent(ctx context.Context, nodes []*Node, store Store) ([]any, error) {
+func RunConcurrent(ctx context.Context, nodes []*Node, store Store, inputs []any) ([]any, error) {
 	if len(nodes) == 0 {
 		return nil, nil
+	}
+
+	// If inputs is nil or empty, create nil inputs for each node
+	if len(inputs) == 0 {
+		inputs = make([]any, len(nodes))
+	}
+
+	if len(inputs) != len(nodes) {
+		return nil, fmt.Errorf("input count (%d) must match node count (%d)", len(inputs), len(nodes))
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -84,9 +93,12 @@ func RunConcurrent(ctx context.Context, nodes []*Node, store Store) ([]any, erro
 
 	for i, node := range nodes {
 		i, node := i, node // capture loop variables
+		input := inputs[i]
 		g.Go(func() error {
-			flow := NewFlow(node, store)
-			result, err := flow.Run(ctx, nil)
+			// Each concurrent execution gets its own scoped store
+			scopedStore := store.Scope(fmt.Sprintf("concurrent-%d", i))
+			flow := NewFlow(node, scopedStore)
+			result, err := flow.Run(ctx, input)
 			if err != nil {
 				return fmt.Errorf("node %s: %w", node.Name, err)
 			}
@@ -131,7 +143,9 @@ func FanOut[T any](ctx context.Context, node *Node, store Store, items []T) ([]a
 	for i, item := range items {
 		i, item := i, item
 		g.Go(func() error {
-			flow := NewFlow(node, store)
+			// Each item gets its own scoped store
+			scopedStore := store.Scope(fmt.Sprintf("item-%d", i))
+			flow := NewFlow(node, scopedStore)
 			result, err := flow.Run(ctx, item)
 			if err != nil {
 				return err
@@ -168,7 +182,9 @@ func NewFanIn(combine func([]any) (any, error), sources ...*Node) *FanIn {
 
 // Run executes the fan-in pattern.
 func (f *FanIn) Run(ctx context.Context, store Store) (any, error) {
-	results, err := RunConcurrent(ctx, f.sources, store)
+	// Create nil inputs for all sources
+	inputs := make([]any, len(f.sources))
+	results, err := RunConcurrent(ctx, f.sources, store, inputs)
 	if err != nil {
 		return nil, err
 	}

@@ -18,7 +18,7 @@ Basic usage:
 	})
 
 	// Create a node
-	node := pocket.NewNode("greeter", greet)
+	node := pocket.NewNode[any, any]("greeter", greet)
 
 	// Create and run a flow
 	store := pocket.NewStore()
@@ -29,9 +29,9 @@ Building complex flows:
 
 	// Use the builder API
 	builder := pocket.NewBuilder(store).
-		Add(pocket.NewNode("fetch", fetchData)).
-		Add(pocket.NewNode("process", processData)).
-		Add(pocket.NewNode("save", saveData)).
+		Add(pocket.NewNode[any, any]("fetch", fetchData)).
+		Add(pocket.NewNode[any, any]("process", processData)).
+		Add(pocket.NewNode[any, any]("save", saveData)).
 		Connect("fetch", "success", "process").
 		Connect("process", "success", "save").
 		Start("fetch")
