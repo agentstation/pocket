@@ -43,7 +43,7 @@ func main() {
 	yamlExtractor := pocket.NewNode[any, any]("extract-data",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			text := input.(string)
-			
+
 			// Simulate extracting structured data from text
 			data := map[string]interface{}{
 				"source_text": text,
@@ -56,13 +56,13 @@ func main() {
 					},
 				},
 			}
-			
+
 			// Convert to YAML
 			yamlBytes, err := yaml.Marshal(data)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			return string(yamlBytes), nil
 		}),
 	)
@@ -136,10 +136,10 @@ func main() {
 			// Prepare schema and examples for reference
 			schemaYAML, _ := yaml.Marshal(schema)
 			exampleYAML, _ := yaml.Marshal(examples[0])
-			
+
 			return map[string]interface{}{
-				"input": input,
-				"schemaYAML": string(schemaYAML),
+				"input":       input,
+				"schemaYAML":  string(schemaYAML),
 				"exampleYAML": string(exampleYAML),
 			}, nil
 		}),
@@ -147,33 +147,33 @@ func main() {
 			// Extract prep data
 			data := prepData.(map[string]interface{})
 			input := data["input"]
-			
+
 			// Simulate structured extraction
 			result := map[string]interface{}{
 				"input":     input,
 				"processed": true,
 				"timestamp": "2024-01-01T00:00:00Z",
 			}
-			
+
 			yamlBytes, err := yaml.Marshal(result)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			return map[string]interface{}{
-				"yamlOutput": string(yamlBytes),
-				"schemaYAML": data["schemaYAML"],
+				"yamlOutput":  string(yamlBytes),
+				"schemaYAML":  data["schemaYAML"],
 				"exampleYAML": data["exampleYAML"],
 			}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
-			
+
 			// Store schema and example for reference
 			store.Set(ctx, "schema", execResult["schemaYAML"])
 			store.Set(ctx, "example", execResult["exampleYAML"])
-			
+
 			// Return the YAML output
 			return execResult["yamlOutput"], "default", nil
 		}),
@@ -243,7 +243,7 @@ skills:
 	classifier := pocket.NewNode[any, any]("classifier",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			text := input.(string)
-			
+
 			// Classify text and return structured result
 			classification := map[string]interface{}{
 				"text":       text,
@@ -252,18 +252,18 @@ skills:
 				"topics":     []string{"programming", "yaml"},
 				"route":      "technical-handler",
 			}
-			
+
 			if strings.Contains(strings.ToLower(text), "business") {
 				classification["category"] = "business"
 				classification["route"] = "business-handler"
 			}
-			
+
 			// Convert to YAML
 			yamlBytes, err := yaml.Marshal(classification)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			return string(yamlBytes), nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
@@ -302,7 +302,7 @@ skills:
 
 	// Test routing
 	routingFlow := pocket.NewFlow(classifier, store)
-	
+
 	testInputs := []string{
 		"How to implement YAML parsing in Go",
 		"Business strategy for Q4 revenue growth",
@@ -322,7 +322,7 @@ skills:
 
 	fmt.Println("\nWhy YAML is preferred for LLM structured output:")
 	fmt.Println("1. Lower token usage (~30% fewer tokens than JSON)")
-	fmt.Println("2. More forgiving syntax (quotes, escaping)")  
+	fmt.Println("2. More forgiving syntax (quotes, escaping)")
 	fmt.Println("3. Support for comments and documentation")
 	fmt.Println("4. Human-readable multiline strings")
 	fmt.Println("5. Cleaner array/list syntax")
@@ -345,7 +345,7 @@ Extract from: %s
 	schemaYAML := string(schemaBytes)
 	exampleBytes, _ := yaml.Marshal(examples[0])
 	exampleYAML := string(exampleBytes)
-	
+
 	fmt.Println("\nExample LLM Prompt:")
 	fmt.Printf(promptTemplate, schemaYAML, exampleYAML, "Jane Doe, Senior Engineer at TechCorp...")
 

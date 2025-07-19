@@ -92,7 +92,7 @@ func TestNodeLifecycle(t *testing.T) {
 
 			store := pocket.NewStore()
 			flow := pocket.NewFlow(node, store)
-			
+
 			got, err := flow.Run(context.Background(), tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
@@ -231,7 +231,7 @@ func TestFlowExecution(t *testing.T) {
 			wantErr: pocket.ErrNoStartNode,
 		},
 		{
-			name: "prep phase error",
+			name: "prep step error",
 			setupFlow: func() (*pocket.Flow, pocket.Store) {
 				node := pocket.NewNode[any, any]("prep-error",
 					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -245,7 +245,7 @@ func TestFlowExecution(t *testing.T) {
 			wantErr: errors.New("node prep-error: prep failed: prep failed"),
 		},
 		{
-			name: "post phase error",
+			name: "post step error",
 			setupFlow: func() (*pocket.Flow, pocket.Store) {
 				node := pocket.NewNode[any, any]("post-error",
 					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -420,7 +420,7 @@ func TestWithTimeout(t *testing.T) {
 				return nil, ctx.Err()
 			}
 		}),
-		pocket.WithTimeout(10 * time.Millisecond),
+		pocket.WithTimeout(10*time.Millisecond),
 	)
 
 	store := pocket.NewStore()
@@ -705,13 +705,13 @@ func TestValidateFlow(t *testing.T) {
 	}
 }
 
-func TestLifecyclePhases(t *testing.T) {
+func TestLifecycleSteps(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
-	
+
 	// Track execution order
 	var executionOrder []string
-	
+
 	node := pocket.NewNode[any, any]("lifecycle",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			executionOrder = append(executionOrder, "prep")
@@ -736,39 +736,39 @@ func TestLifecyclePhases(t *testing.T) {
 			return execResult.(string) + "-posted", doneRoute, nil
 		}),
 	)
-	
+
 	flow := pocket.NewFlow(node, store)
 	result, err := flow.Run(ctx, "input")
-	
+
 	if err != nil {
 		t.Fatalf("Flow failed: %v", err)
 	}
-	
+
 	// Check execution order
 	expectedOrder := []string{"prep", "exec", "post"}
 	if len(executionOrder) != len(expectedOrder) {
 		t.Fatalf("Wrong execution order length: %v", executionOrder)
 	}
-	for i, phase := range expectedOrder {
-		if executionOrder[i] != phase {
-			t.Errorf("Phase %d: got %s, want %s", i, executionOrder[i], phase)
+	for i, step := range expectedOrder {
+		if executionOrder[i] != step {
+			t.Errorf("Step %d: got %s, want %s", i, executionOrder[i], step)
 		}
 	}
-	
+
 	// Check final result
 	if result != "input-prepped-executed-posted" {
 		t.Errorf("Wrong final result: %v", result)
 	}
 }
 
-func TestRetryPerPhase(t *testing.T) {
+func TestRetryPerStep(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
-	
+
 	prepAttempts := 0
 	execAttempts := 0
-	
-	node := pocket.NewNode[any, any]("retry-phases",
+
+	node := pocket.NewNode[any, any]("retry-steps",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			prepAttempts++
 			if prepAttempts < 2 {
@@ -785,14 +785,14 @@ func TestRetryPerPhase(t *testing.T) {
 		}),
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
-	
+
 	flow := pocket.NewFlow(node, store)
 	result, err := flow.Run(ctx, "input")
-	
+
 	if err != nil {
 		t.Fatalf("Flow failed: %v", err)
 	}
-	
+
 	if prepAttempts != 2 {
 		t.Errorf("Prep attempts = %d, want 2", prepAttempts)
 	}
@@ -807,9 +807,9 @@ func TestRetryPerPhase(t *testing.T) {
 func TestErrorHandler(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
-	
+
 	var capturedError error
-	
+
 	node := pocket.NewNode[any, any]("error-handler",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return nil, errors.New("test error")
@@ -818,18 +818,18 @@ func TestErrorHandler(t *testing.T) {
 			capturedError = err
 		}),
 	)
-	
+
 	flow := pocket.NewFlow(node, store)
 	_, err := flow.Run(ctx, "input")
-	
+
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
-	
+
 	if capturedError == nil {
 		t.Fatal("Error handler not called")
 	}
-	
+
 	if !strings.Contains(capturedError.Error(), "exec failed") {
 		t.Errorf("Wrong error captured: %v", capturedError)
 	}

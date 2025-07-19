@@ -27,6 +27,8 @@ func (p *Parser) Parse(r io.Reader) (*FlowDefinition, error) {
 
 // ParseFile reads and parses a YAML flow definition from a file.
 func (p *Parser) ParseFile(filename string) (*FlowDefinition, error) {
+	// #nosec G304 - This is a parser that needs to accept arbitrary file paths
+	// In production, callers should validate the path based on their security requirements
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("open file: %w", err)

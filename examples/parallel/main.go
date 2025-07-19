@@ -55,7 +55,7 @@ func processDocument(ctx context.Context, doc Document) (ProcessedDoc, error) {
 	words := strings.Fields(strings.ToLower(doc.Content))
 	keywords := []string{doc.Title}
 	keywordMap := make(map[string]bool)
-	
+
 	for _, word := range words {
 		if len(word) > 5 && !keywordMap[word] {
 			keywords = append(keywords, word)
@@ -126,16 +126,16 @@ func main() {
 	// Create a parallel batch processor using lifecycle pattern
 	parallelProcessor := pocket.NewNode[any, any]("parallel-batch",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Extract documents in prep phase
+			// Extract documents in prep step
 			docs, err := extractDocuments(ctx, store)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract documents: %w", err)
 			}
-			
+
 			// Return docs along with metadata to be stored in post
 			return map[string]interface{}{
 				"docs":       docs,
-				"doc_count": len(docs),
+				"doc_count":  len(docs),
 				"start_time": time.Now(),
 			}, nil
 		}),
@@ -144,65 +144,65 @@ func main() {
 			data := prepData.(map[string]interface{})
 			documents := data["docs"].([]Document)
 			results := make([]ProcessedDoc, len(documents))
-			
+
 			// Use errgroup for parallel processing
 			var processed int32
 			ch := make(chan struct{}, 3) // Limit concurrency to 3
-			
+
 			for i, doc := range documents {
 				i, doc := i, doc // Capture loop variables
 				ch <- struct{}{} // Acquire semaphore
-				
+
 				go func() {
 					defer func() { <-ch }() // Release semaphore
-					
+
 					result, err := processDocument(ctx, doc)
 					if err != nil {
 						log.Printf("Error processing doc %d: %v", doc.ID, err)
 						return
 					}
-					
+
 					results[i] = result
 					current := atomic.AddInt32(&processed, 1)
 					fmt.Printf("Processed document %d/%d: %s\n", current, len(documents), doc.Title)
 				}()
 			}
-			
+
 			// Wait for all goroutines
 			for i := 0; i < cap(ch); i++ {
 				ch <- struct{}{}
 			}
-			
+
 			return results, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, results any) (any, string, error) {
-			// Store metadata from prep phase
+			// Store metadata from prep step
 			data := prepData.(map[string]interface{})
 			store.Set(ctx, "doc_count", data["doc_count"])
 			store.Set(ctx, "start_time", data["start_time"])
-			
-			// Aggregate results in post phase
+
+			// Aggregate results in post step
 			processedDocs := results.([]ProcessedDoc)
 			report, err := aggregateResults(ctx, processedDocs)
 			if err != nil {
 				return nil, "", err
 			}
-			
+
 			// Calculate total time
 			totalTime := time.Since(data["start_time"].(time.Time))
-			
+
 			// Add total time to report
 			if r, ok := report.(map[string]any); ok {
 				r["totalExecutionTime"] = totalTime
 			}
-			
+
 			return report, "done", nil
 		}),
 	)
 
 	// Create flow and run
 	flow := pocket.NewFlow(parallelProcessor, store)
-	
+
 	result, err := flow.Run(ctx, nil)
 	if err != nil {
 		log.Fatalf("Processing failed: %v", err)
@@ -229,7 +229,7 @@ func main() {
 			if !ok {
 				return nil, fmt.Errorf("expected Document, got %T", input)
 			}
-			
+
 			// Prepare processing context
 			return map[string]interface{}{
 				"document":  doc,
@@ -240,13 +240,13 @@ func main() {
 			// Extract and process document
 			d := data.(map[string]interface{})
 			doc := d["document"].(Document)
-			
+
 			// Simulate processing
 			time.Sleep(100 * time.Millisecond)
-			
+
 			// Extract key information
 			wordCount := len(strings.Fields(doc.Content))
-			
+
 			return map[string]interface{}{
 				"id":        doc.ID,
 				"title":     doc.Title,
@@ -259,10 +259,10 @@ func main() {
 			d := prep.(map[string]interface{})
 			startTime := d["startTime"].(time.Time)
 			duration := time.Since(startTime)
-			
+
 			r := result.(map[string]interface{})
 			r["duration"] = duration
-			
+
 			return r["summary"], "done", nil
 		}),
 	)
@@ -311,10 +311,10 @@ func main() {
 			// Analyze content
 			d := data.(map[string]string)
 			content := d["content"]
-			
+
 			words := strings.Fields(content)
 			sentences := strings.Count(content, ".") + strings.Count(content, "!") + strings.Count(content, "?")
-			
+
 			return map[string]interface{}{
 				"title":     d["title"],
 				"wordCount": len(words),

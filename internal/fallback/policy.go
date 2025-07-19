@@ -134,7 +134,7 @@ func (p *ChainPolicy) Execute(ctx context.Context, store pocket.Store, input any
 		}
 
 		result, err := handler(ctx, input)
-		
+
 		if err == nil {
 			if p.options.stopOnFirstSuccess {
 				return result, nil
@@ -211,11 +211,11 @@ func (p *RetryWithFallbackPolicy) Execute(ctx context.Context, store pocket.Stor
 
 // CachedFallbackPolicy uses cached results as fallback.
 type CachedFallbackPolicy struct {
-	name       string
-	primary    pocket.ExecFunc
-	cacheKey   func(input any) string
-	ttl        time.Duration
-	staleOK    bool
+	name     string
+	primary  pocket.ExecFunc
+	cacheKey func(input any) string
+	ttl      time.Duration
+	staleOK  bool
 }
 
 // NewCachedFallbackPolicy creates a policy that falls back to cached results.
@@ -350,7 +350,7 @@ func (b *PolicyBuilder) Build() Policy {
 func ToNode(policy Policy) *pocket.Node {
 	return pocket.NewNode[any, any](policy.Name(),
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Pass input and store to exec phase
+			// Pass input and store to exec step
 			return map[string]interface{}{
 				"input": input,
 				"store": store,
@@ -361,7 +361,7 @@ func ToNode(policy Policy) *pocket.Node {
 			data := prepData.(map[string]interface{})
 			store := data["store"].(pocket.Store)
 			input := data["input"]
-			
+
 			return policy.Execute(ctx, store, input)
 		}),
 	)

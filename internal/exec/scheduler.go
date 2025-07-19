@@ -12,26 +12,26 @@ import (
 
 // Scheduler manages workflow execution scheduling.
 type Scheduler struct {
-	mu          sync.RWMutex
-	jobs        map[string]*Job
-	executor    Executor
-	ticker      *time.Ticker
-	stopCh      chan struct{}
+	mu       sync.RWMutex
+	jobs     map[string]*Job
+	executor Executor
+	ticker   *time.Ticker
+	stopCh   chan struct{}
 }
 
 // Job represents a scheduled workflow execution.
 type Job struct {
-	ID          string
-	Name        string
-	Flow        *pocket.Flow
-	Schedule    Schedule
-	Input       any
-	LastRun     time.Time
-	NextRun     time.Time
-	RunCount    int64
-	ErrorCount  int64
-	Enabled     bool
-	mu          sync.RWMutex
+	ID         string
+	Name       string
+	Flow       *pocket.Flow
+	Schedule   Schedule
+	Input      any
+	LastRun    time.Time
+	NextRun    time.Time
+	RunCount   int64
+	ErrorCount int64
+	Enabled    bool
+	mu         sync.RWMutex
 }
 
 // Schedule defines when a job should run.
@@ -132,7 +132,7 @@ func (s *Scheduler) run() {
 // checkJobs checks and runs due jobs.
 func (s *Scheduler) checkJobs() {
 	now := time.Now()
-	
+
 	s.mu.RLock()
 	jobs := make([]*Job, 0)
 	for _, job := range s.jobs {

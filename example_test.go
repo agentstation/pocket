@@ -14,7 +14,7 @@ import (
 
 // ExampleNode demonstrates using the Prep/Exec/Post lifecycle.
 func ExampleNode() {
-	// Create a node with lifecycle phases
+	// Create a node with lifecycle steps
 	uppercase := pocket.NewNode[any, any]("uppercase",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate input is a string
@@ -273,7 +273,7 @@ func ExampleWithRetry() {
 
 // Example_lifecycle demonstrates the full Prep/Exec/Post lifecycle.
 func Example_lifecycle() {
-	// Create a node that uses all three phases
+	// Create a node that uses all three steps
 	processor := pocket.NewNode[any, any]("processor",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare: validate and transform input

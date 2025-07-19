@@ -32,25 +32,25 @@ func Logging(logger pocket.Logger) Middleware {
 		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			logger.Debug(ctx, "node prep starting", "node", node.Name, "input_type", fmt.Sprintf("%T", input))
 			start := time.Now()
-			
+
 			result, err := originalPrep(ctx, store, input)
-			
-			logger.Debug(ctx, "node prep completed", 
-				"node", node.Name, 
+
+			logger.Debug(ctx, "node prep completed",
+				"node", node.Name,
 				"duration", time.Since(start),
 				"error", err)
-			
+
 			return result, err
 		}
 
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			logger.Info(ctx, "node exec starting", "node", node.Name)
 			start := time.Now()
-			
+
 			result, err := originalExec(ctx, input)
-			
+
 			if err != nil {
-				logger.Error(ctx, "node exec failed", 
+				logger.Error(ctx, "node exec failed",
 					"node", node.Name,
 					"duration", time.Since(start),
 					"error", err)
@@ -60,20 +60,20 @@ func Logging(logger pocket.Logger) Middleware {
 					"duration", time.Since(start),
 					"result_type", fmt.Sprintf("%T", result))
 			}
-			
+
 			return result, err
 		}
 
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			logger.Debug(ctx, "node post starting", "node", node.Name)
-			
+
 			output, next, err := originalPost(ctx, store, input, prep, exec)
-			
+
 			logger.Debug(ctx, "node post completed",
 				"node", node.Name,
 				"next", next,
 				"error", err)
-			
+
 			return output, next, err
 		}
 
@@ -88,47 +88,47 @@ func Timing() Middleware {
 		originalExec := node.Exec
 		originalPost := node.Post
 
-		// Track timing in prep phase
+		// Track timing in prep step
 		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Get existing timing data
 			key := fmt.Sprintf("node:%s:total_duration", node.Name)
 			countKey := fmt.Sprintf("node:%s:execution_count", node.Name)
-			
+
 			total, _ := store.Get(ctx, key)
 			count, _ := store.Get(ctx, countKey)
-			
+
 			totalDuration := time.Duration(0)
 			execCount := int64(0)
-			
+
 			if d, ok := total.(time.Duration); ok {
 				totalDuration = d
 			}
 			if c, ok := count.(int64); ok {
 				execCount = c
 			}
-			
+
 			result, err := originalPrep(ctx, store, input)
-			
+
 			// Pass timing data through
 			if err == nil {
 				return map[string]interface{}{
 					"prepResult": result,
 					"timingData": map[string]interface{}{
 						"totalDuration": totalDuration,
-						"execCount": execCount,
-						"execStart": time.Now(),
+						"execCount":     execCount,
+						"execStart":     time.Now(),
 					},
 				}, nil
 			}
 			return result, err
 		}
 
-		// Time the exec phase
+		// Time the exec step
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			// Extract timing data if available
 			actualInput := input
 			execStart := time.Now()
-			
+
 			if data, ok := input.(map[string]interface{}); ok {
 				if prepResult, ok := data["prepResult"]; ok {
 					actualInput = prepResult
@@ -139,24 +139,24 @@ func Timing() Middleware {
 					}
 				}
 			}
-			
+
 			result, err := originalExec(ctx, actualInput)
 			duration := time.Since(execStart)
-			
+
 			// Return result with timing
 			return map[string]interface{}{
-				"execResult": result,
+				"execResult":   result,
 				"execDuration": duration,
-				"execError": err,
+				"execError":    err,
 			}, err
 		}
 
-		// Record timing in post phase
+		// Record timing in post step
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			// Extract exec result and timing
 			execResult := exec
 			var execDuration time.Duration
-			
+
 			if data, ok := exec.(map[string]interface{}); ok {
 				if result, ok := data["execResult"]; ok {
 					execResult = result
@@ -165,11 +165,11 @@ func Timing() Middleware {
 					execDuration = duration
 				}
 			}
-			
+
 			// Extract timing data from prep
 			var totalDuration time.Duration
 			var execCount int64
-			
+
 			if data, ok := prep.(map[string]interface{}); ok {
 				if timingData, ok := data["timingData"].(map[string]interface{}); ok {
 					if d, ok := timingData["totalDuration"].(time.Duration); ok {
@@ -180,16 +180,16 @@ func Timing() Middleware {
 					}
 				}
 			}
-			
+
 			// Update timing metrics
 			totalDuration += execDuration
 			execCount++
-			
+
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:last_duration", node.Name), execDuration)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:total_duration", node.Name), totalDuration)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:execution_count", node.Name), execCount)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
-			
+
 			// Call original post with correct data
 			actualPrep := prep
 			if data, ok := prep.(map[string]interface{}); ok {
@@ -197,7 +197,7 @@ func Timing() Middleware {
 					actualPrep = prepResult
 				}
 			}
-			
+
 			return originalPost(ctx, store, input, actualPrep, execResult)
 		}
 
@@ -251,7 +251,7 @@ func Retry(maxAttempts int, backoff time.Duration) Middleware {
 		// Since we can't modify node configuration after creation,
 		// we need to wrap the exec function with retry logic
 		originalExec := node.Exec
-		
+
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			var lastErr error
 			for attempt := 0; attempt < maxAttempts; attempt++ {
@@ -263,7 +263,7 @@ func Retry(maxAttempts int, backoff time.Duration) Middleware {
 						// Exponential backoff
 					}
 				}
-				
+
 				result, err := originalExec(ctx, input)
 				if err == nil {
 					return result, nil
@@ -280,20 +280,20 @@ func Retry(maxAttempts int, backoff time.Duration) Middleware {
 func Timeout(duration time.Duration) Middleware {
 	return func(node *pocket.Node) *pocket.Node {
 		originalExec := node.Exec
-		
+
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			timeoutCtx, cancel := context.WithTimeout(ctx, duration)
 			defer cancel()
-			
+
 			done := make(chan struct{})
 			var result any
 			var err error
-			
+
 			go func() {
 				result, err = originalExec(timeoutCtx, input)
 				close(done)
 			}()
-			
+
 			select {
 			case <-done:
 				return result, err
@@ -309,17 +309,17 @@ func Timeout(duration time.Duration) Middleware {
 func RateLimit(rps, burst int) Middleware {
 	// Simple token bucket implementation
 	tokens := make(chan struct{}, burst)
-	
+
 	// Fill bucket
 	for i := 0; i < burst; i++ {
 		tokens <- struct{}{}
 	}
-	
+
 	// Refill tokens
 	go func() {
 		ticker := time.NewTicker(time.Second / time.Duration(rps))
 		defer ticker.Stop()
-		
+
 		for range ticker.C {
 			select {
 			case tokens <- struct{}{}:
@@ -337,13 +337,13 @@ func RateLimit(rps, burst int) Middleware {
 			case <-tokens:
 				// Got token, proceed
 				result, err := originalExec(ctx, input)
-				
+
 				// Return token on completion
 				select {
 				case tokens <- struct{}{}:
 				default:
 				}
-				
+
 				return result, err
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -378,11 +378,11 @@ func CircuitBreaker(threshold int, timeout time.Duration) Middleware {
 			if err != nil {
 				failures++
 				lastFailure = time.Now()
-				
+
 				if failures >= threshold {
 					state = "open"
 				}
-				
+
 				return nil, err
 			}
 
@@ -419,11 +419,11 @@ func Validation(validateInput, validateOutput func(any) error) Middleware {
 				if err != nil {
 					return output, next, err
 				}
-				
+
 				if err := validateOutput(output); err != nil {
 					return nil, "", fmt.Errorf("output validation failed: %w", err)
 				}
-				
+
 				return output, next, nil
 			}
 		}
@@ -450,7 +450,7 @@ func Transform(transformInput, transformOutput func(any) any) Middleware {
 				if err != nil {
 					return output, next, err
 				}
-				
+
 				transformed := transformOutput(output)
 				return transformed, next, nil
 			}

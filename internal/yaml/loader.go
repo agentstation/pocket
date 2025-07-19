@@ -94,12 +94,12 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 	for _, conn := range def.Connections {
 		fromNode := nodes[conn.From]
 		toNode := nodes[conn.To]
-		
+
 		action := conn.Action
 		if action == "" {
 			action = defaultAction
 		}
-		
+
 		fromNode.Connect(action, toNode)
 	}
 
@@ -136,10 +136,10 @@ func (f *defaultNodeFactory) createGenericNode(def *NodeDefinition) (*pocket.Nod
 	execFunc := func(ctx context.Context, input any) (any, error) {
 		// Return input with config data to be stored in post
 		return map[string]interface{}{
-			"input": input,
+			"input":      input,
 			"nodeConfig": def.Config,
-			"nodeType": def.Type,
-			"nodeName": def.Name,
+			"nodeType":   def.Type,
+			"nodeName":   def.Name,
 		}, nil
 	}
 
@@ -181,16 +181,16 @@ func (f *defaultNodeFactory) createGenericNode(def *NodeDefinition) (*pocket.Nod
 		execFunc = func(ctx context.Context, input any) (any, error) {
 			timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			
+
 			done := make(chan struct{})
 			var result any
 			var err error
-			
+
 			go func() {
 				result, err = originalExec(timeoutCtx, input)
 				close(done)
 			}()
-			
+
 			select {
 			case <-done:
 				return result, err
@@ -208,11 +208,11 @@ func (f *defaultNodeFactory) createGenericNode(def *NodeDefinition) (*pocket.Nod
 			nodeConfig := data["nodeConfig"]
 			nodeType := data["nodeType"].(string)
 			actualInput := data["input"]
-			
+
 			// Store node config
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:config", nodeName), nodeConfig)
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:type", nodeName), nodeType)
-			
+
 			// Return the actual input
 			return actualInput, "default", nil
 		}

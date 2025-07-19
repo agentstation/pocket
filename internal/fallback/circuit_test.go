@@ -201,11 +201,11 @@ func TestCircuitBreakerGroup(t *testing.T) {
 		// Test metrics
 		store := pocket.NewStore()
 		ctx := context.Background()
-		
+
 		successFunc := func(ctx context.Context, input any) (any, error) {
 			return "ok", nil
 		}
-		
+
 		_, _ = cb1.Execute(ctx, store, successFunc, "test")
 		_, _ = cb3.Execute(ctx, store, successFunc, "test")
 

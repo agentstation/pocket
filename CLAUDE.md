@@ -6,11 +6,11 @@ Pocket is a Go implementation of PocketFlow's Prep/Exec/Post workflow pattern, e
 
 ## Core Philosophy: Prep/Exec/Post Lifecycle
 
-Every node in Pocket follows a three-phase lifecycle:
+Every node in Pocket follows a three-step lifecycle:
 
-1. **Prep Phase**: Data preparation, validation, and state loading
-2. **Exec Phase**: Core business logic execution
-3. **Post Phase**: Result processing, state updates, and routing decisions
+1. **Prep Step**: Data preparation, validation, and state loading
+2. **Exec Step**: Core business logic execution
+3. **Post Step**: Result processing, state updates, and routing decisions
 
 This structured approach provides:
 - Clear separation of concerns
@@ -134,25 +134,25 @@ Instead of external libraries, we provide idiomatic Go patterns:
 
 1. Flow starts at the designated start node
 2. For each node:
-   - Execute Prep phase (with retry support)
-   - Execute Exec phase (with retry support)
-   - Execute Post phase (no retry for routing decisions)
+   - Execute Prep step (with retry support)
+   - Execute Exec step (with retry support)
+   - Execute Post step (no retry for routing decisions)
    - Post returns the next node name
    - Flow continues to the next node or ends
 
 ### Error Handling
 
-- Each phase can be retried independently
+- Each step can be retried independently
 - Timeouts apply to the entire lifecycle
 - Custom error handlers can be attached to nodes
-- Errors include context about which phase failed
+- Errors include context about which step failed
 
 ### State Management
 
 - Store is thread-safe using sync.RWMutex
 - Scoped stores share data but have key prefixes
 - TypedStore provides type-safe wrappers
-- Store passed through all lifecycle phases
+- Store passed through all lifecycle steps
 
 ### Type Validation
 
@@ -265,7 +265,7 @@ compensate := pocket.NewNode[any, any]("compensate",
 
 ## Best Practices
 
-### 1. Keep Phases Focused
+### 1. Keep Steps Focused
 
 - **Prep**: Only validation and data preparation
 - **Exec**: Only core business logic
@@ -309,15 +309,15 @@ flexible := pocket.NewNode[any, any]("flexible",
 
 ### 5. Design for Testability
 
-Each phase can be tested independently:
+Each step can be tested independently:
 ```go
-// Test prep phase
+// Test prep step
 result, err := node.Prep(ctx, mockStore, input)
 
-// Test exec phase
+// Test exec step
 result, err := node.Exec(ctx, mockStore, prepResult)
 
-// Test post phase
+// Test post step
 output, next, err := node.Post(ctx, mockStore, input, prepResult, execResult)
 ```
 
@@ -401,7 +401,7 @@ func TestFlow(t *testing.T) {
 1. **Enable Logging**: Use WithLogger option
 2. **Add Error Handlers**: Use WithErrorHandler on nodes
 3. **Validate Types**: Run ValidateFlow before execution
-4. **Check Store State**: Inspect store between phases
+4. **Check Store State**: Inspect store between steps
 5. **Trace Execution**: Use WithTracer for distributed tracing
 
 ## Future Enhancements

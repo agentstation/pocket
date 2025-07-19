@@ -116,7 +116,7 @@ func main() {
 
 ### The Prep/Exec/Post Lifecycle
 
-Every Pocket node follows three phases:
+Every Pocket node follows three steps:
 
 ```mermaid
 graph LR

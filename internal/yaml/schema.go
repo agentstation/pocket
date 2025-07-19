@@ -38,10 +38,10 @@ type Connection struct {
 
 // RetryConfig represents retry configuration in YAML.
 type RetryConfig struct {
-	MaxAttempts int    `yaml:"max_attempts"`
-	Delay       string `yaml:"delay"`
+	MaxAttempts int     `yaml:"max_attempts"`
+	Delay       string  `yaml:"delay"`
 	Multiplier  float64 `yaml:"multiplier,omitempty"`
-	MaxDelay    string `yaml:"max_delay,omitempty"`
+	MaxDelay    string  `yaml:"max_delay,omitempty"`
 }
 
 // Validate checks if the flow definition is valid.

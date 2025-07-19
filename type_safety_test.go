@@ -12,7 +12,7 @@ import (
 
 const (
 	// Using successResult from lifecycle_test.go
-	// Using defaultRoute from options_test.go
+	// Using defaultRoute from options_test.go.
 	testValue = "test"
 )
 
@@ -116,7 +116,7 @@ func TestNodeOptions(t *testing.T) {
 		}
 	})
 
-	t.Run("WithPrep handles prep phase with type safety", func(t *testing.T) {
+	t.Run("WithPrep handles prep step with type safety", func(t *testing.T) {
 		var prepCalled bool
 		node := pocket.NewNode[TestInput, TestOutput]("test",
 			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input TestInput) (any, error) {
@@ -245,7 +245,7 @@ func TestRuntimeTypeSafety(t *testing.T) {
 		)
 
 		flow := pocket.NewFlow(node, store)
-		
+
 		// Correct type works
 		result, err := flow.Run(ctx, TestInput{Value: "test"})
 		if err != nil {
@@ -282,7 +282,7 @@ func TestRuntimeTypeSafety(t *testing.T) {
 	})
 }
 
-// TestValidateFlowTypeSafety tests initialization-time type validation
+// TestValidateFlowTypeSafety tests initialization-time type validation.
 func TestValidateFlowTypeSafety(t *testing.T) {
 	t.Run("validates compatible typed nodes", func(t *testing.T) {
 		node1 := pocket.NewNode[TestInput, TestOutput]("node1",
@@ -356,7 +356,7 @@ func TestValidateFlowTypeSafety(t *testing.T) {
 	})
 }
 
-// TestNewAPIUsagePatterns tests common patterns with the new API
+// TestNewAPIUsagePatterns tests common patterns with the new API.
 func TestNewAPIUsagePatterns(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()
@@ -411,7 +411,7 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 		)
 
 		flow := pocket.NewFlow(node, store)
-		
+
 		// Test with string
 		result, err := flow.Run(ctx, "hello")
 		if err != nil {
@@ -432,7 +432,7 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 	})
 }
 
-// TestAutoTypeWrapping tests the automatic type wrapping for regular options
+// TestAutoTypeWrapping tests the automatic type wrapping for regular options.
 func TestAutoTypeWrapping(t *testing.T) {
 	ctx := context.Background()
 	store := pocket.NewStore()

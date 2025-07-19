@@ -22,23 +22,23 @@ type Cache interface {
 
 // CacheStats contains cache statistics.
 type CacheStats struct {
-	Hits       int64
-	Misses     int64
-	Sets       int64
-	Deletes    int64
-	Evictions  int64
-	Size       int
-	MaxSize    int
+	Hits      int64
+	Misses    int64
+	Sets      int64
+	Deletes   int64
+	Evictions int64
+	Size      int
+	MaxSize   int
 }
 
 // LRUCache implements an LRU cache with TTL support.
 type LRUCache struct {
-	mu       sync.RWMutex
-	maxSize  int
-	entries  map[string]*cacheEntry
-	head     *cacheEntry
-	tail     *cacheEntry
-	stats    CacheStats
+	mu      sync.RWMutex
+	maxSize int
+	entries map[string]*cacheEntry
+	head    *cacheEntry
+	tail    *cacheEntry
+	stats   CacheStats
 }
 
 type cacheEntry struct {
@@ -55,13 +55,13 @@ func NewLRUCache(maxSize int) *LRUCache {
 		entries: make(map[string]*cacheEntry),
 		stats:   CacheStats{MaxSize: maxSize},
 	}
-	
+
 	// Create sentinel nodes
 	c.head = &cacheEntry{}
 	c.tail = &cacheEntry{}
 	c.head.next = c.tail
 	c.tail.prev = c.head
-	
+
 	return c
 }
 
@@ -183,9 +183,9 @@ func (c *LRUCache) evictOldest() {
 // CachedNode wraps a node with caching.
 type CachedNode struct {
 	*pocket.Node
-	cache    Cache
-	keyFunc  func(input any) string
-	ttl      time.Duration
+	cache   Cache
+	keyFunc func(input any) string
+	ttl     time.Duration
 }
 
 // NewCachedNode creates a node with caching.
@@ -201,7 +201,7 @@ func NewCachedNode(node *pocket.Node, cache Cache, keyFunc func(any) string, ttl
 // Execute runs the node with caching.
 func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any) (any, error) {
 	key := n.keyFunc(input)
-	
+
 	// Check cache
 	if cached, exists := n.cache.Get(key); exists {
 		// Store cache hit metadata
@@ -219,7 +219,7 @@ func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any)
 	// Cache result
 	n.cache.Set(key, result, n.ttl)
 	_ = store.Set(ctx, fmt.Sprintf("node:%s:cache_miss", n.Name), true)
-	
+
 	return result, nil
 }
 
@@ -227,24 +227,24 @@ func (n *CachedNode) Execute(ctx context.Context, store pocket.Store, input any)
 func CacheMiddleware(cache Cache, keyFunc func(any) string, ttl time.Duration) func(*pocket.Node) *pocket.Node {
 	return func(node *pocket.Node) *pocket.Node {
 		originalExec := node.Exec
-		
+
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			key := keyFunc(input)
-			
+
 			// Check cache
 			if cached, exists := cache.Get(key); exists {
 				return cached, nil
 			}
-			
+
 			// Execute original
 			result, err := originalExec(ctx, input)
 			if err == nil {
 				cache.Set(key, result, ttl)
 			}
-			
+
 			return result, err
 		}
-		
+
 		return node
 	}
 }
@@ -286,10 +286,10 @@ func NewTTLCache() *TTLCache {
 	c := &TTLCache{
 		entries: make(map[string]*ttlEntry),
 	}
-	
+
 	// Start cleanup goroutine
 	go c.cleanup()
-	
+
 	return c
 }
 

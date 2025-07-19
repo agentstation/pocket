@@ -212,25 +212,25 @@ func NewMockNode(name string) *MockNode {
 // Build creates a pocket.Node from the mock.
 func (m *MockNode) Build() *pocket.Node {
 	var opts []pocket.Option
-	
+
 	if m.PrepFunc != nil {
 		opts = append(opts, pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			return m.PrepFunc(ctx, store, input)
 		}))
 	}
-	
+
 	if m.ExecFunc != nil {
 		opts = append(opts, pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return m.ExecFunc(ctx, input)
 		}))
 	}
-	
+
 	if m.PostFunc != nil {
 		opts = append(opts, pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			return m.PostFunc(ctx, store, input, prep, exec)
 		}))
 	}
-	
+
 	return pocket.NewNode[any, any](m.Name, opts...)
 }
 
@@ -262,8 +262,8 @@ func (m *MockNode) WithPost(fn pocket.PostFunc) *MockNode {
 }
 
 // WithError makes the node return an error.
-func (m *MockNode) WithError(phase string, err error) *MockNode {
-	switch phase {
+func (m *MockNode) WithError(step string, err error) *MockNode {
+	switch step {
 	case "prep":
 		m.PrepFunc = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			m.recordCall("prep")
@@ -283,11 +283,11 @@ func (m *MockNode) WithError(phase string, err error) *MockNode {
 	return m
 }
 
-// GetCallCount returns the call count for a phase.
-func (m *MockNode) GetCallCount(phase string) int {
+// GetCallCount returns the call count for a step.
+func (m *MockNode) GetCallCount(step string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.CallCount[phase]
+	return m.CallCount[step]
 }
 
 // Reset resets call counts.
@@ -297,10 +297,10 @@ func (m *MockNode) Reset() {
 	m.CallCount = make(map[string]int)
 }
 
-func (m *MockNode) recordCall(phase string) {
+func (m *MockNode) recordCall(step string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.CallCount[phase]++
+	m.CallCount[step]++
 }
 
 // MockLogger provides a mock logger for testing.

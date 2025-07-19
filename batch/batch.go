@@ -82,7 +82,7 @@ func NewProcessor[T, R any](
 func (p *Processor[T, R]) ToNode(name string) *pocket.Node {
 	return pocket.NewNode[any, any](name,
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// The store is passed as prep result for exec phase
+			// The store is passed as prep result for exec step
 			return store, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {

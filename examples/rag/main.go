@@ -49,7 +49,6 @@ type GeneratedResponse struct {
 	Confidence float64
 }
 
-
 func main() {
 	// Initialize knowledge base
 	documents := []Document{
@@ -84,14 +83,14 @@ func main() {
 			if query.Text == "" {
 				return nil, fmt.Errorf("query text cannot be empty")
 			}
-			
+
 			// Check cache for previous results
 			cacheKey := fmt.Sprintf("query_cache:%s", query.Text)
 			if cached, exists := store.Get(ctx, cacheKey); exists {
 				fmt.Println("  📾 Using cached retrieval results")
 				return cached, nil
 			}
-			
+
 			// Prepare query for retrieval
 			return map[string]interface{}{
 				"query":     query,
@@ -104,35 +103,35 @@ func main() {
 			if retrieved, ok := data.(RetrievedContext); ok {
 				return retrieved, nil
 			}
-			
+
 			// Otherwise, perform retrieval
 			d := data.(map[string]interface{})
 			query := d["query"].(Query)
 			keywords := d["keywords"].([]string)
 			docs := d["documents"].([]Document)
-			
+
 			// Simple keyword-based retrieval (in real world, use vector embeddings)
 			var relevant []Document
 			relevance := make(map[string]float64)
-			
+
 			for _, doc := range docs {
 				score := 0.0
 				docLower := strings.ToLower(doc.Content + " " + doc.Title)
-				
+
 				for _, keyword := range keywords {
 					if strings.Contains(docLower, keyword) {
 						score += 1.0
 					}
 				}
-				
+
 				if score > 0 {
 					relevant = append(relevant, doc)
 					relevance[doc.ID] = score / float64(len(keywords))
 				}
 			}
-			
+
 			fmt.Printf("  🔍 Retrieved %d relevant documents\n", len(relevant))
-			
+
 			return RetrievedContext{
 				Query:     query,
 				Documents: relevant,
@@ -143,7 +142,7 @@ func main() {
 			// Cache the results
 			cacheKey := fmt.Sprintf("query_cache:%s", query.Text)
 			store.Set(ctx, cacheKey, retrieved)
-			
+
 			// Route based on retrieval results
 			if len(retrieved.Documents) == 0 {
 				return retrieved, "no_results", nil
@@ -165,7 +164,7 @@ func main() {
 			d := data.(map[string]interface{})
 			retrieved := d["retrieved"].(RetrievedContext)
 			maxContext := d["maxContext"].(int)
-			
+
 			// Build context from top retrieved documents
 			contextParts := make([]string, 0, len(retrieved.Documents))
 			count := 0
@@ -176,16 +175,16 @@ func main() {
 				contextParts = append(contextParts, fmt.Sprintf("[%s]: %s", doc.Title, doc.Content))
 				count++
 			}
-			
+
 			// Create augmented prompt
 			prompt := fmt.Sprintf(
 				"Based on the following context, answer the question.\n\nContext:\n%s\n\nQuestion: %s\n\nAnswer:",
 				strings.Join(contextParts, "\n"),
 				retrieved.Query.Text,
 			)
-			
+
 			fmt.Printf("  📝 Augmented query with %d context documents\n", len(contextParts))
-			
+
 			return AugmentedQuery{
 				Original: retrieved.Query,
 				Context:  retrieved,
@@ -207,7 +206,7 @@ func main() {
 				fmt.Println("  📾 Using cached response")
 				return cached, nil
 			}
-			
+
 			// Prepare generation context
 			return augmented, nil
 		}),
@@ -216,10 +215,10 @@ func main() {
 			if response, ok := data.(GeneratedResponse); ok {
 				return response, nil
 			}
-			
+
 			// Otherwise, generate response
 			augmented := data.(AugmentedQuery)
-			
+
 			// Simulate LLM response generation
 			// In real implementation, this would call an actual LLM API
 			answer := ""
@@ -234,13 +233,13 @@ func main() {
 			} else {
 				answer = "I couldn't find relevant information to answer your question."
 			}
-			
+
 			// Extract source references
 			sources := make([]string, 0, len(augmented.Context.Documents))
 			for _, doc := range augmented.Context.Documents {
 				sources = append(sources, doc.Title)
 			}
-			
+
 			// Calculate confidence based on relevance scores
 			confidence := 0.0
 			if len(augmented.Context.Documents) > 0 {
@@ -249,9 +248,9 @@ func main() {
 				}
 				confidence /= float64(len(augmented.Context.Documents))
 			}
-			
+
 			fmt.Printf("  🤖 Generated response with %.2f confidence\n", confidence)
-			
+
 			return GeneratedResponse{
 				Answer:     answer,
 				Sources:    sources,
@@ -262,7 +261,7 @@ func main() {
 			// Cache the response
 			cacheKey := fmt.Sprintf("response_cache:%s", augmented.Original.Text)
 			store.Set(ctx, cacheKey, response)
-			
+
 			// Update user history
 			userHistory, _ := store.Get(ctx, fmt.Sprintf("user:%s:history", augmented.Original.UserID))
 			if userHistory == nil {
@@ -271,7 +270,7 @@ func main() {
 			history := userHistory.([]string)
 			history = append(history, augmented.Original.Text)
 			store.Set(ctx, fmt.Sprintf("user:%s:history", augmented.Original.UserID), history)
-			
+
 			return response, "done", nil
 		}),
 	)
@@ -356,7 +355,7 @@ func main() {
 
 	// Demonstrate builder pattern for RAG
 	fmt.Println("\n=== RAG Builder Pattern ===")
-	
+
 	// Create a more complex RAG pipeline with quality filter
 	qualityFilter := pocket.NewNode[any, any]("quality_filter",
 		pocket.WithPrep[any](func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -365,16 +364,16 @@ func main() {
 		}),
 		pocket.WithExec[any, any](func(ctx context.Context, response any) (any, error) {
 			resp := response.(GeneratedResponse)
-			
+
 			// Filter based on confidence
 			if resp.Confidence < 0.5 {
 				resp.Answer = "Low confidence response: " + resp.Answer
 			}
-			
+
 			return resp, nil
 		}),
 	)
-	
+
 	_, err = pocket.NewBuilder(store).
 		Add(retriever).
 		Add(augmenter).
@@ -387,7 +386,7 @@ func main() {
 		Connect("generate", "done", "quality_filter").
 		Start("retrieve").
 		Build()
-	
+
 	if err != nil {
 		log.Printf("Failed to build RAG pipeline: %v", err)
 	} else {

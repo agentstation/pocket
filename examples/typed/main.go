@@ -107,7 +107,7 @@ func main() {
 
 			// Otherwise, enrich the validated user
 			result := input.(ValidationResult)
-			
+
 			// Simulate looking up additional data (in real app, call external service)
 			enriched := EnrichmentResult{
 				User:       result.User,
@@ -133,7 +133,7 @@ func main() {
 			// Cache enrichment data
 			cacheKey := fmt.Sprintf("user:%s:enrichment", input.User.ID)
 			store.Set(ctx, cacheKey, result)
-			
+
 			// Always proceed to notification
 			return result, "notify", nil
 		}),
@@ -160,7 +160,7 @@ func main() {
 
 			// Simulate sending notification
 			messageID := fmt.Sprintf("msg-%s-%d", user.ID, len(user.Name))
-			
+
 			// Log the notification
 			fmt.Printf("  📧 Sending welcome email to %s (%s)\n", user.Email, dept)
 			fmt.Printf("     Manager: %s\n", manager)
@@ -182,13 +182,13 @@ func main() {
 	errorHandler := pocket.NewNode[any, any]("error",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			result := input.(ValidationResult)
-			
+
 			// Log validation errors
 			fmt.Printf("  ❌ Validation failed for user %s:\n", result.User.ID)
 			for _, err := range result.Errors {
 				fmt.Printf("     - %s\n", err)
 			}
-			
+
 			return fmt.Sprintf("Validation failed with %d errors", len(result.Errors)), nil
 		}),
 	)
@@ -233,14 +233,14 @@ func main() {
 	// Process each user
 	for _, user := range testUsers {
 		fmt.Printf("\n--- Processing User: %s ---\n", user.ID)
-		
+
 		flow := pocket.NewFlow(validator, store)
 		result, err := flow.Run(ctx, user)
 		if err != nil {
 			fmt.Printf("Flow error: %v\n", err)
 			continue
 		}
-		
+
 		if notification, ok := result.(NotificationResult); ok {
 			fmt.Printf("✅ Success! Message ID: %s\n", notification.MessageID)
 		} else {
@@ -281,7 +281,7 @@ func main() {
 			if len(parts) != 3 {
 				return User{}, fmt.Errorf("invalid input format")
 			}
-			
+
 			return User{
 				ID:    strings.TrimSpace(parts[0]),
 				Name:  strings.TrimSpace(parts[1]),
@@ -295,7 +295,7 @@ func main() {
 			fmt.Printf("Error handler: %v\n", err)
 		}),
 	)
-	
+
 	// Test the reliable processor
 	fmt.Println("Testing reliable processor with retry and timeout...")
 	reliableFlow := pocket.NewFlow(reliableProcessor, store)
@@ -311,7 +311,7 @@ func main() {
 			if len(parts) != 3 {
 				return User{}, fmt.Errorf("invalid input format")
 			}
-			
+
 			return User{
 				ID:    strings.TrimSpace(parts[0]),
 				Name:  strings.TrimSpace(parts[1]),
@@ -341,7 +341,7 @@ func main() {
 	// Test with CSV input
 	csvInput := "999,Alice Developer,alice@example.com"
 	fmt.Printf("\nProcessing CSV input: %s\n", csvInput)
-	
+
 	result, err := flow.Run(ctx, csvInput)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

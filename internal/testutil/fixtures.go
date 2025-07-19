@@ -64,16 +64,16 @@ func (f *Fixtures) CounterNode(name string) *pocket.Node {
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			key := fmt.Sprintf("counter:%s", name)
 			count, _ := store.Get(ctx, key)
-			
+
 			currentCount := 0
 			if c, ok := count.(int); ok {
 				currentCount = c
 			}
-			
+
 			return map[string]interface{}{
-				"input": input,
+				"input":        input,
 				"currentCount": currentCount,
-				"key": key,
+				"key":          key,
 			}, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
@@ -110,7 +110,7 @@ func (f *Fixtures) StoreNode(name, key string) *pocket.Node {
 	return pocket.NewNode[any, any](name,
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return map[string]interface{}{
-				"key": key,
+				"key":   key,
 				"value": input,
 			}, nil
 		}),
@@ -152,33 +152,33 @@ func (f *Fixtures) AggregatorNode(name string, aggregate func([]any) any) *pocke
 	return pocket.NewNode[any, any](name,
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			key := fmt.Sprintf("aggregator:%s:values", name)
-			
+
 			// Get existing values
 			existing, _ := store.Get(ctx, key)
 			values := []any{}
 			if v, ok := existing.([]any); ok {
 				values = v
 			}
-			
+
 			return map[string]interface{}{
-				"input": input,
+				"input":  input,
 				"values": values,
-				"key": key,
+				"key":    key,
 			}, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
 			data := prepData.(map[string]interface{})
 			values := data["values"].([]any)
 			input := data["input"]
-			
+
 			// Add new value
 			values = append(values, input)
-			
+
 			// Return aggregated result
 			result := aggregate(values)
-			
+
 			return map[string]interface{}{
-				"key": data["key"],
+				"key":    data["key"],
 				"values": values,
 				"result": result,
 			}, nil
@@ -188,9 +188,9 @@ func (f *Fixtures) AggregatorNode(name string, aggregate func([]any) any) *pocke
 			key := data["key"].(string)
 			values := data["values"].([]any)
 			result := data["result"]
-			
+
 			_ = store.Set(ctx, key, values)
-			
+
 			return result, defaultRoute, nil
 		}),
 	)
@@ -216,14 +216,14 @@ func (f *Fixtures) LinearFlow(store pocket.Store, nodes ...*pocket.Node) *pocket
 func (f *Fixtures) BranchingFlow(store pocket.Store, condition, trueBranch, falseBranch *pocket.Node) *pocket.Flow {
 	condition.Connect("true", trueBranch)
 	condition.Connect("false", falseBranch)
-	
+
 	return pocket.NewFlow(condition, store)
 }
 
 // LoopFlow creates a flow with a loop.
 func (f *Fixtures) LoopFlow(store pocket.Store, body *pocket.Node, maxIterations int) *pocket.Flow {
 	counter := f.CounterNode("loop_counter")
-	
+
 	check := pocket.NewNode[any, any]("loop_check",
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			count, _ := store.Get(ctx, "counter:loop_counter")
@@ -233,12 +233,12 @@ func (f *Fixtures) LoopFlow(store pocket.Store, body *pocket.Node, maxIterations
 			return exec, "done", nil
 		}),
 	)
-	
+
 	// Connect: counter -> check -> body -> counter (loop)
 	counter.Connect("default", check)
 	check.Connect("continue", body)
 	body.Connect("default", counter)
-	
+
 	return pocket.NewFlow(counter, store)
 }
 
@@ -286,13 +286,13 @@ func (f *Fixtures) SampleMessages() []Message {
 
 // TestData represents generic test data.
 type TestData struct {
-	String  string
-	Int     int
-	Float   float64
-	Bool    bool
-	Time    time.Time
-	List    []string
-	Map     map[string]any
+	String string
+	Int    int
+	Float  float64
+	Bool   bool
+	Time   time.Time
+	List   []string
+	Map    map[string]any
 }
 
 // SampleTestData returns sample test data.
@@ -333,7 +333,7 @@ func (f *Fixtures) ChatBotScenario(store pocket.Store) Scenario {
 			if !ok {
 				return nil, fmt.Errorf("expected string input")
 			}
-			
+
 			// Simple classification
 			if containsIgnoreCase(msg, "hello") || containsIgnoreCase(msg, "hi") {
 				return "greeting", nil

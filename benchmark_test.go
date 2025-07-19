@@ -38,8 +38,8 @@ func BenchmarkSingleNodeExecution(b *testing.B) {
 	}
 }
 
-// Benchmark lifecycle phases.
-func BenchmarkLifecyclePhases(b *testing.B) {
+// Benchmark lifecycle steps.
+func BenchmarkLifecycleSteps(b *testing.B) {
 	node := pocket.NewNode[any, any]("lifecycle",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			return input, nil
@@ -51,7 +51,7 @@ func BenchmarkLifecyclePhases(b *testing.B) {
 			return exec, doneRoute, nil
 		}),
 	)
-	
+
 	store := pocket.NewStore()
 	flow := pocket.NewFlow(node, store)
 	ctx := context.Background()
@@ -145,13 +145,13 @@ func BenchmarkFlowWithRouting(b *testing.B) {
 			return result, "odd", nil
 		}),
 	)
-	
+
 	nodeA := pocket.NewNode[any, any]("a",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return input, nil
 		}),
 	)
-		
+
 	nodeB := pocket.NewNode[any, any]("b",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			return input, nil
@@ -175,25 +175,25 @@ func BenchmarkFlowWithRouting(b *testing.B) {
 func BenchmarkBuilder(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		builder := pocket.NewBuilder(pocket.NewStore())
-		
+
 		nodeA := pocket.NewNode[any, any]("a",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input, nil
 			}),
 		)
-			
+
 		nodeB := pocket.NewNode[any, any]("b",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input, nil
 			}),
 		)
-			
+
 		nodeC := pocket.NewNode[any, any]("c",
 			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 				return input, nil
 			}),
 		)
-		
+
 		builder.
 			Add(nodeA).
 			Add(nodeB).

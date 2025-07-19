@@ -223,7 +223,7 @@ func main() {
 	// Create a node with the fallback chain
 	chainNode := pocket.NewNode[any, any]("llm-chain-node",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Pass input and store to exec phase
+			// Pass input and store to exec step
 			return map[string]interface{}{
 				"input": input,
 				"store": store,
@@ -363,7 +363,7 @@ func createExtractionFlow() *pocket.Flow {
 	// Combine results
 	combiner := pocket.NewNode[any, any]("result-combiner",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Get results from store in prep phase
+			// Get results from store in prep step
 			entities, _ := store.Get(ctx, "entities")
 			sentiment, _ := store.Get(ctx, "sentiment")
 

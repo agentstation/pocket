@@ -16,13 +16,13 @@ type Hook interface {
 
 // Event represents a lifecycle event.
 type Event struct {
-	Type      EventType
-	NodeName  string
-	Phase     string
-	Input     any
-	Output    any
-	Error     error
-	Metadata  map[string]any
+	Type     EventType
+	NodeName string
+	Phase    string
+	Input    any
+	Output   any
+	Error    error
+	Metadata map[string]any
 }
 
 // EventType represents the type of lifecycle event.
@@ -121,11 +121,11 @@ func WithHooks(manager *HookManager) Middleware {
 				Error:    err,
 				Metadata: map[string]any{"stage": "prep"},
 			}
-			
+
 			if err != nil {
 				event.Type = EventError
 			}
-			
+
 			_ = manager.Trigger(ctx, &event)
 			return result, err
 		}
@@ -152,7 +152,7 @@ func WithHooks(manager *HookManager) Middleware {
 				Error:    err,
 				Metadata: map[string]any{"stage": "exec"},
 			}
-			
+
 			if err != nil {
 				event.Type = EventError
 			} else {
@@ -163,7 +163,7 @@ func WithHooks(manager *HookManager) Middleware {
 					Output:   result,
 				})
 			}
-			
+
 			_ = manager.Trigger(ctx, &event)
 			return result, err
 		}
@@ -197,19 +197,19 @@ func WithHooks(manager *HookManager) Middleware {
 					"next":  next,
 				},
 			}
-			
+
 			if err == nil {
 				// Trigger routing event
 				_ = manager.Trigger(ctx, &Event{
 					Type:     EventRoute,
 					NodeName: node.Name,
 					Metadata: map[string]any{
-						"next": next,
+						"next":   next,
 						"output": output,
 					},
 				})
 			}
-			
+
 			_ = manager.Trigger(ctx, &event)
 			return output, next, err
 		}

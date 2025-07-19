@@ -49,7 +49,7 @@ type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err err
 type PostFunc func(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
 
 // StoreReader provides read-only access to the store.
-// Used in the Prep phase to enforce read-only semantics.
+// Used in the Prep step to enforce read-only semantics.
 type StoreReader interface {
 	// Get retrieves a value by key.
 	Get(ctx context.Context, key string) (value any, exists bool)
@@ -59,7 +59,7 @@ type StoreReader interface {
 }
 
 // StoreWriter provides full read-write access to the store.
-// Used in the Post phase for state mutations.
+// Used in the Post step for state mutations.
 type StoreWriter interface {
 	Store
 }
@@ -128,7 +128,7 @@ type Option func(*nodeOptions)
 // WithPrep sets the preparation function with type safety.
 // The input type In should match the node's input type when used with NewNode[In, Out].
 // For dynamic typing, use WithPrep[any].
-// The store parameter provides read-only access to enforce Prep phase semantics.
+// The store parameter provides read-only access to enforce Prep step semantics.
 func WithPrep[In any](fn func(ctx context.Context, store StoreReader, input In) (any, error)) Option {
 	return func(o *nodeOptions) {
 		o.prep = func(ctx context.Context, store StoreReader, input any) (any, error) {
@@ -182,7 +182,7 @@ func WithExec[In, Out any](fn func(ctx context.Context, input In) (Out, error)) 
 
 // WithPost sets the post-processing function with type safety.
 // The types In and Out should match the node's types when used with NewNode[In, Out].
-// Post functions have access to all phase results and determine routing.
+// Post functions have access to all step results and determine routing.
 // For dynamic typing, use WithPost[any, any].
 // The store parameter provides full read-write access for state mutations.
 func WithPost[In, Out any](fn func(ctx context.Context, store StoreWriter, input In, prepResult any, execResult Out) (Out, string, error)) Option {
@@ -243,7 +243,7 @@ func WithErrorHandler(handler func(error)) Option {
 	}
 }
 
-// WithFallback adds a fallback function that runs if the exec phase fails.
+// WithFallback adds a fallback function that runs if the exec step fails.
 // The types In and Out should match the node's types when used with NewNode[In, Out].
 // For dynamic typing, use WithFallback[any, any].
 // Like exec functions, fallback functions do not have store access.
@@ -613,7 +613,7 @@ func (f *Flow) Run(ctx context.Context, input any) (output any, err error) {
 	return lastOutput, nil
 }
 
-// executeNode runs a single node with runtime type safety checks at each lifecycle phase.
+// executeNode runs a single node with runtime type safety checks at each lifecycle step.
 //
 // Runtime type safety:
 //   - Input validation: If node has InputType set, verifies input matches before execution
@@ -640,7 +640,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output a
 		defer cancel()
 	}
 
-	// Execute lifecycle with retry support for each phase
+	// Execute lifecycle with retry support for each step
 	output, next, err = f.executeLifecycle(ctx, node, input)
 	if err != nil {
 		if node.opts.onError != nil {
@@ -652,7 +652,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output a
 	return output, next, nil
 }
 
-// executeLifecycle runs the Prep/Exec/Post phases.
+// executeLifecycle runs the Prep/Exec/Post steps.
 func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (output any, next string, err error) {
 	// Ensure cleanup hooks run
 	defer func() {
@@ -673,7 +673,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 		}
 	}()
 
-	// Prep phase with retry
+	// Prep step with retry
 	prepResult, err := f.executeWithRetry(ctx, node, func() (any, error) {
 		return node.Prep(ctx, f.store, input)
 	})
@@ -681,7 +681,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 		return nil, "", fmt.Errorf("prep failed: %w", err)
 	}
 
-	// Exec phase with retry
+	// Exec step with retry
 	execResult, err := f.executeWithRetry(ctx, node, func() (any, error) {
 		return node.Exec(ctx, prepResult)
 	})
@@ -705,7 +705,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 		}
 	}
 
-	// Post phase (no retry for routing decisions)
+	// Post step (no retry for routing decisions)
 	output, next, err = node.Post(ctx, f.store, input, prepResult, execResult)
 	if err != nil {
 		return nil, "", fmt.Errorf("post failed: %w", err)
@@ -714,7 +714,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 	return output, next, nil
 }
 
-// executeWithRetry handles retry logic for lifecycle phases.
+// executeWithRetry handles retry logic for lifecycle steps.
 func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any, error)) (any, error) {
 	attempts := 0
 	maxAttempts := node.opts.maxRetries + 1
@@ -738,7 +738,7 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any,
 		attempts++
 		if attempts < maxAttempts {
 			if f.opts.logger != nil {
-				f.opts.logger.Debug(ctx, "retrying node phase",
+				f.opts.logger.Debug(ctx, "retrying node step",
 					"name", node.Name,
 					"attempt", attempts,
 					"error", err)

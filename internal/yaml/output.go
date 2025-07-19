@@ -15,7 +15,7 @@ func YAMLNode(name string, execFn pocket.ExecFunc) *pocket.Node {
 	// Create the YAML marshaling exec function
 	yamlExec := func(ctx context.Context, input any) (any, error) {
 		var dataToMarshal any
-		
+
 		if execFn != nil {
 			// Execute the user's function first
 			result, err := execFn(ctx, input)
@@ -27,13 +27,13 @@ func YAMLNode(name string, execFn pocket.ExecFunc) *pocket.Node {
 			// No exec function provided, marshal the input
 			dataToMarshal = input
 		}
-		
+
 		// Marshal to YAML
 		yamlBytes, err := yaml.Marshal(dataToMarshal)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal to YAML: %w", err)
 		}
-		
+
 		// Return both the YAML string and the original data
 		return YAMLOutput{
 			YAML:   string(yamlBytes),
@@ -41,7 +41,7 @@ func YAMLNode(name string, execFn pocket.ExecFunc) *pocket.Node {
 			Format: "yaml",
 		}, nil
 	}
-	
+
 	return pocket.NewNode[any, any](name,
 		pocket.WithExec(yamlExec),
 	)
@@ -58,12 +58,12 @@ func YAMLNodeWithLifecycle(name string, prep pocket.PrepFunc, exec pocket.ExecFu
 			if err != nil {
 				return nil, err
 			}
-			
+
 			yamlBytes, err := yaml.Marshal(result)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal to YAML: %w", err)
 			}
-			
+
 			return YAMLOutput{
 				YAML:   string(yamlBytes),
 				Data:   result,
@@ -77,7 +77,7 @@ func YAMLNodeWithLifecycle(name string, prep pocket.PrepFunc, exec pocket.ExecFu
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal to YAML: %w", err)
 			}
-			
+
 			return YAMLOutput{
 				YAML:   string(yamlBytes),
 				Data:   input,
@@ -85,24 +85,24 @@ func YAMLNodeWithLifecycle(name string, prep pocket.PrepFunc, exec pocket.ExecFu
 			}, nil
 		}
 	}
-	
+
 	// Create node with all lifecycle functions
 	opts := []pocket.Option{
 		pocket.WithExec(yamlExec),
 	}
-	
+
 	if prep != nil {
 		opts = append(opts, pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			return prep(ctx, store, input)
 		}))
 	}
-	
+
 	if post != nil {
 		opts = append(opts, pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			return post(ctx, store, input, prep, exec)
 		}))
 	}
-	
+
 	return pocket.NewNode[any, any](name, opts...)
 }
 

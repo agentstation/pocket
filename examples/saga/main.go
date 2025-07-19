@@ -50,11 +50,11 @@ func main() {
 			if len(order.Items) == 0 {
 				return nil, fmt.Errorf("order has no items")
 			}
-			
+
 			// Check current inventory state
 			inventory, exists := store.Get(ctx, "inventory")
 			if !exists {
-				// Will initialize inventory in post phase
+				// Will initialize inventory in post step
 				inventory = map[string]int{
 					"item-1": 10,
 					"item-2": 5,
@@ -64,9 +64,9 @@ func main() {
 					"item-6": 4,
 				}
 			}
-			
+
 			return map[string]interface{}{
-				"order": order,
+				"order":     order,
 				"inventory": inventory,
 				"needsInit": !exists,
 			}, nil
@@ -75,34 +75,34 @@ func main() {
 			data := prepData.(map[string]interface{})
 			o := data["order"].(*Order)
 			fmt.Printf("Reserving inventory for order %s...\n", o.ID)
-			
+
 			// Simulate potential failure
 			if rng.Float32() > 0.7 {
 				return nil, fmt.Errorf("insufficient inventory")
 			}
-			
-			// Prepare reservation data for post phase
+
+			// Prepare reservation data for post step
 			return map[string]interface{}{
-				"order": o,
+				"order":          o,
 				"reservationKey": fmt.Sprintf("reservation:%s", o.ID),
-				"items": o.Items,
-				"inventory": data["inventory"],
-				"needsInit": data["needsInit"],
+				"items":          o.Items,
+				"inventory":      data["inventory"],
+				"needsInit":      data["needsInit"],
 			}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
-			
+
 			// Initialize inventory if needed
 			if execResult["needsInit"].(bool) {
 				store.Set(ctx, "inventory", execResult["inventory"])
 			}
-			
+
 			// Store reservation
 			store.Set(ctx, execResult["reservationKey"].(string), execResult["items"])
-			
+
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
 			if state == nil {
@@ -111,7 +111,7 @@ func main() {
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "reserve_inventory")
 			store.Set(ctx, "transaction_state", txState)
-			
+
 			return o, "charge_payment", nil
 		}),
 	)
@@ -124,12 +124,12 @@ func main() {
 			if order.Amount <= 0 {
 				return nil, fmt.Errorf("invalid payment amount")
 			}
-			
+
 			// Check payment method availability
 			_, exists := store.Get(ctx, "payment_service_available")
-			
+
 			return map[string]interface{}{
-				"order": order,
+				"order":     order,
 				"needsInit": !exists,
 			}, nil
 		}),
@@ -137,39 +137,39 @@ func main() {
 			data := prepData.(map[string]interface{})
 			o := data["order"].(*Order)
 			fmt.Printf("Charging payment of $%.2f for order %s...\n", o.Amount, o.ID)
-			
+
 			// Simulate potential failure
 			if rng.Float32() > 0.8 {
 				return nil, fmt.Errorf("payment declined")
 			}
-			
-			// Prepare payment data for post phase
+
+			// Prepare payment data for post step
 			return map[string]interface{}{
-				"order": o,
+				"order":      o,
 				"paymentKey": fmt.Sprintf("payment:%s", o.ID),
-				"amount": o.Amount,
-				"needsInit": data["needsInit"],
+				"amount":     o.Amount,
+				"needsInit":  data["needsInit"],
 			}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
-			
+
 			// Initialize payment service if needed
 			if execResult["needsInit"].(bool) {
 				store.Set(ctx, "payment_service_available", true)
 			}
-			
+
 			// Record payment
 			store.Set(ctx, execResult["paymentKey"].(string), execResult["amount"])
-			
+
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "charge_payment")
 			store.Set(ctx, "transaction_state", txState)
-			
+
 			return o, "create_shipment", nil
 		}),
 	)
@@ -179,47 +179,47 @@ func main() {
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate shipping address
 			order := input.(*Order)
-			
+
 			// In real app, would validate shipping address
 			// For demo, just check order status
 			if order.Status == "cancelled" {
 				return nil, fmt.Errorf("cannot ship cancelled order")
 			}
-			
+
 			return order, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, order any) (any, error) {
 			o := order.(*Order)
 			fmt.Printf("Creating shipment for order %s...\n", o.ID)
-			
+
 			// Simulate potential failure
 			if rng.Float32() > 0.9 {
 				return nil, fmt.Errorf("shipping service unavailable")
 			}
-			
+
 			// Create shipment
 			shipmentID := fmt.Sprintf("SHIP-%s-%d", o.ID, time.Now().Unix())
-			
+
 			return map[string]interface{}{
-				"order": o,
+				"order":       o,
 				"shipmentKey": fmt.Sprintf("shipment:%s", o.ID),
-				"shipmentID": shipmentID,
+				"shipmentID":  shipmentID,
 			}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, order, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
-			
+
 			// Store shipment
 			store.Set(ctx, execResult["shipmentKey"].(string), execResult["shipmentID"])
-			
+
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "create_shipment")
 			store.Set(ctx, "transaction_state", txState)
-			
+
 			return o, "send_confirmation", nil
 		}),
 	)
@@ -230,7 +230,7 @@ func main() {
 			// Prepare email context
 			order := input.(*Order)
 			shipmentID, _ := store.Get(ctx, fmt.Sprintf("shipment:%s", order.ID))
-			
+
 			return map[string]interface{}{
 				"order":      order,
 				"shipmentID": shipmentID,
@@ -239,13 +239,13 @@ func main() {
 		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
 			d := data.(map[string]interface{})
 			order := d["order"].(*Order)
-			
+
 			fmt.Printf("Sending confirmation email for order %s...\n", order.ID)
-			
-			// Prepare confirmation data for post phase
+
+			// Prepare confirmation data for post step
 			return map[string]interface{}{
-				"order": order,
-				"confirmationKey": fmt.Sprintf("confirmation:%s", order.ID),
+				"order":            order,
+				"confirmationKey":  fmt.Sprintf("confirmation:%s", order.ID),
 				"confirmationTime": time.Now(),
 			}, nil
 		}),
@@ -254,16 +254,16 @@ func main() {
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
 			o.Status = "completed"
-			
+
 			// Record confirmation
 			store.Set(ctx, execResult["confirmationKey"].(string), execResult["confirmationTime"])
-			
+
 			// Mark saga as complete
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "send_confirmation")
 			store.Set(ctx, "transaction_state", txState)
-			
+
 			return o, "success", nil
 		}),
 	)
@@ -284,10 +284,10 @@ func main() {
 			if state == nil {
 				return nil, fmt.Errorf("no transaction state found")
 			}
-			
+
 			order := input.(*Order)
 			txState := state.(*TransactionState)
-			
+
 			return map[string]interface{}{
 				"order":   order,
 				"txState": txState,
@@ -297,53 +297,53 @@ func main() {
 			d := data.(map[string]interface{})
 			order := d["order"].(*Order)
 			txState := d["txState"].(*TransactionState)
-			
+
 			fmt.Println("\n🔄 Starting compensation...")
-			
-			// Prepare keys to delete in post phase
+
+			// Prepare keys to delete in post step
 			keysToDelete := []string{}
-			
+
 			// Compensate in reverse order
 			for i := len(txState.CompletedSteps) - 1; i >= 0; i-- {
 				step := txState.CompletedSteps[i]
 				fmt.Printf("Compensating: %s\n", step)
-				
+
 				switch step {
 				case "send_confirmation":
 					fmt.Printf("Sending cancellation email for order %s\n", order.ID)
 					keysToDelete = append(keysToDelete, fmt.Sprintf("confirmation:%s", order.ID))
-					
+
 				case "create_shipment":
 					fmt.Printf("Cancelling shipment for order %s\n", order.ID)
 					keysToDelete = append(keysToDelete, fmt.Sprintf("shipment:%s", order.ID))
-					
+
 				case "charge_payment":
 					fmt.Printf("Refunding payment of $%.2f for order %s\n", order.Amount, order.ID)
 					keysToDelete = append(keysToDelete, fmt.Sprintf("payment:%s", order.ID))
-					
+
 				case "reserve_inventory":
 					fmt.Printf("Releasing inventory reservation for order %s\n", order.ID)
 					keysToDelete = append(keysToDelete, fmt.Sprintf("reservation:%s", order.ID))
 				}
 			}
-			
+
 			return map[string]interface{}{
-				"message": "Saga rolled back successfully",
+				"message":      "Saga rolled back successfully",
 				"keysToDelete": keysToDelete,
 			}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
-			
+
 			// Delete all compensation keys
 			for _, key := range execResult["keysToDelete"].([]string) {
 				_ = store.Delete(ctx, key)
 			}
-			
+
 			// Clear transaction state
 			_ = store.Delete(ctx, "transaction_state")
-			
+
 			return execResult["message"], "done", nil
 		}),
 	)
@@ -365,17 +365,17 @@ func main() {
 			data := errData.(map[string]interface{})
 			err := data["error"].(error)
 			order := data["order"].(*Order)
-			
+
 			fmt.Printf("\n❌ Error: %v\n", err)
-			
+
 			// Trigger compensation
 			compensateFlow := pocket.NewFlow(compensate, store)
 			result, compErr := compensateFlow.Run(ctx, order)
-			
+
 			if compErr != nil {
 				return nil, fmt.Errorf("saga failed and compensation failed: %w", compErr)
 			}
-			
+
 			return result, nil
 		}),
 	)
@@ -428,10 +428,10 @@ func main() {
 				"error": err,
 				"order": order,
 			}
-			
+
 			errorFlow := pocket.NewFlow(errorHandler, store)
 			compResult, _ := errorFlow.Run(ctx, errorData)
-			
+
 			fmt.Printf("\n❌ Order %s failed: %v\n", order.ID, err)
 			if compResult != nil {
 				fmt.Printf("💫 %s\n", compResult)
@@ -445,7 +445,7 @@ func main() {
 
 	// Demonstrate builder pattern for saga
 	fmt.Println("\n=== Saga Builder Pattern ===")
-	
+
 	// Create a more complex saga with builder
 	_, err := pocket.NewBuilder(store).
 		Add(reserveInventory).
@@ -461,7 +461,7 @@ func main() {
 		Connect("send_confirmation", "success", "success").
 		Start("reserve_inventory").
 		Build()
-	
+
 	if err != nil {
 		fmt.Printf("Failed to build saga: %v\n", err)
 	} else {

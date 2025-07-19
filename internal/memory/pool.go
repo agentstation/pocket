@@ -18,11 +18,11 @@ type NodePool struct {
 
 // PoolStats tracks pool usage statistics.
 type PoolStats struct {
-	mu        sync.RWMutex
-	gets      map[string]int64
-	puts      map[string]int64
-	news      map[string]int64
-	inUse     map[string]int64
+	mu    sync.RWMutex
+	gets  map[string]int64
+	puts  map[string]int64
+	news  map[string]int64
+	inUse map[string]int64
 }
 
 // NewNodePool creates a new node pool.
@@ -173,7 +173,7 @@ func (b *BufferPool) Get(size int) []byte {
 // Put returns a buffer to the pool.
 func (b *BufferPool) Put(buf []byte) {
 	size := cap(buf)
-	
+
 	b.mu.RLock()
 	pool, ok := b.pools[size]
 	b.mu.RUnlock()
@@ -220,12 +220,12 @@ func (p *ResultPool[T]) Put(result *T) {
 
 // MemoryManager provides centralized memory management.
 type MemoryManager struct {
-	nodePool   *NodePool
-	bufferPool *BufferPool
+	nodePool    *NodePool
+	bufferPool  *BufferPool
 	resultPools map[string]interface{}
-	mu         sync.RWMutex
-	gcInterval time.Duration
-	stopCh     chan struct{}
+	mu          sync.RWMutex
+	gcInterval  time.Duration
+	stopCh      chan struct{}
 }
 
 // NewMemoryManager creates a new memory manager.

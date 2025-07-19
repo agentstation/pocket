@@ -128,7 +128,7 @@ func (a *Assert) NotEmpty(collection any, msgAndArgs ...any) {
 // Eventually asserts that a condition becomes true within a timeout.
 func (a *Assert) Eventually(condition func() bool, timeout time.Duration, msgAndArgs ...any) {
 	a.t.Helper()
-	
+
 	deadline := time.Now().Add(timeout)
 	interval := timeout / 100
 	if interval < time.Millisecond {
@@ -148,38 +148,38 @@ func (a *Assert) Eventually(condition func() bool, timeout time.Duration, msgAnd
 // Panics asserts that a function panics.
 func (a *Assert) Panics(fn func(), msgAndArgs ...any) {
 	a.t.Helper()
-	
+
 	defer func() {
 		if r := recover(); r == nil {
 			a.fail("Expected panic, but function completed normally", msgAndArgs...)
 		}
 	}()
-	
+
 	fn()
 }
 
 // NotPanics asserts that a function does not panic.
 func (a *Assert) NotPanics(fn func(), msgAndArgs ...any) {
 	a.t.Helper()
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			a.fail(fmt.Sprintf("Expected no panic, but got: %v", r), msgAndArgs...)
 		}
 	}()
-	
+
 	fn()
 }
 
 // InDelta asserts that two floats are within a delta.
 func (a *Assert) InDelta(expected, actual, delta float64, msgAndArgs ...any) {
 	a.t.Helper()
-	
+
 	diff := expected - actual
 	if diff < 0 {
 		diff = -diff
 	}
-	
+
 	if diff > delta {
 		a.fail(fmt.Sprintf("Expected %f ± %f, but got %f (diff: %f)", expected, delta, actual, diff), msgAndArgs...)
 	}
@@ -188,12 +188,12 @@ func (a *Assert) InDelta(expected, actual, delta float64, msgAndArgs ...any) {
 // WithinDuration asserts that two times are within a duration.
 func (a *Assert) WithinDuration(expected, actual time.Time, delta time.Duration, msgAndArgs ...any) {
 	a.t.Helper()
-	
+
 	diff := expected.Sub(actual)
 	if diff < 0 {
 		diff = -diff
 	}
-	
+
 	if diff > delta {
 		a.fail(fmt.Sprintf("Expected %v ± %v, but got %v (diff: %v)", expected, delta, actual, diff), msgAndArgs...)
 	}
@@ -216,13 +216,13 @@ func isNil(value any) bool {
 	if value == nil {
 		return true
 	}
-	
+
 	v := reflect.ValueOf(value)
 	switch v.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
 		return v.IsNil()
 	}
-	
+
 	return false
 }
 
@@ -255,29 +255,29 @@ func NewFlowAssert(t *testing.T) *FlowAssert {
 // FlowCompletes asserts that a flow completes successfully.
 func (fa *FlowAssert) FlowCompletes(flow *pocket.Flow, input any) any {
 	fa.t.Helper()
-	
+
 	ctx := context.Background()
 	result, err := flow.Run(ctx, input)
 	fa.NoError(err, "Flow execution failed")
-	
+
 	return result
 }
 
 // FlowFails asserts that a flow fails with an error.
 func (fa *FlowAssert) FlowFails(flow *pocket.Flow, input any) error {
 	fa.t.Helper()
-	
+
 	ctx := context.Background()
 	_, err := flow.Run(ctx, input)
 	fa.Error(err, "Expected flow to fail")
-	
+
 	return err
 }
 
 // NodeExecutes asserts that a node executes successfully.
 func (fa *FlowAssert) NodeExecutes(node *pocket.Node, store pocket.Store, input any) any {
 	fa.t.Helper()
-	
+
 	flow := pocket.NewFlow(node, store)
 	return fa.FlowCompletes(flow, input)
 }
@@ -285,18 +285,18 @@ func (fa *FlowAssert) NodeExecutes(node *pocket.Node, store pocket.Store, input 
 // StoreContains asserts that a store contains a key.
 func (fa *FlowAssert) StoreContains(store pocket.Store, key string) any {
 	fa.t.Helper()
-	
+
 	ctx := context.Background()
 	value, exists := store.Get(ctx, key)
 	fa.True(exists, "Expected store to contain key: %s", key)
-	
+
 	return value
 }
 
 // StoreNotContains asserts that a store does not contain a key.
 func (fa *FlowAssert) StoreNotContains(store pocket.Store, key string) {
 	fa.t.Helper()
-	
+
 	ctx := context.Background()
 	_, exists := store.Get(ctx, key)
 	fa.False(exists, "Expected store to not contain key: %s", key)

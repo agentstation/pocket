@@ -160,7 +160,7 @@ func TestGlobalDefaults(t *testing.T) {
 			t.Error("global default prep not called")
 		}
 
-		// We can't check store.Get since prep phase can't write anymore
+		// We can't check store.Get since prep step can't write anymore
 		// Just verify the function was called
 	})
 
@@ -236,4 +236,3 @@ func TestGlobalDefaults(t *testing.T) {
 		}
 	})
 }
-

@@ -11,11 +11,11 @@ import (
 
 // Chain represents a sophisticated fallback chain with advanced features.
 type Chain struct {
-	name      string
-	links     []Link
-	strategy  Strategy
-	metrics   *Metrics
-	mu        sync.RWMutex
+	name     string
+	links    []Link
+	strategy Strategy
+	metrics  *Metrics
+	mu       sync.RWMutex
 }
 
 // Link represents a single link in the fallback chain.
@@ -61,7 +61,7 @@ func NewChain(name string) *Chain {
 func (c *Chain) AddLink(link Link) *Chain {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if link.Weight == 0 {
 		link.Weight = 1.0
 	}
@@ -73,7 +73,7 @@ func (c *Chain) AddLink(link Link) *Chain {
 func (c *Chain) WithStrategy(strategy Strategy) *Chain {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.strategy = strategy
 	return c
 }
@@ -141,7 +141,7 @@ func (s *SequentialStrategy) Execute(ctx context.Context, chain *Chain, store po
 	chain.mu.RUnlock()
 
 	var lastErr error
-	
+
 	for i, link := range links {
 		// Check condition if defined
 		if link.Condition != nil && !link.Condition(ctx, store, input) {
@@ -164,7 +164,7 @@ func (s *SequentialStrategy) Execute(ctx context.Context, chain *Chain, store po
 
 		// Execute link
 		result, err := link.Handler(ctx, linkInput)
-		
+
 		// Record latency
 		latency := time.Since(start)
 		chain.metrics.mu.Lock()
@@ -218,7 +218,7 @@ func (s *ParallelStrategy) Execute(ctx context.Context, chain *Chain, store pock
 	}
 
 	resultCh := make(chan result, len(links))
-	
+
 	// Launch all links concurrently
 	for _, link := range links {
 		go func(l Link) {
@@ -239,7 +239,7 @@ func (s *ParallelStrategy) Execute(ctx context.Context, chain *Chain, store pock
 			chain.metrics.mu.Unlock()
 
 			value, err := l.Handler(ctx, linkInput)
-			
+
 			latency := time.Since(start)
 			chain.metrics.mu.Lock()
 			chain.metrics.linkLatencies[l.Name] = append(chain.metrics.linkLatencies[l.Name], latency)
@@ -294,7 +294,7 @@ func (s *WeightedRandomStrategy) Execute(ctx context.Context, chain *Chain, stor
 	// Calculate total weight
 	var totalWeight float64
 	eligibleLinks := make([]Link, 0, len(links))
-	
+
 	for _, link := range links {
 		if link.Condition == nil || link.Condition(ctx, store, input) {
 			totalWeight += link.Weight
@@ -314,12 +314,12 @@ func (s *WeightedRandomStrategy) Execute(ctx context.Context, chain *Chain, stor
 		// Select a link based on weight
 		r := s.random() * totalWeight
 		var cumWeight float64
-		
+
 		for _, link := range eligibleLinks {
 			if attempted[link.Name] {
 				continue
 			}
-			
+
 			cumWeight += link.Weight
 			if r <= cumWeight {
 				attempted[link.Name] = true
@@ -334,7 +334,7 @@ func (s *WeightedRandomStrategy) Execute(ctx context.Context, chain *Chain, stor
 					_ = store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), link.Name)
 					return result, nil
 				}
-				
+
 				lastErr = err
 				break
 			}
@@ -361,10 +361,10 @@ func NewAdaptiveChain(name string, learningRate float64) *AdaptiveChain {
 // Execute runs the chain and updates weights based on results.
 func (a *AdaptiveChain) Execute(ctx context.Context, store pocket.Store, input any) (any, error) {
 	result, err := a.Chain.Execute(ctx, store, input)
-	
+
 	// Update weights based on success/failure
 	a.updateWeights()
-	
+
 	return result, err
 }
 
@@ -374,16 +374,16 @@ func (a *AdaptiveChain) updateWeights() {
 
 	for i := range a.links {
 		link := &a.links[i]
-		
+
 		successes := float64(a.metrics.linkSuccesses[link.Name])
 		failures := float64(a.metrics.linkFailures[link.Name])
 		total := successes + failures
-		
+
 		if total > 0 {
 			successRate := successes / total
 			// Adjust weight based on success rate
 			link.Weight = link.Weight*(1-a.learningRate) + successRate*a.learningRate
-			
+
 			// Ensure weight stays positive
 			if link.Weight < 0.1 {
 				link.Weight = 0.1

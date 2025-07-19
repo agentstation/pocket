@@ -31,13 +31,13 @@ func main() {
 			// Load previous processing state
 			count, _ := store.Get(ctx, "process:count")
 			processCount := count.(int)
-			
+
 			// Validate input
 			data, ok := input.(string)
 			if !ok {
 				return nil, fmt.Errorf("expected string input")
 			}
-			
+
 			return map[string]interface{}{
 				"data":         data,
 				"processCount": processCount,
@@ -48,10 +48,10 @@ func main() {
 			data := prepData.(map[string]interface{})
 			text := data["data"].(string)
 			count := data["processCount"].(int)
-			
+
 			// Transform data (uppercase and add count)
 			processed := fmt.Sprintf("%s_%d", strings.ToUpper(text), count+1)
-			
+
 			// Return both the result and the history data to store in post
 			return map[string]interface{}{
 				"processed": processed,
@@ -69,18 +69,18 @@ func main() {
 			processed := execResult["processed"].(string)
 			history := execResult["history"]
 			historyKey := execResult["historyKey"].(string)
-			
+
 			// Store processing history
 			store.Set(ctx, historyKey, history)
-			
+
 			// Update process count
 			data := prepData.(map[string]interface{})
 			newCount := data["processCount"].(int) + 1
 			store.Set(ctx, "process:count", newCount)
-			
+
 			// Store last processed item
 			store.Set(ctx, "processor:last", processed)
-			
+
 			return processed, "accumulate", nil
 		}),
 	)
@@ -91,7 +91,7 @@ func main() {
 			// Load accumulated data
 			accumulated, _ := store.Get(ctx, "accumulator:data")
 			results := accumulated.([]string)
-			
+
 			return map[string]interface{}{
 				"newItem":     input,
 				"accumulated": results,
@@ -102,13 +102,13 @@ func main() {
 			data := prepData.(map[string]interface{})
 			newItem := data["newItem"].(string)
 			accumulated := data["accumulated"].([]string)
-			
+
 			// Append new item
 			accumulated = append(accumulated, newItem)
-			
+
 			// Create summary
 			summary := strings.Join(accumulated, ", ")
-			
+
 			return map[string]interface{}{
 				"summary":     summary,
 				"accumulated": accumulated,
@@ -120,7 +120,7 @@ func main() {
 			r := result.(map[string]interface{})
 			store.Set(ctx, "accumulator:data", r["accumulated"])
 			store.Set(ctx, "accumulator:count", r["count"])
-			
+
 			// Route based on accumulated count
 			count := r["count"].(int)
 			if count == 1 {
@@ -139,9 +139,9 @@ func main() {
 			maxLength, exists := store.Get(ctx, "validator:maxLength")
 			if !exists {
 				maxLength = 50
-				// Note: Cannot set in prep phase - will set default in post if needed
+				// Note: Cannot set in prep step - will set default in post if needed
 			}
-			
+
 			return map[string]interface{}{
 				"data":      input,
 				"maxLength": maxLength,
@@ -152,35 +152,35 @@ func main() {
 			data := prepData.(map[string]interface{})
 			summary := data["data"].(string)
 			maxLen := data["maxLength"].(int)
-			
+
 			validation := map[string]interface{}{
 				"data":        summary,
 				"length":      len(summary),
 				"isValid":     len(summary) <= maxLen,
 				"hasMultiple": strings.Contains(summary, ","),
 			}
-			
-			// Validation results will be stored in post phase
-			
+
+			// Validation results will be stored in post step
+
 			return validation, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			v := result.(map[string]interface{})
-			
+
 			// Store validation results
 			store.Set(ctx, "validator:lastResult", v)
-			
+
 			// Set default maxLength if it wasn't already set
 			if _, exists := store.Get(ctx, "validator:maxLength"); !exists {
 				store.Set(ctx, "validator:maxLength", 50)
 			}
-			
+
 			// Update validation statistics
 			stats, exists := store.Get(ctx, "validator:stats")
 			if !exists {
 				stats = map[string]int{"valid": 0, "invalid": 0}
 			}
-			
+
 			s := stats.(map[string]int)
 			if v["isValid"].(bool) {
 				s["valid"]++
@@ -188,7 +188,7 @@ func main() {
 				s["invalid"]++
 			}
 			store.Set(ctx, "validator:stats", s)
-			
+
 			return v["data"], "report", nil
 		}),
 	)
@@ -228,7 +228,7 @@ func main() {
 			processCount, _ := store.Get(ctx, "process:count")
 			accumulatorData, _ := store.Get(ctx, "accumulator:data")
 			validatorStats, _ := store.Get(ctx, "validator:stats")
-			
+
 			return map[string]interface{}{
 				"finalData":      input,
 				"processCount":   processCount,
@@ -239,15 +239,15 @@ func main() {
 		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
 			// Generate final report
 			data := prepData.(map[string]interface{})
-			
+
 			report := "=== Processing Report ===\n"
 			report += fmt.Sprintf("Final Data: %s\n", data["finalData"])
 			report += fmt.Sprintf("Total Items Processed: %d\n", data["processCount"])
-			
+
 			if stats, ok := data["validatorStats"].(map[string]int); ok {
 				report += fmt.Sprintf("Validation Stats - Valid: %d, Invalid: %d\n", stats["valid"], stats["invalid"])
 			}
-			
+
 			return report, nil
 		}),
 	)
@@ -292,7 +292,7 @@ func main() {
 
 	// Show final state summary
 	fmt.Println("\n=== Final State Summary ===")
-	
+
 	// Process count
 	if count, exists := store.Get(ctx, "process:count"); exists {
 		fmt.Printf("Total processing operations: %d\n", count)
@@ -317,16 +317,16 @@ func main() {
 
 	// Demonstrate store scoping for isolated state
 	fmt.Println("\n=== Store Scoping Demo ===")
-	
+
 	userStore := store.Scope("user")
 	sessionStore := store.Scope("session")
-	
+
 	// Set scoped values
 	_ = userStore.Set(ctx, "id", "user123")
 	_ = userStore.Set(ctx, "name", "Alice")
 	_ = sessionStore.Set(ctx, "id", "session456")
 	_ = sessionStore.Set(ctx, "active", true)
-	
+
 	// Retrieve scoped values
 	if userId, exists := userStore.Get(ctx, "id"); exists {
 		fmt.Printf("User ID: %s\n", userId)
@@ -334,7 +334,7 @@ func main() {
 	if sessionId, exists := sessionStore.Get(ctx, "id"); exists {
 		fmt.Printf("Session ID: %s\n", sessionId)
 	}
-	
+
 	// Show that scoped stores are isolated
 	if _, exists := userStore.Get(ctx, "active"); !exists {
 		fmt.Println("User store correctly doesn't have 'active' key")

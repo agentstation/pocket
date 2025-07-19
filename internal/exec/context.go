@@ -109,7 +109,7 @@ func (c *Context) Log(level, msg string, keysAndValues ...any) {
 // Fork creates a child context with isolated values.
 func (c *Context) Fork() *Context {
 	child := NewContext(c)
-	
+
 	// Copy parent metadata
 	c.mu.RLock()
 	for k, v := range c.metadata {
@@ -127,8 +127,8 @@ func (c *Context) Fork() *Context {
 // noopSpan is a no-op trace span.
 type noopSpan struct{}
 
-func (s *noopSpan) End()                                  {}
-func (s *noopSpan) SetTag(key string, value any)         {}
+func (s *noopSpan) End()                                         {}
+func (s *noopSpan) SetTag(key string, value any)                 {}
 func (s *noopSpan) LogEvent(event string, fields map[string]any) {}
 
 // ContextStore wraps a store with context awareness.
@@ -196,7 +196,7 @@ func (fc *FlowContext) Duration() time.Duration {
 func (fc *FlowContext) EnterNode(nodeName string) {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	
+
 	fc.nodeStack = append(fc.nodeStack, nodeName)
 	fc.Log("debug", "entering node", "node", nodeName, "depth", len(fc.nodeStack))
 }
@@ -205,7 +205,7 @@ func (fc *FlowContext) EnterNode(nodeName string) {
 func (fc *FlowContext) ExitNode(nodeName string) {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	
+
 	if len(fc.nodeStack) > 0 {
 		fc.nodeStack = fc.nodeStack[:len(fc.nodeStack)-1]
 	}
@@ -216,7 +216,7 @@ func (fc *FlowContext) ExitNode(nodeName string) {
 func (fc *FlowContext) CurrentNode() string {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	
+
 	if len(fc.nodeStack) > 0 {
 		return fc.nodeStack[len(fc.nodeStack)-1]
 	}
@@ -227,7 +227,7 @@ func (fc *FlowContext) CurrentNode() string {
 func (fc *FlowContext) NodePath() []string {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
-	
+
 	path := make([]string, len(fc.nodeStack))
 	copy(path, fc.nodeStack)
 	return path
@@ -238,7 +238,7 @@ func (fc *FlowContext) Deadline() (deadline time.Time, ok bool) {
 	deadline, ok = fc.Context.Deadline()
 	if ok && fc.logger != nil {
 		remaining := time.Until(deadline)
-		fc.Log("debug", "flow deadline check", 
+		fc.Log("debug", "flow deadline check",
 			"flow", fc.flowID,
 			"remaining", remaining,
 			"elapsed", fc.Duration())

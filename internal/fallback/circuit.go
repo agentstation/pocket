@@ -39,29 +39,29 @@ func (s CircuitState) String() string {
 // CircuitBreaker implements the circuit breaker pattern.
 type CircuitBreaker struct {
 	name string
-	
+
 	// Configuration
 	maxFailures      int
 	resetTimeout     time.Duration
 	halfOpenRequests int
-	
+
 	// State
-	mu               sync.RWMutex
-	state            CircuitState
-	failures         int
-	lastFailureTime  time.Time
+	mu                sync.RWMutex
+	state             CircuitState
+	failures          int
+	lastFailureTime   time.Time
 	halfOpenSuccesses int
 	halfOpenFailures  int
-	
+
 	// Metrics
-	totalRequests    int64
-	totalSuccesses   int64
-	totalFailures    int64
-	circuitOpens     int64
-	lastOpenTime     time.Time
-	
+	totalRequests  int64
+	totalSuccesses int64
+	totalFailures  int64
+	circuitOpens   int64
+	lastOpenTime   time.Time
+
 	// Callbacks
-	onStateChange    func(from, to CircuitState)
+	onStateChange func(from, to CircuitState)
 }
 
 // CircuitOption configures a circuit breaker.
@@ -102,13 +102,13 @@ func NewCircuitBreaker(name string, opts ...CircuitOption) *CircuitBreaker {
 		maxFailures:      5,
 		resetTimeout:     30 * time.Second,
 		halfOpenRequests: 3,
-		state:           StateClosed,
+		state:            StateClosed,
 	}
-	
+
 	for _, opt := range opts {
 		opt(cb)
 	}
-	
+
 	return cb
 }
 
@@ -118,13 +118,13 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, store pocket.Store, fn po
 	if err := cb.canExecute(); err != nil {
 		return nil, err
 	}
-	
+
 	// Execute the function
 	result, err := fn(ctx, input)
-	
+
 	// Record the result
 	cb.recordResult(err == nil)
-	
+
 	return result, err
 }
 
@@ -132,13 +132,13 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, store pocket.Store, fn po
 func (cb *CircuitBreaker) canExecute() error {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	cb.totalRequests++
-	
+
 	switch cb.state {
 	case StateClosed:
 		return nil
-		
+
 	case StateOpen:
 		// Check if we should transition to half-open
 		if time.Since(cb.lastFailureTime) > cb.resetTimeout {
@@ -146,7 +146,7 @@ func (cb *CircuitBreaker) canExecute() error {
 			return nil
 		}
 		return fmt.Errorf("circuit breaker %s is open", cb.name)
-		
+
 	case StateHalfOpen:
 		// Check if we've hit the limit for half-open requests
 		totalHalfOpen := cb.halfOpenSuccesses + cb.halfOpenFailures
@@ -163,7 +163,7 @@ func (cb *CircuitBreaker) canExecute() error {
 			}
 		}
 		return nil
-		
+
 	default:
 		return fmt.Errorf("circuit breaker %s in unknown state", cb.name)
 	}
@@ -173,7 +173,7 @@ func (cb *CircuitBreaker) canExecute() error {
 func (cb *CircuitBreaker) recordResult(success bool) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	if success {
 		cb.totalSuccesses++
 		cb.onSuccess()
@@ -189,7 +189,7 @@ func (cb *CircuitBreaker) onSuccess() {
 	case StateClosed:
 		// Reset failure count on success
 		cb.failures = 0
-		
+
 	case StateHalfOpen:
 		cb.halfOpenSuccesses++
 		// Check if we should close the circuit
@@ -202,14 +202,14 @@ func (cb *CircuitBreaker) onSuccess() {
 // onFailure handles failed execution.
 func (cb *CircuitBreaker) onFailure() {
 	cb.lastFailureTime = time.Now()
-	
+
 	switch cb.state {
 	case StateClosed:
 		cb.failures++
 		if cb.failures >= cb.maxFailures {
 			cb.transitionTo(StateOpen)
 		}
-		
+
 	case StateHalfOpen:
 		cb.halfOpenFailures++
 		// Any failure in half-open immediately opens the circuit
@@ -222,27 +222,27 @@ func (cb *CircuitBreaker) transitionTo(newState CircuitState) {
 	if cb.state == newState {
 		return
 	}
-	
+
 	oldState := cb.state
 	cb.state = newState
-	
+
 	// Reset counters for new state
 	switch newState {
 	case StateClosed:
 		cb.failures = 0
 		cb.halfOpenSuccesses = 0
 		cb.halfOpenFailures = 0
-		
+
 	case StateOpen:
 		cb.circuitOpens++
 		cb.lastOpenTime = time.Now()
 		cb.lastFailureTime = time.Now()
-		
+
 	case StateHalfOpen:
 		cb.halfOpenSuccesses = 0
 		cb.halfOpenFailures = 0
 	}
-	
+
 	// Call state change callback if set
 	if cb.onStateChange != nil {
 		// Call in goroutine to avoid holding lock
@@ -261,15 +261,15 @@ func (cb *CircuitBreaker) GetState() CircuitState {
 func (cb *CircuitBreaker) GetMetrics() CircuitMetrics {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	
+
 	return CircuitMetrics{
-		Name:           cb.name,
-		State:          cb.state.String(),
-		TotalRequests:  cb.totalRequests,
-		TotalSuccesses: cb.totalSuccesses,
-		TotalFailures:  cb.totalFailures,
-		CircuitOpens:   cb.circuitOpens,
-		LastOpenTime:   cb.lastOpenTime,
+		Name:            cb.name,
+		State:           cb.state.String(),
+		TotalRequests:   cb.totalRequests,
+		TotalSuccesses:  cb.totalSuccesses,
+		TotalFailures:   cb.totalFailures,
+		CircuitOpens:    cb.circuitOpens,
+		LastOpenTime:    cb.lastOpenTime,
 		CurrentFailures: cb.failures,
 	}
 }
@@ -316,26 +316,26 @@ func (p *CircuitBreakerPolicy) Execute(ctx context.Context, store pocket.Store, 
 	if err == nil {
 		return result, nil
 	}
-	
+
 	// Store circuit breaker error
 	_ = store.Set(ctx, fmt.Sprintf("circuit:%s:error", p.name), err)
 	_ = store.Set(ctx, fmt.Sprintf("circuit:%s:state", p.name), p.breaker.GetState().String())
-	
+
 	// Use fallback if available
 	if p.fallback != nil {
 		return p.fallback(ctx, store, input, err)
 	}
-	
+
 	return nil, err
 }
 
 // ToNode converts a circuit breaker policy to a pocket Node.
 func ToCircuitBreakerNode(name string, primary pocket.ExecFunc, fallback Handler, opts ...CircuitOption) *pocket.Node {
 	policy := NewCircuitBreakerPolicy(name, primary, fallback, opts...)
-	
+
 	return pocket.NewNode[any, any](name,
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Pass input and store to exec phase
+			// Pass input and store to exec step
 			return map[string]interface{}{
 				"input": input,
 				"store": store,
@@ -346,7 +346,7 @@ func ToCircuitBreakerNode(name string, primary pocket.ExecFunc, fallback Handler
 			data := prepData.(map[string]interface{})
 			store := data["store"].(pocket.Store)
 			input := data["input"]
-			
+
 			return policy.Execute(ctx, store, input)
 		}),
 	)
@@ -370,23 +370,23 @@ func (g *CircuitBreakerGroup) Get(name string, opts ...CircuitOption) *CircuitBr
 	g.mu.RLock()
 	cb, exists := g.breakers[name]
 	g.mu.RUnlock()
-	
+
 	if exists {
 		return cb
 	}
-	
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if cb, exists := g.breakers[name]; exists {
 		return cb
 	}
-	
+
 	// Create new circuit breaker
 	cb = NewCircuitBreaker(name, opts...)
 	g.breakers[name] = cb
-	
+
 	return cb
 }
 
@@ -394,12 +394,12 @@ func (g *CircuitBreakerGroup) Get(name string, opts ...CircuitOption) *CircuitBr
 func (g *CircuitBreakerGroup) GetAllMetrics() []CircuitMetrics {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	metrics := make([]CircuitMetrics, 0, len(g.breakers))
 	for _, cb := range g.breakers {
 		metrics = append(metrics, cb.GetMetrics())
 	}
-	
+
 	return metrics
 }
 
@@ -411,7 +411,7 @@ func (g *CircuitBreakerGroup) Reset() {
 		breakers = append(breakers, cb)
 	}
 	g.mu.RUnlock()
-	
+
 	for _, cb := range breakers {
 		cb.mu.Lock()
 		cb.state = StateClosed

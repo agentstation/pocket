@@ -8,26 +8,26 @@ import (
 
 // Metrics tracks memory usage and performance metrics.
 type Metrics struct {
-	mu        sync.RWMutex
-	samples   []Sample
+	mu         sync.RWMutex
+	samples    []Sample
 	maxSamples int
-	ticker    *time.Ticker
-	stopCh    chan struct{}
+	ticker     *time.Ticker
+	stopCh     chan struct{}
 }
 
 // Sample represents a memory usage sample.
 type Sample struct {
-	Timestamp   time.Time
-	Alloc       uint64 // bytes allocated and still in use
-	TotalAlloc  uint64 // bytes allocated (even if freed)
-	Sys         uint64 // bytes obtained from system
-	NumGC       uint32 // number of completed GC cycles
+	Timestamp    time.Time
+	Alloc        uint64 // bytes allocated and still in use
+	TotalAlloc   uint64 // bytes allocated (even if freed)
+	Sys          uint64 // bytes obtained from system
+	NumGC        uint32 // number of completed GC cycles
 	NumGoroutine int    // number of goroutines
-	HeapAlloc   uint64 // bytes allocated on heap
-	HeapSys     uint64 // heap obtained from system
-	HeapInuse   uint64 // bytes in in-use spans
+	HeapAlloc    uint64 // bytes allocated on heap
+	HeapSys      uint64 // heap obtained from system
+	HeapInuse    uint64 // bytes in in-use spans
 	HeapReleased uint64 // bytes released to OS
-	StackInuse  uint64 // stack bytes in use
+	StackInuse   uint64 // stack bytes in use
 }
 
 // NewMetrics creates a new metrics collector.
@@ -80,7 +80,7 @@ func (m *Metrics) sample() {
 	defer m.mu.Unlock()
 
 	m.samples = append(m.samples, sample)
-	
+
 	// Remove old samples if needed
 	if len(m.samples) > m.maxSamples {
 		m.samples = m.samples[len(m.samples)-m.maxSamples:]
@@ -132,7 +132,7 @@ func (m *Metrics) GetStats() *Stats {
 	for _, s := range m.samples {
 		totalAlloc += s.Alloc
 		totalHeap += s.HeapAlloc
-		if s.NumGoroutine >= 0 {
+		if s.NumGoroutine >= 0 && s.NumGoroutine <= int(^uint64(0)>>1) {
 			totalGoroutines += uint64(s.NumGoroutine)
 		}
 
@@ -147,7 +147,13 @@ func (m *Metrics) GetStats() *Stats {
 	stats.AvgAlloc = totalAlloc / uint64(len(m.samples))
 	stats.AvgHeapAlloc = totalHeap / uint64(len(m.samples))
 	if len(m.samples) > 0 {
-		stats.AvgGoroutines = int(totalGoroutines / uint64(len(m.samples)))
+		avgGoroutines := totalGoroutines / uint64(len(m.samples))
+		const maxInt = int(^uint(0) >> 1)
+		if avgGoroutines <= uint64(maxInt) {
+			stats.AvgGoroutines = int(avgGoroutines)
+		} else {
+			stats.AvgGoroutines = maxInt // Max int value
+		}
 	}
 
 	// Calculate allocation rate
@@ -159,7 +165,7 @@ func (m *Metrics) GetStats() *Stats {
 			allocDiff := last.TotalAlloc - first.TotalAlloc
 			stats.AllocRate = float64(allocDiff) / duration
 		}
-		
+
 		// GC rate
 		gcDiff := last.NumGC - first.NumGC
 		stats.GCRate = float64(gcDiff) / duration
@@ -216,6 +222,25 @@ func (t *Tracker) Stop() {
 	runtime.ReadMemStats(&t.endMem)
 }
 
+// safeUint64ToInt64Diff safely calculates the difference between two uint64 values as int64.
+func safeUint64ToInt64Diff(end, start uint64) int64 {
+	const maxInt64 = int64(^uint64(0) >> 1) // Max positive int64 value
+
+	if end >= start {
+		diff := end - start
+		if diff > uint64(maxInt64) {
+			return maxInt64
+		}
+		return int64(diff)
+	}
+	// If end < start, we have a negative difference
+	diff := start - end
+	if diff > uint64(maxInt64) {
+		return -maxInt64
+	}
+	return -int64(diff)
+}
+
 // Report returns a tracking report.
 func (t *Tracker) Report() *TrackingReport {
 	t.mu.Lock()
@@ -228,12 +253,12 @@ func (t *Tracker) Report() *TrackingReport {
 	}
 
 	return &TrackingReport{
-		Name:          t.name,
-		Duration:      t.endTime.Sub(t.startTime),
-		AllocDelta:    int64(t.endMem.Alloc - t.startMem.Alloc),
+		Name:            t.name,
+		Duration:        t.endTime.Sub(t.startTime),
+		AllocDelta:      safeUint64ToInt64Diff(t.endMem.Alloc, t.startMem.Alloc),
 		TotalAllocDelta: t.endMem.TotalAlloc - t.startMem.TotalAlloc,
-		NumGCDelta:    t.endMem.NumGC - t.startMem.NumGC,
-		HeapAllocDelta: int64(t.endMem.HeapAlloc - t.startMem.HeapAlloc),
+		NumGCDelta:      t.endMem.NumGC - t.startMem.NumGC,
+		HeapAllocDelta:  safeUint64ToInt64Diff(t.endMem.HeapAlloc, t.startMem.HeapAlloc),
 	}
 }
 
@@ -287,7 +312,7 @@ func NewMemoryPressure() *MemoryPressure {
 func (p *MemoryPressure) RegisterHandler(level Level, handler func()) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	p.handlers[level] = append(p.handlers[level], handler)
 }
 
@@ -303,7 +328,7 @@ func (p *MemoryPressure) Check() Level {
 	defer p.mu.RUnlock()
 
 	currentLevel := LevelNormal
-	
+
 	for _, threshold := range p.thresholds {
 		if memUsed >= threshold.MemoryUsed || stats.HeapAlloc >= threshold.HeapSize {
 			currentLevel = threshold.Level
