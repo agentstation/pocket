@@ -7,7 +7,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/agentstation/pocket.svg)](https://github.com/agentstation/pocket)
 
-A simple LLM decision graph Go package inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s Prep/Exec/Post workflow pattern. Build composable workflows as directed graphs with type safety, built-in concurrency, and zero dependencies. Avoid large LLM framework lock-in.
+A simple LLM decision graph package, written in golang, and inspired by [PocketFlow](https://github.com/The-Pocket/PocketFlow)'s Prep/Exec/Post workflow pattern. Avoid large LLM framework lock-in.
+
+Build composable LLM workflows via directed graphs with:
+- powerful decision graph flexiblity
+- robust resilancy
+    - configurable retrys
+    - fallback support
+- buisness logic orchistration
+    - node steps (prep, exec, post)
+    - hooks
+    - tracability & observability
+    - layered graph composability
+- go type safety w/ generics
+- built-in concurrency via goroutines
+- limited dependencies
+    - SYNC support: golang.org/x/sync
+    - YAML support: https://github.com/goccy/go-yaml
 
 ## Table of Contents
 - [Why Pocket?](#why-pocket)
@@ -162,10 +178,14 @@ Benefits of this architecture:
 
 ### Type Safety
 
-Choose your level of type safety:
+Pocket provides a three-tier type safety system to catch errors as early as possible:
+
+#### 1. Compile-Time Safety (Generics)
+
+Use Go's generics for the strongest type guarantees:
 
 ```go
-// Fully typed - compile-time safety
+// Fully typed nodes - errors caught at compile time
 userNode := pocket.NewNode[User, Response]("process",
     pocket.WithExec(func(ctx context.Context, user User) (Response, error) {
         // user is typed as User, no casting needed
@@ -173,21 +193,245 @@ userNode := pocket.NewNode[User, Response]("process",
     }),
 )
 
-// Dynamic - maximum flexibility  
-flexNode := pocket.NewNode[any, any]("flexible",
-    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-        // Handle any input type
-        switch v := input.(type) {
-        case string:
-            return processString(v), nil
-        case map[string]any:
-            return processMap(v), nil
-        default:
-            return input, nil
-        }
+// Type-safe option functions
+validator := pocket.NewNode[User, ValidationResult]("validate",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, user User) (UserData, error) {
+        // Input is compile-time typed as User
+        return prepareUserData(user), nil
+    }),
+    pocket.WithExec(func(ctx context.Context, data UserData) (ValidationResult, error) {
+        // data is compile-time typed as UserData
+        return validateUserData(data), nil
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, user User, prep UserData, result ValidationResult) (ValidationResult, string, error) {
+        // All parameters are compile-time typed
+        store.Set(ctx, "validation:"+user.ID, result)
+        return result, result.NextStep, nil
     }),
 )
 ```
+
+#### 2. Initialization-Time Safety (ValidateFlow)
+
+Validate type compatibility across your entire workflow graph before execution:
+
+```go
+// Connect nodes
+userProcessor := pocket.NewNode[User, ProcessedUser]("process", ...)
+emailSender := pocket.NewNode[ProcessedUser, EmailResult]("email", ...)
+wrongNode := pocket.NewNode[DifferentType, any]("wrong", ...)
+
+userProcessor.Connect("success", emailSender)    // ✅ Types match
+userProcessor.Connect("failure", wrongNode)       // ❌ Type mismatch
+
+// Validate the entire graph before running
+if err := pocket.ValidateFlow(userProcessor); err != nil {
+    // Error: "type mismatch at connection 'process'->'wrong': 
+    //         node 'process' outputs ProcessedUser but node 'wrong' expects DifferentType"
+    log.Fatal(err)
+}
+
+// ValidateFlow checks:
+// - Exact type matches
+// - Interface satisfaction
+// - Type assignability
+// - Handles 'any' types appropriately
+```
+
+#### 3. Runtime Safety
+
+Even with dynamic types, Pocket validates at runtime:
+
+```go
+// Dynamic node for flexibility
+flexNode := pocket.NewNode[any, any]("flexible",
+    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+        // Runtime type checking
+        switch v := input.(type) {
+        case User:
+            return processUser(v), nil
+        case string:
+            return processString(v), nil
+        default:
+            return nil, fmt.Errorf("unsupported type: %T", input)
+        }
+    }),
+)
+
+// Runtime validation when executing
+flow := pocket.NewFlow(flexNode, store)
+_, err := flow.Run(ctx, "string input")  // ✅ Works
+_, err = flow.Run(ctx, 123)              // ❌ Returns error: "unsupported type: int"
+```
+
+#### Mixed Type Safety
+
+Combine typed and untyped nodes for maximum flexibility:
+
+```go
+// Typed validator
+validator := pocket.NewNode[User, ValidationResult]("validator",
+    pocket.WithExec(validateUser),
+)
+
+// Untyped logger (works with any type)
+logger := pocket.NewNode[any, any]("logger",
+    pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+        log.Printf("Processing: %+v", input)
+        return input, nil
+    }),
+)
+
+// Connect them - ValidateFlow handles mixed scenarios
+validator.Connect("default", logger)  // ✅ any accepts ValidationResult
+```
+
+#### Type-Safe Storage
+
+Use the generic store wrapper for type-safe state management:
+
+```go
+// Create a type-safe store
+userStore := pocket.NewTypedStore[User](store)
+
+// Compile-time type safety
+err := userStore.Set(ctx, "user:123", user)           // ✅ Correct type
+err = userStore.Set(ctx, "user:456", "not a user")    // ❌ Compile error
+
+// Retrieved value is typed
+user, exists, err := userStore.Get(ctx, "user:123")   // user is User, not any
+```
+
+#### How ValidateFlow Works Internally
+
+ValidateFlow performs a depth-first search traversal of your workflow graph:
+
+```mermaid
+graph TD
+    A[Start Node] -->|DFS| B[Check Output Type]
+    B --> C{Has Successors?}
+    C -->|Yes| D[For Each Connection]
+    D --> E{Types Compatible?}
+    E -->|No| F[Return Error]
+    E -->|Yes| G[Visit Successor]
+    G -->|Recursive| B
+    C -->|No| H[✅ Validation Complete]
+    
+    style A fill:#e3f2fd
+    style F fill:#ffcdd2
+    style H fill:#c8e6c9
+```
+
+**Technical Details:**
+- Uses a `visited` map to prevent infinite loops in cyclic graphs
+- Skips validation for nodes without type information (`any` types)
+- Checks type compatibility using reflection:
+  ```go
+  func isTypeCompatible(outputType, inputType reflect.Type) bool {
+      // 1. Exact type match
+      if outputType == inputType {
+          return true
+      }
+      // 2. Interface satisfaction
+      if inputType.Kind() == reflect.Interface {
+          return outputType.Implements(inputType)
+      }
+      // 3. Type assignability
+      return outputType.AssignableTo(inputType)
+  }
+  ```
+
+#### Error Messages at Each Stage
+
+**1. Compile-Time Errors**
+
+When types don't match generic parameters:
+```go
+// This won't compile:
+node := pocket.NewNode[User, Response]("process",
+    pocket.WithExec(func(ctx context.Context, input WrongType) (Response, error) {
+        // Compiler error:
+        // cannot use func literal (type func(context.Context, WrongType) (Response, error)) 
+        // as type func(context.Context, User) (Response, error) in argument to pocket.WithExec
+        return Response{}, nil
+    }),
+)
+```
+
+**2. Initialization-Time Errors (ValidateFlow)**
+
+When connected nodes have incompatible types:
+```go
+err := pocket.ValidateFlow(startNode)
+// Error: "type mismatch: node "process" outputs *main.ProcessedUser but node "wrongHandler" expects *main.DifferentType (via action "success")"
+```
+
+The error includes:
+- Source node name and output type
+- Target node name and expected input type
+- The connection action/route that links them
+
+**3. Runtime Type Errors**
+
+When actual data doesn't match expected types:
+```go
+// From WithExec type assertion:
+// Error: "invalid input: exec expected *main.User, got string"
+
+// From runtime validation in executeNode:
+// Error: "invalid input: node "validator" expects *main.User but got *main.Product"
+
+// From WithPost type assertion:
+// Error: "invalid input: post expected exec result *main.ValidationResult, got *main.UnexpectedType"
+```
+
+#### Success Confirmation
+
+When validation passes, you'll know your graph is type-safe:
+
+```go
+fmt.Println("Validating flow types...")
+if err := pocket.ValidateFlow(startNode); err != nil {
+    log.Fatalf("Flow validation failed: %v", err)
+}
+fmt.Println("✅ Flow validation passed!")
+// Your workflow graph is type-safe and ready to run
+```
+
+ValidateFlow returns `nil` when:
+- All connected nodes have compatible types
+- Interface implementations are satisfied
+- No type mismatches are found in the entire graph
+
+#### Special Type Handling
+
+**Nil Input Handling:**
+```go
+// WithExec handles nil by using zero values
+if input == nil {
+    result, err := fn(ctx, *new(In))  // Zero value of type In
+}
+```
+
+**Interface{} (any) Types:**
+- Nodes with `any` input accept any output type
+- Nodes with `any` output can connect to any input type
+- ValidateFlow skips type checking when `any` is involved
+
+**Type Priority:**
+1. Exact type match (fastest)
+2. Interface satisfaction check
+3. Type assignability check
+4. Special `any` type handling
+
+#### Best Practices
+
+1. **Use generics by default** - Get compile-time safety whenever possible
+2. **Always run ValidateFlow** - Catch connection mismatches before runtime
+3. **Use `any` sparingly** - Only for truly dynamic scenarios
+4. **Leverage type-safe wrappers** - Use TypedStore for state management
+5. **Handle type assertions** - Always check error returns from type assertions
+6. **Log validation success** - Confirm your graph is type-safe before deployment
 
 ## Building Workflows
 
