@@ -41,12 +41,12 @@ type BoundedStore struct {
 }
 
 type entry struct {
-	key        string
-	value      any
-	size       int64
-	element    *list.Element
-	accessTime time.Time
-	createTime time.Time
+	key         string
+	value       any
+	size        int64
+	element     *list.Element
+	accessTime  time.Time
+	createTime  time.Time
 	accessCount int64
 }
 
@@ -408,7 +408,7 @@ type StoreStats struct {
 
 // MultiTieredStore implements a multi-tiered storage system.
 type MultiTieredStore struct {
-	tiers      []pocket.Store
+	tiers []pocket.Store
 	// tierNames  []string // TODO: Remove if not needed
 	promotions map[string]int // tracks which tier each key is in
 	mu         sync.RWMutex

@@ -44,7 +44,7 @@ func TestFlowAsNode(t *testing.T) {
 	// Create composite flow
 	compositeFlow := pocket.NewFlow(doubleNode, store)
 
-	// Test: 5 * 2 + 10 = 20
+	// Execute test case: 5 * 2 + 10 = 20
 	result, err := compositeFlow.Run(ctx, 5)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -91,7 +91,7 @@ func TestNestedFlowBuilder(t *testing.T) {
 		t.Fatalf("failed to build nested flow: %v", err)
 	}
 
-	// Test: 10 * 3 - 5 = 25
+	// Execute test case: 10 * 3 - 5 = 25
 	result, err := nestedFlow.Run(ctx, 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -108,7 +108,7 @@ func TestComposeFlows(t *testing.T) {
 
 	// Create a chain of flows
 	flows := make([]*pocket.Flow, 3)
-	
+
 	// Flow 1: Add 1
 	flows[0] = pocket.NewFlow(
 		pocket.NewNode[any, any]("add1",
@@ -145,7 +145,7 @@ func TestComposeFlows(t *testing.T) {
 		t.Fatalf("failed to compose flows: %v", err)
 	}
 
-	// Test: (10 + 1) * 2 + 5 = 27
+	// Execute test case: (10 + 1) * 2 + 5 = 27
 	result, err := composed.Run(ctx, 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -208,7 +208,7 @@ func TestParallelFlows(t *testing.T) {
 
 	// Create flows that return different values
 	flows := make([]*pocket.Flow, 3)
-	
+
 	for i := range flows {
 		i := i // capture loop variable
 		flows[i] = pocket.NewFlow(

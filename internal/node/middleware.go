@@ -81,6 +81,81 @@ func Logging(logger pocket.Logger) Middleware {
 	}
 }
 
+// timingData holds timing metrics for a node.
+type timingData struct {
+	totalDuration time.Duration
+	execCount     int64
+	execStart     time.Time
+}
+
+// getTimingData retrieves timing data from store.
+func getTimingData(ctx context.Context, store pocket.StoreReader, nodeName string) timingData {
+	key := fmt.Sprintf("node:%s:total_duration", nodeName)
+	countKey := fmt.Sprintf("node:%s:execution_count", nodeName)
+
+	total, _ := store.Get(ctx, key)
+	count, _ := store.Get(ctx, countKey)
+
+	td := timingData{}
+	if d, ok := total.(time.Duration); ok {
+		td.totalDuration = d
+	}
+	if c, ok := count.(int64); ok {
+		td.execCount = c
+	}
+	return td
+}
+
+// extractTimingInput extracts the actual input and timing start from wrapped data.
+func extractTimingInput(input any) (actualInput any, execStart time.Time) {
+	actualInput = input
+	execStart = time.Now()
+
+	if data, ok := input.(map[string]interface{}); ok {
+		if prepResult, ok := data["prepResult"]; ok {
+			actualInput = prepResult
+		}
+		if td, ok := data["timingData"].(timingData); ok {
+			execStart = td.execStart
+		}
+	}
+	return
+}
+
+// extractTimingResults extracts timing info from exec and prep results.
+func extractTimingResults(prep, exec any) (execResult any, execDuration time.Duration, td timingData) {
+	execResult = exec
+
+	// Extract from exec data
+	if data, ok := exec.(map[string]interface{}); ok {
+		if result, ok := data["execResult"]; ok {
+			execResult = result
+		}
+		if duration, ok := data["execDuration"].(time.Duration); ok {
+			execDuration = duration
+		}
+	}
+
+	// Extract from prep data
+	if data, ok := prep.(map[string]interface{}); ok {
+		if timing, ok := data["timingData"].(timingData); ok {
+			td = timing
+		}
+	}
+	return
+}
+
+// saveTimingMetrics saves timing metrics to the store.
+func saveTimingMetrics(ctx context.Context, store pocket.StoreWriter, nodeName string, execDuration time.Duration, td timingData) {
+	_ = store.Set(ctx, fmt.Sprintf("node:%s:last_duration", nodeName), execDuration)
+	_ = store.Set(ctx, fmt.Sprintf("node:%s:total_duration", nodeName), td.totalDuration)
+	_ = store.Set(ctx, fmt.Sprintf("node:%s:execution_count", nodeName), td.execCount)
+
+	if td.execCount > 0 {
+		_ = store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", nodeName), td.totalDuration/time.Duration(td.execCount))
+	}
+}
+
 // Timing adds execution timing to a node.
 func Timing() Middleware {
 	return func(node *pocket.Node) *pocket.Node {
@@ -90,34 +165,14 @@ func Timing() Middleware {
 
 		// Track timing in prep step
 		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Get existing timing data
-			key := fmt.Sprintf("node:%s:total_duration", node.Name)
-			countKey := fmt.Sprintf("node:%s:execution_count", node.Name)
-
-			total, _ := store.Get(ctx, key)
-			count, _ := store.Get(ctx, countKey)
-
-			totalDuration := time.Duration(0)
-			execCount := int64(0)
-
-			if d, ok := total.(time.Duration); ok {
-				totalDuration = d
-			}
-			if c, ok := count.(int64); ok {
-				execCount = c
-			}
+			td := getTimingData(ctx, store, node.Name)
+			td.execStart = time.Now()
 
 			result, err := originalPrep(ctx, store, input)
-
-			// Pass timing data through
 			if err == nil {
 				return map[string]interface{}{
 					"prepResult": result,
-					"timingData": map[string]interface{}{
-						"totalDuration": totalDuration,
-						"execCount":     execCount,
-						"execStart":     time.Now(),
-					},
+					"timingData": td,
 				}, nil
 			}
 			return result, err
@@ -125,20 +180,7 @@ func Timing() Middleware {
 
 		// Time the exec step
 		node.Exec = func(ctx context.Context, input any) (any, error) {
-			// Extract timing data if available
-			actualInput := input
-			execStart := time.Now()
-
-			if data, ok := input.(map[string]interface{}); ok {
-				if prepResult, ok := data["prepResult"]; ok {
-					actualInput = prepResult
-				}
-				if timingData, ok := data["timingData"].(map[string]interface{}); ok {
-					if start, ok := timingData["execStart"].(time.Time); ok {
-						execStart = start
-					}
-				}
-			}
+			actualInput, execStart := extractTimingInput(input)
 
 			result, err := originalExec(ctx, actualInput)
 			duration := time.Since(execStart)
@@ -153,42 +195,13 @@ func Timing() Middleware {
 
 		// Record timing in post step
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			// Extract exec result and timing
-			execResult := exec
-			var execDuration time.Duration
-
-			if data, ok := exec.(map[string]interface{}); ok {
-				if result, ok := data["execResult"]; ok {
-					execResult = result
-				}
-				if duration, ok := data["execDuration"].(time.Duration); ok {
-					execDuration = duration
-				}
-			}
-
-			// Extract timing data from prep
-			var totalDuration time.Duration
-			var execCount int64
-
-			if data, ok := prep.(map[string]interface{}); ok {
-				if timingData, ok := data["timingData"].(map[string]interface{}); ok {
-					if d, ok := timingData["totalDuration"].(time.Duration); ok {
-						totalDuration = d
-					}
-					if c, ok := timingData["execCount"].(int64); ok {
-						execCount = c
-					}
-				}
-			}
+			execResult, execDuration, td := extractTimingResults(prep, exec)
 
 			// Update timing metrics
-			totalDuration += execDuration
-			execCount++
+			td.totalDuration += execDuration
+			td.execCount++
 
-			_ = store.Set(ctx, fmt.Sprintf("node:%s:last_duration", node.Name), execDuration)
-			_ = store.Set(ctx, fmt.Sprintf("node:%s:total_duration", node.Name), totalDuration)
-			_ = store.Set(ctx, fmt.Sprintf("node:%s:execution_count", node.Name), execCount)
-			_ = store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
+			saveTimingMetrics(ctx, store, node.Name, execDuration, td)
 
 			// Call original post with correct data
 			actualPrep := prep

@@ -119,9 +119,9 @@ func TestBoundedStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Add entries with estimated sizes
-		store.Set(ctx, "key1", "short") // ~5 bytes
+		store.Set(ctx, "key1", "short")                      // ~5 bytes
 		store.Set(ctx, "key2", "a much longer string value") // ~26 bytes
-		
+
 		stats := store.GetStats()
 		if stats.CurrentSize == 0 {
 			t.Error("size tracking not working")

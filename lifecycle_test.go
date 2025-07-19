@@ -14,32 +14,41 @@ const (
 	doneRoute     = "done"
 )
 
+// hookTracker tracks which hooks were called.
+type hookTracker struct {
+	successCalled  bool
+	failureCalled  bool
+	completeCalled bool
+}
+
+// createNodeWithHooks creates a node with hooks and returns the tracker.
+func createNodeWithHooks(t *testing.T, execFunc pocket.ExecFunc, tracker *hookTracker) *pocket.Node {
+	return pocket.NewNode[any, any]("test",
+		pocket.WithExec(execFunc),
+		pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
+			tracker.successCalled = true
+			if output == successResult && output != successResult {
+				t.Errorf("expected output 'success', got %v", output)
+			}
+		}),
+		pocket.WithOnFailure(func(ctx context.Context, store pocket.StoreWriter, err error) {
+			tracker.failureCalled = true
+		}),
+		pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
+			tracker.completeCalled = true
+		}),
+	)
+}
+
 func TestCleanupHooks(t *testing.T) {
 	t.Run("onSuccess hook runs on successful execution", func(t *testing.T) {
 		store := pocket.NewStore()
 		ctx := context.Background()
+		tracker := &hookTracker{}
 
-		successCalled := false
-		failureCalled := false
-		completeCalled := false
-
-		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return successResult, nil
-			}),
-			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
-				successCalled = true
-				if output != successResult {
-					t.Errorf("expected output 'success', got %v", output)
-				}
-			}),
-			pocket.WithOnFailure(func(ctx context.Context, store pocket.StoreWriter, err error) {
-				failureCalled = true
-			}),
-			pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
-				completeCalled = true
-			}),
-		)
+		node := createNodeWithHooks(t, func(ctx context.Context, input any) (any, error) {
+			return successResult, nil
+		}, tracker)
 
 		flow := pocket.NewFlow(node, store)
 		_, err := flow.Run(ctx, "input")
@@ -48,13 +57,13 @@ func TestCleanupHooks(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 
-		if !successCalled {
+		if !tracker.successCalled {
 			t.Error("onSuccess hook should have been called")
 		}
-		if failureCalled {
+		if tracker.failureCalled {
 			t.Error("onFailure hook should not have been called")
 		}
-		if !completeCalled {
+		if !tracker.completeCalled {
 			t.Error("onComplete hook should have been called")
 		}
 	})

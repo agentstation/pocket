@@ -185,7 +185,7 @@ func TestScopedStore(t *testing.T) {
 
 func BenchmarkStore(b *testing.B) {
 	ctx := context.Background()
-	
+
 	b.Run("Set", func(b *testing.B) {
 		store := pocket.NewStore()
 		b.ResetTimer()

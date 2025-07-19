@@ -23,13 +23,13 @@ type Builder func(config map[string]any) (*pocket.Node, error)
 
 // Metadata contains information about a node type.
 type Metadata struct {
-	Name        string
-	Description string
-	Version     string
-	InputType   reflect.Type
-	OutputType  reflect.Type
+	Name         string
+	Description  string
+	Version      string
+	InputType    reflect.Type
+	OutputType   reflect.Type
 	ConfigSchema map[string]ConfigField
-	Tags        []string
+	Tags         []string
 }
 
 // ConfigField describes a configuration field.
@@ -163,7 +163,7 @@ func (r *Registry) ValidateConnection(fromType, toType string) error {
 func (r *Registry) validateConfig(metadata *Metadata, config map[string]any) error {
 	for fieldName, field := range metadata.ConfigSchema {
 		value, exists := config[fieldName]
-		
+
 		if field.Required && !exists {
 			return fmt.Errorf("required field %q is missing", fieldName)
 		}
@@ -188,7 +188,7 @@ func (r *Registry) validateConfig(metadata *Metadata, config map[string]any) err
 // applyDefaults applies default values to config.
 func (r *Registry) applyDefaults(metadata *Metadata, config map[string]any) map[string]any {
 	result := make(map[string]any)
-	
+
 	// Copy existing config
 	for k, v := range config {
 		result[k] = v
@@ -227,23 +227,23 @@ func isTypeCompatible(outputType, inputType reflect.Type) bool {
 	if outputType == inputType {
 		return true
 	}
-	
+
 	// Check if output type is assignable to input type
 	if outputType.AssignableTo(inputType) {
 		return true
 	}
-	
+
 	// Check if output type implements input interface
 	if inputType.Kind() == reflect.Interface && outputType.Implements(inputType) {
 		return true
 	}
-	
+
 	// Check if both are interface{} (any)
 	if outputType.Kind() == reflect.Interface && outputType.NumMethod() == 0 &&
 		inputType.Kind() == reflect.Interface && inputType.NumMethod() == 0 {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -252,7 +252,7 @@ func isTypeCompatible(outputType, inputType reflect.Type) bool {
 // RegisterCommonTypes registers commonly used node types.
 func RegisterCommonTypes(registry *Registry) {
 	// Transform node
-	_ = registry.Register("transform", 
+	_ = registry.Register("transform",
 		func(config map[string]any) (*pocket.Node, error) {
 			transformFn, ok := config["function"].(func(any) (any, error))
 			if !ok {
@@ -270,9 +270,9 @@ func RegisterCommonTypes(registry *Registry) {
 			Tags:        []string{"utility", "data"},
 			ConfigSchema: map[string]ConfigField{
 				"function": {
-					Name:     "function",
-					Type:     "func(any) (any, error)",
-					Required: true,
+					Name:        "function",
+					Type:        "func(any) (any, error)",
+					Required:    true,
 					Description: "Transformation function",
 				},
 			},
@@ -301,9 +301,9 @@ func RegisterCommonTypes(registry *Registry) {
 			Tags:        []string{"utility", "control"},
 			ConfigSchema: map[string]ConfigField{
 				"predicate": {
-					Name:     "predicate",
-					Type:     "func(any) bool",
-					Required: true,
+					Name:        "predicate",
+					Type:        "func(any) bool",
+					Required:    true,
 					Description: "Filter predicate function",
 				},
 			},
@@ -334,9 +334,9 @@ func RegisterCommonTypes(registry *Registry) {
 			Tags:        []string{"utility", "timing"},
 			ConfigSchema: map[string]ConfigField{
 				"duration": {
-					Name:     "duration",
-					Type:     "time.Duration",
-					Required: true,
+					Name:        "duration",
+					Type:        "time.Duration",
+					Required:    true,
 					Description: "Delay duration",
 				},
 			},
@@ -364,9 +364,9 @@ func RegisterCommonTypes(registry *Registry) {
 			Tags:        []string{"utility", "debugging"},
 			ConfigSchema: map[string]ConfigField{
 				"level": {
-					Name:     "level",
-					Type:     "string",
-					Default:  "info",
+					Name:        "level",
+					Type:        "string",
+					Default:     "info",
 					Description: "Log level",
 				},
 			},
@@ -397,13 +397,13 @@ func (f *Factory) SetDefaults(nodeType string, defaults map[string]any) {
 func (f *Factory) Create(nodeType string, config map[string]any) (*pocket.Node, error) {
 	// Merge with factory defaults
 	mergedConfig := make(map[string]any)
-	
+
 	if defaults, ok := f.defaults[nodeType]; ok {
 		for k, v := range defaults {
 			mergedConfig[k] = v
 		}
 	}
-	
+
 	for k, v := range config {
 		mergedConfig[k] = v
 	}
