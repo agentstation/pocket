@@ -17,28 +17,28 @@ var globalDefaults = &nodeDefaults{
 // nodeDefaults contains default configuration that can be applied to nodes.
 type nodeDefaults struct {
 	mu sync.RWMutex
-	
+
 	// Lifecycle defaults
 	prep PrepFunc
 	exec ExecFunc
 	post PostFunc
-	
+
 	// Options defaults
-	maxRetries  int
-	retryDelay  time.Duration
-	timeout     time.Duration
-	onError     func(error)
-	fallback    func(ctx context.Context, input any, err error) (any, error)
-	onSuccess   func(ctx context.Context, store StoreWriter, output any)
-	onFailure   func(ctx context.Context, store StoreWriter, err error)
-	onComplete  func(ctx context.Context, store StoreWriter)
+	maxRetries int
+	retryDelay time.Duration
+	timeout    time.Duration
+	onError    func(error)
+	fallback   func(ctx context.Context, input any, err error) (any, error)
+	onSuccess  func(ctx context.Context, store StoreWriter, output any)
+	onFailure  func(ctx context.Context, store StoreWriter, err error)
+	onComplete func(ctx context.Context, store StoreWriter)
 }
 
 // SetDefaults configures global defaults for all nodes.
 func SetDefaults(opts ...Option) {
 	globalDefaults.mu.Lock()
 	defer globalDefaults.mu.Unlock()
-	
+
 	// Create a temporary nodeOptions to apply options to
 	tempOpts := nodeOptions{
 		prep:       globalDefaults.prep,
@@ -53,12 +53,12 @@ func SetDefaults(opts ...Option) {
 		onFailure:  globalDefaults.onFailure,
 		onComplete: globalDefaults.onComplete,
 	}
-	
+
 	// Apply options
 	for _, opt := range opts {
 		opt(&tempOpts)
 	}
-	
+
 	// Copy back to globalDefaults
 	if tempOpts.prep != nil {
 		globalDefaults.prep = tempOpts.prep
@@ -104,19 +104,19 @@ func SetDefaultPost(fn PostFunc) {
 func getDefaults() (prep PrepFunc, exec ExecFunc, post PostFunc, opts nodeOptions) {
 	globalDefaults.mu.RLock()
 	defer globalDefaults.mu.RUnlock()
-	
-	return globalDefaults.prep, 
-		globalDefaults.exec, 
+
+	return globalDefaults.prep,
+		globalDefaults.exec,
 		globalDefaults.post,
 		nodeOptions{
-			maxRetries:  globalDefaults.maxRetries,
-			retryDelay:  globalDefaults.retryDelay,
-			timeout:     globalDefaults.timeout,
-			onError:     globalDefaults.onError,
-			fallback:    globalDefaults.fallback,
-			onSuccess:   globalDefaults.onSuccess,
-			onFailure:   globalDefaults.onFailure,
-			onComplete:  globalDefaults.onComplete,
+			maxRetries: globalDefaults.maxRetries,
+			retryDelay: globalDefaults.retryDelay,
+			timeout:    globalDefaults.timeout,
+			onError:    globalDefaults.onError,
+			fallback:   globalDefaults.fallback,
+			onSuccess:  globalDefaults.onSuccess,
+			onFailure:  globalDefaults.onFailure,
+			onComplete: globalDefaults.onComplete,
 		}
 }
 
@@ -124,7 +124,7 @@ func getDefaults() (prep PrepFunc, exec ExecFunc, post PostFunc, opts nodeOption
 func ResetDefaults() {
 	globalDefaults.mu.Lock()
 	defer globalDefaults.mu.Unlock()
-	
+
 	globalDefaults.prep = defaultPrep
 	globalDefaults.exec = defaultExec
 	globalDefaults.post = defaultPost

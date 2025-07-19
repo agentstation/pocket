@@ -132,7 +132,9 @@ func (m *Metrics) GetStats() *Stats {
 	for _, s := range m.samples {
 		totalAlloc += s.Alloc
 		totalHeap += s.HeapAlloc
-		totalGoroutines += uint64(s.NumGoroutine)
+		if s.NumGoroutine >= 0 {
+			totalGoroutines += uint64(s.NumGoroutine)
+		}
 
 		if s.Alloc > stats.PeakAlloc {
 			stats.PeakAlloc = s.Alloc
@@ -144,7 +146,9 @@ func (m *Metrics) GetStats() *Stats {
 
 	stats.AvgAlloc = totalAlloc / uint64(len(m.samples))
 	stats.AvgHeapAlloc = totalHeap / uint64(len(m.samples))
-	stats.AvgGoroutines = int(totalGoroutines / uint64(len(m.samples)))
+	if len(m.samples) > 0 {
+		stats.AvgGoroutines = int(totalGoroutines / uint64(len(m.samples)))
+	}
 
 	// Calculate allocation rate
 	if len(m.samples) > 1 {
@@ -226,10 +230,10 @@ func (t *Tracker) Report() *TrackingReport {
 	return &TrackingReport{
 		Name:          t.name,
 		Duration:      t.endTime.Sub(t.startTime),
-		AllocDelta:    int64(t.endMem.Alloc) - int64(t.startMem.Alloc),
+		AllocDelta:    int64(t.endMem.Alloc - t.startMem.Alloc),
 		TotalAllocDelta: t.endMem.TotalAlloc - t.startMem.TotalAlloc,
 		NumGCDelta:    t.endMem.NumGC - t.startMem.NumGC,
-		HeapAllocDelta: int64(t.endMem.HeapAlloc) - int64(t.startMem.HeapAlloc),
+		HeapAllocDelta: int64(t.endMem.HeapAlloc - t.startMem.HeapAlloc),
 	}
 }
 

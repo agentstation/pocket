@@ -3,7 +3,6 @@ package yaml
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/agentstation/pocket"
@@ -227,26 +226,26 @@ func (f *defaultNodeFactory) createGenericNode(def NodeDefinition) (*pocket.Node
 	return node, nil
 }
 
-// getTypeByName returns a reflect.Type for common type names.
-func getTypeByName(typeName string) reflect.Type {
-	switch typeName {
-	case "string":
-		return reflect.TypeOf("")
-	case "int":
-		return reflect.TypeOf(0)
-	case "float64":
-		return reflect.TypeOf(0.0)
-	case "bool":
-		return reflect.TypeOf(false)
-	case "map":
-		return reflect.TypeOf(map[string]interface{}{})
-	case "slice":
-		return reflect.TypeOf([]interface{}{})
-	default:
-		// For unknown types, use interface{}
-		return reflect.TypeOf((*interface{})(nil)).Elem()
-	}
-}
+// // getTypeByName returns a reflect.Type for common type names.
+// func getTypeByName(typeName string) reflect.Type {
+// 	switch typeName {
+// 	case "string":
+// 		return reflect.TypeOf("")
+// 	case "int":
+// 		return reflect.TypeOf(0)
+// 	case "float64":
+// 		return reflect.TypeOf(0.0)
+// 	case "bool":
+// 		return reflect.TypeOf(false)
+// 	case "map":
+// 		return reflect.TypeOf(map[string]interface{}{})
+// 	case "slice":
+// 		return reflect.TypeOf([]interface{}{})
+// 	default:
+// 		// For unknown types, use interface{}
+// 		return reflect.TypeOf((*interface{})(nil)).Elem()
+// 	}
+// }
 
 // Example builders for common node types
 

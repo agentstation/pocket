@@ -24,33 +24,33 @@ type Event struct {
 type EventType string
 
 const (
-	// Flow events
+	// Flow events.
 	EventFlowStart    EventType = "flow.start"
 	EventFlowComplete EventType = "flow.complete"
 	EventFlowError    EventType = "flow.error"
-	
-	// Node events
-	EventNodeEnter    EventType = "node.enter"
-	EventNodeExit     EventType = "node.exit"
-	EventNodeError    EventType = "node.error"
-	EventNodeRetry    EventType = "node.retry"
-	EventNodeTimeout  EventType = "node.timeout"
-	
-	// Phase events
+
+	// Node events.
+	EventNodeEnter   EventType = "node.enter"
+	EventNodeExit    EventType = "node.exit"
+	EventNodeError   EventType = "node.error"
+	EventNodeRetry   EventType = "node.retry"
+	EventNodeTimeout EventType = "node.timeout"
+
+	// Step events.
 	EventPrepStart    EventType = "prep.start"
 	EventPrepComplete EventType = "prep.complete"
 	EventExecStart    EventType = "exec.start"
 	EventExecComplete EventType = "exec.complete"
 	EventPostStart    EventType = "post.start"
 	EventPostComplete EventType = "post.complete"
-	
-	// Routing events
-	EventRoute        EventType = "route"
-	EventRouteError   EventType = "route.error"
-	
-	// State events
-	EventStateChange  EventType = "state.change"
-	EventStoreUpdate  EventType = "store.update"
+
+	// Routing events.
+	EventRoute      EventType = "route"
+	EventRouteError EventType = "route.error"
+
+	// State events.
+	EventStateChange EventType = "state.change"
+	EventStoreUpdate EventType = "store.update"
 )
 
 // EventHandler processes events.
@@ -107,13 +107,13 @@ func (b *EventBus) Unsubscribe(handler EventHandler, types ...EventType) {
 	for _, eventType := range types {
 		handlers := b.handlers[eventType]
 		filtered := handlers[:0]
-		
+
 		for _, h := range handlers {
 			if h != handler {
 				filtered = append(filtered, h)
 			}
 		}
-		
+
 		b.handlers[eventType] = filtered
 	}
 }
@@ -235,9 +235,9 @@ type MetricsHandler struct {
 
 // EventMetrics tracks event statistics.
 type EventMetrics struct {
-	Count     int64
-	ErrorCount int64
-	LastSeen  time.Time
+	Count       int64
+	ErrorCount  int64
+	LastSeen    time.Time
 	AvgDuration time.Duration
 }
 
@@ -262,7 +262,7 @@ func (h *MetricsHandler) Handle(ctx context.Context, event Event) error {
 
 	metrics.Count++
 	metrics.LastSeen = event.Timestamp
-	
+
 	if event.Error != nil {
 		metrics.ErrorCount++
 	}
@@ -352,8 +352,8 @@ func (h *ConditionalHandler) Handle(ctx context.Context, event Event) error {
 
 // EventRecorder records events for replay.
 type EventRecorder struct {
-	mu     sync.RWMutex
-	events []Event
+	mu      sync.RWMutex
+	events  []Event
 	maxSize int
 }
 
@@ -371,7 +371,7 @@ func (r *EventRecorder) Handle(ctx context.Context, event Event) error {
 	defer r.mu.Unlock()
 
 	r.events = append(r.events, event)
-	
+
 	// Trim if needed
 	if len(r.events) > r.maxSize {
 		r.events = r.events[len(r.events)-r.maxSize:]
@@ -393,16 +393,16 @@ func (r *EventRecorder) GetEvents() []Event {
 // Replay replays events to a handler.
 func (r *EventRecorder) Replay(ctx context.Context, handler EventHandler, filter EventFilter) error {
 	events := r.GetEvents()
-	
+
 	for _, event := range events {
 		if filter != nil && !filter(event) {
 			continue
 		}
-		
+
 		if err := handler.Handle(ctx, event); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }

@@ -101,7 +101,7 @@ func WithHooks(manager *HookManager) Middleware {
 
 		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Trigger pre-prep event
-			manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, Event{
 				Type:     EventPrep,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -126,13 +126,13 @@ func WithHooks(manager *HookManager) Middleware {
 				event.Type = EventError
 			}
 			
-			manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, event)
 			return result, err
 		}
 
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			// Trigger pre-exec event
-			manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, Event{
 				Type:     EventExec,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -156,7 +156,7 @@ func WithHooks(manager *HookManager) Middleware {
 			if err != nil {
 				event.Type = EventError
 			} else {
-				manager.Trigger(ctx, Event{
+				_ = manager.Trigger(ctx, Event{
 					Type:     EventSuccess,
 					NodeName: node.Name,
 					Phase:    "exec",
@@ -164,13 +164,13 @@ func WithHooks(manager *HookManager) Middleware {
 				})
 			}
 			
-			manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, event)
 			return result, err
 		}
 
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			// Trigger pre-post event
-			manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, Event{
 				Type:     EventPost,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -200,7 +200,7 @@ func WithHooks(manager *HookManager) Middleware {
 			
 			if err == nil {
 				// Trigger routing event
-				manager.Trigger(ctx, Event{
+				_ = manager.Trigger(ctx, Event{
 					Type:     EventRoute,
 					NodeName: node.Name,
 					Metadata: map[string]any{
@@ -210,7 +210,7 @@ func WithHooks(manager *HookManager) Middleware {
 				})
 			}
 			
-			manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, event)
 			return output, next, err
 		}
 

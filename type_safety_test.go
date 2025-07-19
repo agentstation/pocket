@@ -10,7 +10,7 @@ import (
 	"github.com/agentstation/pocket"
 )
 
-// Test types for type safety testing
+// Test types for type safety testing.
 type TestInput struct {
 	Value string
 }

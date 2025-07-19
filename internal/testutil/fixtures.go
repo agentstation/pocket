@@ -87,7 +87,7 @@ func (f *Fixtures) CounterNode(name string) *pocket.Node {
 			data := exec.(map[string]interface{})
 			key := data["key"].(string)
 			newCount := data["newCount"].(int)
-			store.Set(ctx, key, newCount)
+			_ = store.Set(ctx, key, newCount)
 			return newCount, "default", nil
 		}),
 	)
@@ -116,7 +116,7 @@ func (f *Fixtures) StoreNode(name, key string) *pocket.Node {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			data := exec.(map[string]interface{})
-			store.Set(ctx, data["key"].(string), data["value"])
+			_ = store.Set(ctx, data["key"].(string), data["value"])
 			return data["value"], "default", nil
 		}),
 	)
@@ -189,7 +189,7 @@ func (f *Fixtures) AggregatorNode(name string, aggregate func([]any) any) *pocke
 			values := data["values"].([]any)
 			result := data["result"]
 			
-			store.Set(ctx, key, values)
+			_ = store.Set(ctx, key, values)
 			
 			return result, "default", nil
 		}),

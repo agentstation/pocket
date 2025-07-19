@@ -17,10 +17,10 @@ import (
 
 // LLMRequest represents a request to an LLM service
 type LLMRequest struct {
-	Prompt      string   `yaml:"prompt"`
-	MaxTokens   int      `yaml:"max_tokens"`
-	Temperature float64  `yaml:"temperature"`
-	Model       string   `yaml:"model"`
+	Prompt      string  `yaml:"prompt"`
+	MaxTokens   int     `yaml:"max_tokens"`
+	Temperature float64 `yaml:"temperature"`
+	Model       string  `yaml:"model"`
 }
 
 // LLMResponse represents a response from an LLM service
@@ -33,7 +33,7 @@ type LLMResponse struct {
 
 func main() {
 	ctx := context.Background()
-	
+
 	// Create a bounded store with LRU eviction
 	boundedStore := store.NewBoundedStore(
 		store.WithMaxEntries(100),
@@ -50,7 +50,7 @@ func main() {
 	// Demo 1: Circuit Breaker with Fallback
 	fmt.Println("1. Circuit Breaker Pattern")
 	fmt.Println("--------------------------")
-	
+
 	// Simulate an unreliable LLM service
 	callCount := 0
 	unreliableLLM := pocket.NewNode[any, any]("unreliable-llm",
@@ -60,7 +60,7 @@ func main() {
 			if callCount <= 3 {
 				return nil, errors.New("LLM service unavailable")
 			}
-			
+
 			req := input.(LLMRequest)
 			return LLMResponse{
 				Text:       fmt.Sprintf("Generated response for: %s", req.Prompt),
@@ -83,7 +83,7 @@ func main() {
 			Timestamp:  time.Now(),
 		}, nil
 	}
-	
+
 	// Create a circuit breaker policy
 	circuitBreaker := fallback.NewCircuitBreakerPolicy(
 		"llm-circuit",
@@ -104,7 +104,7 @@ func main() {
 			Temperature: 0.7,
 			Model:       "gpt-4",
 		}
-		
+
 		flow := pocket.NewFlow(protectedLLM, boundedStore)
 		result, err := flow.Run(ctx, req)
 		if err != nil {
@@ -121,10 +121,10 @@ func main() {
 
 	// Create a sub-flow for data extraction
 	extractionFlow := createExtractionFlow()
-	
+
 	// Convert the flow to a node
 	extractionNode := extractionFlow.AsNode("extraction-subflow")
-	
+
 	// Create a main flow that uses the extraction subflow
 	mainFlow := pocket.NewNode[any, any]("main-pipeline",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -132,7 +132,7 @@ func main() {
 			text := input.(string)
 			return map[string]interface{}{
 				"original_text": text,
-				"text": text,
+				"text":          text,
 			}, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
@@ -145,10 +145,10 @@ func main() {
 			return result, "default", nil
 		}),
 	)
-	
+
 	// Connect to extraction node
 	mainFlow.Connect("default", extractionNode)
-	
+
 	// Add YAML formatting node
 	yamlFormatter := pocket.NewNode[any, any]("yaml-formatter",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -160,26 +160,26 @@ func main() {
 			return string(yamlBytes), nil
 		}),
 	)
-	
+
 	extractionNode.Connect("default", yamlFormatter)
-	
+
 	// Run the composed flow
 	composedFlow := pocket.NewFlow(mainFlow, boundedStore)
 	result, err := composedFlow.Run(ctx, "Analyze this text for sentiment and extract key entities.")
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	fmt.Println("Extracted and formatted as YAML:")
 	fmt.Println(result)
 
 	// Demo 3: Advanced Fallback Chain
 	fmt.Println("\n3. Advanced Fallback Chain")
 	fmt.Println("--------------------------")
-	
+
 	// Create a chain of LLM providers
 	chain := fallback.NewChain("llm-chain")
-	
+
 	// Add primary provider
 	chain.AddLink(fallback.Link{
 		Name:   "primary-gpt4",
@@ -192,7 +192,7 @@ func main() {
 			return map[string]string{"provider": "GPT-4", "response": "Primary response"}, nil
 		},
 	})
-	
+
 	// Add secondary provider
 	chain.AddLink(fallback.Link{
 		Name:   "secondary-claude",
@@ -202,7 +202,7 @@ func main() {
 			return map[string]string{"provider": "Claude", "response": "Secondary response"}, nil
 		},
 	})
-	
+
 	// Add tertiary provider with transformation
 	chain.AddLink(fallback.Link{
 		Name:   "tertiary-local",
@@ -215,7 +215,7 @@ func main() {
 			return fmt.Sprintf("Simplified: %v", input)
 		},
 	})
-	
+
 	// Create a node with the fallback chain
 	chainNode := pocket.NewNode[any, any]("llm-chain-node",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -230,11 +230,11 @@ func main() {
 			data := prepData.(map[string]interface{})
 			store := data["store"].(pocket.Store)
 			input := data["input"]
-			
+
 			return chain.Execute(ctx, store, input)
 		}),
 	)
-	
+
 	// Test the chain
 	chainFlow := pocket.NewFlow(chainNode, boundedStore)
 	for i := 0; i < 5; i++ {
@@ -246,7 +246,7 @@ func main() {
 			fmt.Printf("Chain attempt %d: Provider=%s, Response=%s\n", i+1, resp["provider"], resp["response"])
 		}
 	}
-	
+
 	// Show chain metrics
 	metrics := chain.GetMetrics()
 	fmt.Printf("\nChain Metrics: Total executions=%d\n", metrics.TotalExecutions)
@@ -258,15 +258,15 @@ func main() {
 	// Demo 4: Cleanup Hooks and Resource Management
 	fmt.Println("\n4. Cleanup Hooks and Resource Management")
 	fmt.Println("---------------------------------------")
-	
+
 	// Create a node with cleanup hooks
 	resourceNode := pocket.NewNode[any, any]("resource-manager",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare resource allocation data
 			return map[string]interface{}{
-				"resource_id": "res-12345",
+				"resource_id":  "res-12345",
 				"allocated_at": time.Now(),
-				"input": input,
+				"input":        input,
 			}, nil
 		}),
 		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
@@ -274,10 +274,10 @@ func main() {
 			data := prepData.(map[string]interface{})
 			resourceID := data["resource_id"]
 			fmt.Printf("Using resource: %v\n", resourceID)
-			
+
 			// Simulate work
 			time.Sleep(100 * time.Millisecond)
-			
+
 			return map[string]any{
 				"result":      "processed",
 				"resource_id": resourceID,
@@ -305,7 +305,7 @@ func main() {
 			store.Set(ctx, "cleanup_completed", time.Now())
 		}),
 	)
-	
+
 	// Test cleanup hooks
 	cleanupFlow := pocket.NewFlow(resourceNode, boundedStore)
 	_, err = cleanupFlow.Run(ctx, "test input")
@@ -316,7 +316,7 @@ func main() {
 	// Demo 5: Store Statistics
 	fmt.Println("\n5. Store Statistics")
 	fmt.Println("------------------")
-	
+
 	stats := boundedStore.GetStats()
 	fmt.Printf("Store Stats:\n")
 	fmt.Printf("  Entries: %d/%d\n", stats.Entries, stats.MaxEntries)
@@ -332,7 +332,7 @@ func main() {
 // createExtractionFlow creates a sub-flow for data extraction
 func createExtractionFlow() *pocket.Flow {
 	store := pocket.NewStore()
-	
+
 	// Entity extraction node
 	entityExtractor := pocket.NewNode[any, any]("entity-extractor",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -344,7 +344,7 @@ func createExtractionFlow() *pocket.Flow {
 			}, nil
 		}),
 	)
-	
+
 	// Sentiment analysis node
 	sentimentAnalyzer := pocket.NewNode[any, any]("sentiment-analyzer",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -355,16 +355,16 @@ func createExtractionFlow() *pocket.Flow {
 			}, nil
 		}),
 	)
-	
+
 	// Combine results
 	combiner := pocket.NewNode[any, any]("result-combiner",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Get results from store in prep phase
 			entities, _ := store.Get(ctx, "entities")
 			sentiment, _ := store.Get(ctx, "sentiment")
-			
+
 			return map[string]interface{}{
-				"entities": entities,
+				"entities":  entities,
 				"sentiment": sentiment,
 			}, nil
 		}),
@@ -379,11 +379,11 @@ func createExtractionFlow() *pocket.Flow {
 			}, nil
 		}),
 	)
-	
+
 	// Connect nodes
 	entityExtractor.Connect("default", sentimentAnalyzer)
 	sentimentAnalyzer.Connect("default", combiner)
-	
+
 	// Store intermediate results
 	wrappedEntityExtractor := pocket.NewNode[any, any]("wrapped-entity",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -395,7 +395,7 @@ func createExtractionFlow() *pocket.Flow {
 			return result, "default", nil
 		}),
 	)
-	
+
 	wrappedSentimentAnalyzer := pocket.NewNode[any, any]("wrapped-sentiment",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
 			result, err := sentimentAnalyzer.Exec(ctx, input)
@@ -406,10 +406,10 @@ func createExtractionFlow() *pocket.Flow {
 			return result, "default", nil
 		}),
 	)
-	
+
 	// Connect wrapped nodes
 	wrappedEntityExtractor.Connect("default", wrappedSentimentAnalyzer)
 	wrappedSentimentAnalyzer.Connect("default", combiner)
-	
+
 	return pocket.NewFlow(wrappedEntityExtractor, store)
 }

@@ -185,9 +185,9 @@ func Timing() Middleware {
 			totalDuration += execDuration
 			execCount++
 			
-			store.Set(ctx, fmt.Sprintf("node:%s:last_duration", node.Name), execDuration)
-			store.Set(ctx, fmt.Sprintf("node:%s:total_duration", node.Name), totalDuration)
-			store.Set(ctx, fmt.Sprintf("node:%s:execution_count", node.Name), execCount)
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:last_duration", node.Name), execDuration)
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:total_duration", node.Name), totalDuration)
+			_ = store.Set(ctx, fmt.Sprintf("node:%s:execution_count", node.Name), execCount)
 			store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
 			
 			// Call original post with correct data

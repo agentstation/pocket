@@ -88,7 +88,7 @@ func (p *Processor[T, R]) ToNode(name string) *pocket.Node {
 		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
 			// Get store from prep result
 			store := prepResult.(pocket.StoreReader)
-			
+
 			// Extract items
 			items, err := p.Extract(ctx, store)
 			if err != nil {

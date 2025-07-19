@@ -252,7 +252,7 @@ func isTypeCompatible(outputType, inputType reflect.Type) bool {
 // RegisterCommonTypes registers commonly used node types.
 func RegisterCommonTypes(registry *Registry) {
 	// Transform node
-	registry.Register("transform", 
+	_ = registry.Register("transform", 
 		func(config map[string]any) (*pocket.Node, error) {
 			transformFn, ok := config["function"].(func(any) (any, error))
 			if !ok {
@@ -280,7 +280,7 @@ func RegisterCommonTypes(registry *Registry) {
 	)
 
 	// Filter node
-	registry.Register("filter",
+	_ = registry.Register("filter",
 		func(config map[string]any) (*pocket.Node, error) {
 			predicateFn, ok := config["predicate"].(func(any) bool)
 			if !ok {
@@ -311,7 +311,7 @@ func RegisterCommonTypes(registry *Registry) {
 	)
 
 	// Delay node
-	registry.Register("delay",
+	_ = registry.Register("delay",
 		func(config map[string]any) (*pocket.Node, error) {
 			duration, ok := config["duration"].(time.Duration)
 			if !ok {
@@ -344,7 +344,7 @@ func RegisterCommonTypes(registry *Registry) {
 	)
 
 	// Logger node
-	registry.Register("logger",
+	_ = registry.Register("logger",
 		func(config map[string]any) (*pocket.Node, error) {
 			level, _ := config["level"].(string)
 			if level == "" {

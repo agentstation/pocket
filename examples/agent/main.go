@@ -26,7 +26,7 @@ func main() {
 	// Create store and set initial task
 	store := pocket.NewStore()
 	ctx := context.Background()
-	
+
 	task := &Task{
 		Description: "write a blog post about Go concurrency patterns",
 		Steps:       []string{},
@@ -46,10 +46,10 @@ func main() {
 		pocket.WithExec(func(ctx context.Context, task any) (any, error) {
 			// Analyze task and decide next action
 			t := task.(*Task)
-			
+
 			fmt.Printf("\n[THINK] Task: %s\n", t.Description)
 			fmt.Printf("[THINK] Completed steps: %v\n", t.Steps)
-			
+
 			// Simple task decomposition logic
 			switch {
 			case len(t.Steps) == 0 && strings.Contains(t.Description, "write"):
@@ -82,9 +82,9 @@ func main() {
 				// Execute: perform the action
 				t := task.(*Task)
 				var result string
-				
+
 				fmt.Printf("[ACT] Performing: %s\n", actionType)
-				
+
 				switch actionType {
 				case "research":
 					result = "Research completed: Found best practices for Go concurrency"
@@ -97,20 +97,20 @@ func main() {
 				default:
 					return nil, fmt.Errorf("unknown action: %s", actionType)
 				}
-				
+
 				return result, nil
 			}),
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, task, result any) (any, string, error) {
 				// Post: update task steps and decide routing
 				t := task.(*Task)
 				resultStr := result.(string)
-				
+
 				// Update task steps (except for complete)
 				if actionType != completeAction {
 					t.Steps = append(t.Steps, fmt.Sprintf("%s: %s", actionType, resultStr))
 					store.Set(ctx, "task", t)
 				}
-				
+
 				// Decide next step
 				if actionType == completeAction {
 					return resultStr, "done", nil // End the flow (no successor for "done")

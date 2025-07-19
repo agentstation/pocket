@@ -107,7 +107,7 @@ func aggregateResults(ctx context.Context, results []ProcessedDoc) (any, error) 
 
 func getTopKeywords(keywords map[string]int, n int) []string {
 	// Simple top-N selection (in real app, use a heap)
-	var top []string
+	top := make([]string, 0, 3)
 	for k := range keywords {
 		top = append(top, k)
 		if len(top) >= n {

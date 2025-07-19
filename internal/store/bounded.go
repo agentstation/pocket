@@ -409,7 +409,7 @@ type StoreStats struct {
 // MultiTieredStore implements a multi-tiered storage system.
 type MultiTieredStore struct {
 	tiers      []pocket.Store
-	tierNames  []string
+	// tierNames  []string // TODO: Remove if not needed
 	promotions map[string]int // tracks which tier each key is in
 	mu         sync.RWMutex
 }
@@ -488,7 +488,7 @@ func (m *MultiTieredStore) promote(ctx context.Context, key string, value any, c
 	// Promote to the tier above
 	targetTier := currentTier - 1
 	if targetTier >= 0 {
-		m.tiers[targetTier].Set(ctx, key, value)
+		_ = m.tiers[targetTier].Set(ctx, key, value)
 		m.promotions[key] = targetTier
 	}
 }
@@ -498,7 +498,7 @@ type ShardedStore struct {
 	shards    []pocket.Store
 	numShards int
 	hashFunc  func(string) int
-	mu        sync.RWMutex
+	// mu        sync.RWMutex // TODO: Remove if not needed
 }
 
 // NewShardedStore creates a store that shards data.

@@ -183,7 +183,7 @@ func (b *BufferPool) Put(buf []byte) {
 		for i := range buf {
 			buf[i] = 0
 		}
-		pool.Put(buf)
+		pool.Put(&buf)
 	}
 }
 

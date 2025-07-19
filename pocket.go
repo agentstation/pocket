@@ -106,19 +106,19 @@ type nodeOptions struct {
 	prep PrepFunc
 	exec ExecFunc
 	post PostFunc
-	
+
 	// Retry and timeout
 	maxRetries int
 	retryDelay time.Duration
 	timeout    time.Duration
-	
+
 	// Error handling
-	onError    func(error)
-	fallback   func(ctx context.Context, input any, err error) (any, error)
-	
+	onError  func(error)
+	fallback func(ctx context.Context, input any, err error) (any, error)
+
 	// Cleanup hooks
-	onSuccess func(ctx context.Context, store StoreWriter, output any)
-	onFailure func(ctx context.Context, store StoreWriter, err error)
+	onSuccess  func(ctx context.Context, store StoreWriter, output any)
+	onFailure  func(ctx context.Context, store StoreWriter, err error)
 	onComplete func(ctx context.Context, store StoreWriter)
 }
 
@@ -137,7 +137,7 @@ func WithPrep[In any](fn func(ctx context.Context, store StoreReader, input In) 
 				// Call with zero value of In
 				return fn(ctx, store, *new(In))
 			}
-			
+
 			// Type assertion with safety check
 			typedInput, ok := input.(In)
 			if !ok {
@@ -164,7 +164,7 @@ func WithExec[In, Out any](fn func(ctx context.Context, input In) (Out, error)) 
 				}
 				return result, nil
 			}
-			
+
 			// Convert prep result to expected input type
 			typedInput, ok := prepResult.(In)
 			if !ok {
@@ -199,7 +199,7 @@ func WithPost[In, Out any](fn func(ctx context.Context, store StoreWriter, input
 					return nil, "", fmt.Errorf("%w: post expected input %T, got %T", ErrInvalidInput, *new(In), input)
 				}
 			}
-			
+
 			var typedExecResult Out
 			if execResult == nil {
 				typedExecResult = *new(Out)
@@ -210,7 +210,7 @@ func WithPost[In, Out any](fn func(ctx context.Context, store StoreWriter, input
 					return nil, "", fmt.Errorf("%w: post expected exec result %T, got %T", ErrInvalidInput, *new(Out), execResult)
 				}
 			}
-			
+
 			// Execute with type safety
 			output, next, err := fn(ctx, store, typedInput, prepResult, typedExecResult)
 			if err != nil {
@@ -255,7 +255,7 @@ func WithFallback[In, Out any](fn func(ctx context.Context, input In, err error)
 			if !ok {
 				return nil, fmt.Errorf("%w: fallback expected %T, got %T", ErrInvalidInput, *new(In), input)
 			}
-			
+
 			// Execute typed fallback
 			result, fallbackErr := fn(ctx, typedInput, err)
 			if fallbackErr != nil {
@@ -329,7 +329,7 @@ func isAnyType(t reflect.Type) bool {
 func newNodeBase(name string, opts ...Option) *Node {
 	// Get global defaults
 	defaultPrep, defaultExec, defaultPost, defaultOpts := getDefaults()
-	
+
 	// Create node with defaults
 	node := &Node{
 		Name:       name,
@@ -339,7 +339,7 @@ func newNodeBase(name string, opts ...Option) *Node {
 		successors: make(map[string]*Node),
 		opts:       defaultOpts,
 	}
-	
+
 	// Apply lifecycle functions from defaults if set
 	if defaultOpts.prep != nil {
 		node.Prep = defaultOpts.prep
@@ -350,12 +350,12 @@ func newNodeBase(name string, opts ...Option) *Node {
 	if defaultOpts.post != nil {
 		node.Post = defaultOpts.post
 	}
-	
+
 	// Apply provided options (override defaults)
 	for _, opt := range opts {
 		opt(&node.opts)
 	}
-	
+
 	// Apply lifecycle functions from options
 	if node.opts.prep != nil {
 		node.Prep = node.opts.prep
@@ -366,7 +366,7 @@ func newNodeBase(name string, opts ...Option) *Node {
 	if node.opts.post != nil {
 		node.Post = node.opts.post
 	}
-	
+
 	return node
 }
 
@@ -378,40 +378,40 @@ func newNodeBase(name string, opts ...Option) *Node {
 //
 // Type safety mechanism:
 //
-//   1. Compile-time: When In/Out are not 'any', the node stores type information
-//      for validation. Using generic options like WithExec, WithPrep ensures function
-//      signatures match the declared types at compile time.
+//  1. Compile-time: When In/Out are not 'any', the node stores type information
+//     for validation. Using generic options like WithExec, WithPrep ensures function
+//     signatures match the declared types at compile time.
 //
-//   2. Initialization-time: Call ValidateFlow on your start node to verify the
-//      entire workflow graph has compatible types between connected nodes.
+//  2. Initialization-time: Call ValidateFlow on your start node to verify the
+//     entire workflow graph has compatible types between connected nodes.
 //
-//   3. Runtime: When using regular options (WithExec, WithPrep) with typed nodes,
-//      the framework automatically wraps functions to ensure type safety.
+//  3. Runtime: When using regular options (WithExec, WithPrep) with typed nodes,
+//     the framework automatically wraps functions to ensure type safety.
 //
 // Examples:
 //
-//   // Typed node - enables full type checking across the workflow
-//   validator := NewNode[User, ValidationResult]("validator",
-//       WithExec(func(ctx context.Context, store Store, user User) (ValidationResult, error) {
-//           // Compile-time type safety - no casting needed
-//           return ValidationResult{Valid: true}, nil
-//       }),
-//   )
+//	// Typed node - enables full type checking across the workflow
+//	validator := NewNode[User, ValidationResult]("validator",
+//	    WithExec(func(ctx context.Context, store Store, user User) (ValidationResult, error) {
+//	        // Compile-time type safety - no casting needed
+//	        return ValidationResult{Valid: true}, nil
+//	    }),
+//	)
 //
-//   // Untyped node - no compile-time checks (explicit [any, any] encourages adding types)
-//   processor := NewNode[any, any]("processor",
-//       WithExec(func(ctx context.Context, store Store, input any) (any, error) {
-//           return processData(input), nil
-//       }),
-//   )
+//	// Untyped node - no compile-time checks (explicit [any, any] encourages adding types)
+//	processor := NewNode[any, any]("processor",
+//	    WithExec(func(ctx context.Context, store Store, input any) (any, error) {
+//	        return processData(input), nil
+//	    }),
+//	)
 func NewNode[In, Out any](name string, opts ...Option) *Node {
 	// Create base node using existing logic
 	node := newNodeBase(name, opts...)
-	
+
 	// Determine if types are specified (not 'any')
 	inType := reflect.TypeOf((*In)(nil)).Elem()
 	outType := reflect.TypeOf((*Out)(nil)).Elem()
-	
+
 	// Set type information on node if types are not 'any'
 	// This enables ValidateFlow to check type compatibility between nodes
 	if !isAnyType(inType) {
@@ -420,10 +420,9 @@ func NewNode[In, Out any](name string, opts ...Option) *Node {
 	if !isAnyType(outType) {
 		node.OutputType = outType
 	}
-	
+
 	return node
 }
-
 
 // Connect adds a successor node for the given action.
 func (n *Node) Connect(action string, next *Node) *Node {
@@ -435,7 +434,6 @@ func (n *Node) Connect(action string, next *Node) *Node {
 func (n *Node) Default(next *Node) *Node {
 	return n.Connect("default", next)
 }
-
 
 // Flow orchestrates the execution of connected nodes.
 type Flow struct {
@@ -484,12 +482,12 @@ func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
 // ValidateFlow provides initialization-time type safety by validating the entire workflow graph.
 //
 // Type validation process:
-//   1. Traverses the graph starting from the given node using depth-first search
-//   2. For each connection between nodes, verifies type compatibility:
-//      - Source node's OutputType must be assignable to target node's InputType
-//      - Interface satisfaction is checked (e.g., concrete type implements interface)
-//      - Untyped nodes (InputType/OutputType = nil) are skipped but successors are validated
-//   3. Returns detailed error messages identifying the exact type mismatch location
+//  1. Traverses the graph starting from the given node using depth-first search
+//  2. For each connection between nodes, verifies type compatibility:
+//     - Source node's OutputType must be assignable to target node's InputType
+//     - Interface satisfaction is checked (e.g., concrete type implements interface)
+//     - Untyped nodes (InputType/OutputType = nil) are skipped but successors are validated
+//  3. Returns detailed error messages identifying the exact type mismatch location
 //
 // This is a critical part of the type safety system, catching errors before any
 // workflow execution begins. It complements compile-time checks by validating
@@ -502,21 +500,22 @@ func NewFlow(start *Node, store Store, opts ...FlowOption) *Flow {
 //   - Assignability: Uses Go's reflect.Type.AssignableTo for compatibility
 //
 // Example:
-//   // Build your workflow
-//   validator := NewNode[User, ValidationResult]("validator", ...)
-//   processor := NewNode[ValidationResult, Response]("processor", ...)
-//   validator.Connect("valid", processor)
-//   
-//   // Validate before execution - catches type mismatches early
-//   if err := ValidateFlow(validator); err != nil {
-//       // Error: "type mismatch: node 'validator' outputs ValidationResult
-//       //         but node 'wrongNode' expects User (via action 'valid')"
-//       log.Fatal(err)
-//   }
-//   
-//   // Safe to execute - types are verified
-//   flow := NewFlow(validator, store)
-//   result, err := flow.Run(ctx, user)
+//
+//	// Build your workflow
+//	validator := NewNode[User, ValidationResult]("validator", ...)
+//	processor := NewNode[ValidationResult, Response]("processor", ...)
+//	validator.Connect("valid", processor)
+//
+//	// Validate before execution - catches type mismatches early
+//	if err := ValidateFlow(validator); err != nil {
+//	    // Error: "type mismatch: node 'validator' outputs ValidationResult
+//	    //         but node 'wrongNode' expects User (via action 'valid')"
+//	    log.Fatal(err)
+//	}
+//
+//	// Safe to execute - types are verified
+//	flow := NewFlow(validator, store)
+//	result, err := flow.Run(ctx, user)
 func ValidateFlow(start *Node) error {
 	visited := make(map[string]bool)
 	return validateNode(start, visited)
@@ -630,7 +629,7 @@ func (f *Flow) executeNode(ctx context.Context, node *Node, input any) (output a
 	if node.InputType != nil && input != nil {
 		inputType := reflect.TypeOf(input)
 		if !isTypeCompatible(inputType, node.InputType) {
-			return nil, "", fmt.Errorf("%w: node %q expects %v but got %v", 
+			return nil, "", fmt.Errorf("%w: node %q expects %v but got %v",
 				ErrInvalidInput, node.Name, node.InputType, inputType)
 		}
 	}
@@ -667,7 +666,7 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 				node.opts.onSuccess(ctx, f.store, output)
 			}
 		}
-		
+
 		// Always run onComplete last
 		if node.opts.onComplete != nil {
 			node.opts.onComplete(ctx, f.store)
@@ -692,13 +691,13 @@ func (f *Flow) executeLifecycle(ctx context.Context, node *Node, input any) (out
 			if f.opts.logger != nil {
 				f.opts.logger.Debug(ctx, "executing fallback", "name", node.Name, "error", err)
 			}
-			
+
 			// Execute fallback with original input
 			fallbackResult, fallbackErr := node.opts.fallback(ctx, input, err)
 			if fallbackErr != nil {
 				return nil, "", fmt.Errorf("exec failed and fallback failed: primary=%w, fallback=%v", err, fallbackErr)
 			}
-			
+
 			// Continue with fallback result
 			execResult = fallbackResult
 		} else {
@@ -734,7 +733,7 @@ func (f *Flow) executeWithRetry(ctx context.Context, node *Node, fn func() (any,
 		if err == nil {
 			return result, nil
 		}
-		
+
 		lastErr = err
 		attempts++
 		if attempts < maxAttempts {
@@ -773,4 +772,3 @@ type Logger interface {
 type Tracer interface {
 	StartSpan(ctx context.Context, name string) (context.Context, func())
 }
-

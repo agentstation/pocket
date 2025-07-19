@@ -31,7 +31,7 @@ func (p *Parser) ParseFile(filename string) (*FlowDefinition, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return p.Parse(file)
 }
@@ -54,7 +54,7 @@ func (p *Parser) MarshalToFile(fd *FlowDefinition, filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 // Example shows what a YAML flow definition would look like.
