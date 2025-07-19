@@ -194,7 +194,7 @@ func (p *RetryWithFallbackPolicy) Execute(ctx context.Context, store pocket.Stor
 			return err
 		}
 		// Store successful result
-		store.Set(ctx, fmt.Sprintf("fallback:%s:result", p.name), result)
+		_ = store.Set(ctx, fmt.Sprintf("fallback:%s:result", p.name), result)
 		return nil
 	})
 
@@ -205,7 +205,7 @@ func (p *RetryWithFallbackPolicy) Execute(ctx context.Context, store pocket.Stor
 	}
 
 	// All retries failed, use fallback
-	store.Set(ctx, fmt.Sprintf("fallback:%s:retry_failed", p.name), primaryErr)
+	_ = store.Set(ctx, fmt.Sprintf("fallback:%s:retry_failed", p.name), primaryErr)
 	return p.fallback(ctx, store, input, primaryErr)
 }
 
@@ -255,8 +255,8 @@ func (p *CachedFallbackPolicy) Execute(ctx context.Context, store pocket.Store, 
 	result, err := p.primary(ctx, input)
 	if err == nil {
 		// Update cache
-		store.Set(ctx, cacheKey, result)
-		store.Set(ctx, timestampKey, time.Now())
+		_ = store.Set(ctx, cacheKey, result)
+		_ = store.Set(ctx, timestampKey, time.Now())
 		return result, nil
 	}
 
@@ -281,7 +281,7 @@ func (p *CachedFallbackPolicy) Execute(ctx context.Context, store pocket.Store, 
 	}
 
 	// Return stale cache with warning
-	store.Set(ctx, fmt.Sprintf("fallback:%s:stale_cache_used", p.name), true)
+	_ = store.Set(ctx, fmt.Sprintf("fallback:%s:stale_cache_used", p.name), true)
 	return cached, nil
 }
 
@@ -312,7 +312,7 @@ func (p *compositePolicy) Execute(ctx context.Context, store pocket.Store, input
 		}
 		lastErr = err
 		// Store the error for debugging
-		store.Set(ctx, fmt.Sprintf("composite:%s:policy_%d_error", p.name, i), err)
+		_ = store.Set(ctx, fmt.Sprintf("composite:%s:policy_%d_error", p.name, i), err)
 	}
 	return nil, fmt.Errorf("all %d policies failed, last error: %w", len(p.policies), lastErr)
 }

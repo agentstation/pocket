@@ -44,7 +44,7 @@ type ConfigField struct {
 
 // TypeValidator validates node type compatibility.
 type TypeValidator interface {
-	ValidateConnection(from, to Metadata) error
+	ValidateConnection(from, to *Metadata) error
 }
 
 // NewRegistry creates a new node registry.
@@ -57,7 +57,7 @@ func NewRegistry() *Registry {
 }
 
 // Register registers a node type.
-func (r *Registry) Register(nodeType string, builder Builder, metadata Metadata) error {
+func (r *Registry) Register(nodeType string, builder Builder, metadata *Metadata) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -67,7 +67,7 @@ func (r *Registry) Register(nodeType string, builder Builder, metadata Metadata)
 
 	metadata.Name = nodeType
 	r.builders[nodeType] = builder
-	r.metadata[nodeType] = metadata
+	r.metadata[nodeType] = *metadata
 
 	return nil
 }
@@ -84,12 +84,12 @@ func (r *Registry) Create(nodeType string, config map[string]any) (*pocket.Node,
 	}
 
 	// Validate config
-	if err := r.validateConfig(metadata, config); err != nil {
+	if err := r.validateConfig(&metadata, config); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	// Apply defaults
-	config = r.applyDefaults(metadata, config)
+	config = r.applyDefaults(&metadata, config)
 
 	// Create node
 	node, err := builder(config)
@@ -156,11 +156,11 @@ func (r *Registry) ValidateConnection(fromType, toType string) error {
 		return fmt.Errorf("unknown node type: %q", toType)
 	}
 
-	return r.validator.ValidateConnection(fromMeta, toMeta)
+	return r.validator.ValidateConnection(&fromMeta, &toMeta)
 }
 
 // validateConfig validates node configuration.
-func (r *Registry) validateConfig(metadata Metadata, config map[string]any) error {
+func (r *Registry) validateConfig(metadata *Metadata, config map[string]any) error {
 	for fieldName, field := range metadata.ConfigSchema {
 		value, exists := config[fieldName]
 		
@@ -186,7 +186,7 @@ func (r *Registry) validateConfig(metadata Metadata, config map[string]any) erro
 }
 
 // applyDefaults applies default values to config.
-func (r *Registry) applyDefaults(metadata Metadata, config map[string]any) map[string]any {
+func (r *Registry) applyDefaults(metadata *Metadata, config map[string]any) map[string]any {
 	result := make(map[string]any)
 	
 	// Copy existing config
@@ -207,7 +207,7 @@ func (r *Registry) applyDefaults(metadata Metadata, config map[string]any) map[s
 // defaultTypeValidator provides basic type validation.
 type defaultTypeValidator struct{}
 
-func (v *defaultTypeValidator) ValidateConnection(from, to Metadata) error {
+func (v *defaultTypeValidator) ValidateConnection(from, to *Metadata) error {
 	if from.OutputType == nil || to.InputType == nil {
 		// No type information, allow connection
 		return nil
@@ -265,7 +265,7 @@ func RegisterCommonTypes(registry *Registry) {
 				}),
 			), nil
 		},
-		Metadata{
+		&Metadata{
 			Description: "Transforms input data",
 			Tags:        []string{"utility", "data"},
 			ConfigSchema: map[string]ConfigField{
@@ -296,7 +296,7 @@ func RegisterCommonTypes(registry *Registry) {
 				}),
 			), nil
 		},
-		Metadata{
+		&Metadata{
 			Description: "Filters data based on predicate",
 			Tags:        []string{"utility", "control"},
 			ConfigSchema: map[string]ConfigField{
@@ -329,7 +329,7 @@ func RegisterCommonTypes(registry *Registry) {
 				}),
 			), nil
 		},
-		Metadata{
+		&Metadata{
 			Description: "Delays execution",
 			Tags:        []string{"utility", "timing"},
 			ConfigSchema: map[string]ConfigField{
@@ -359,7 +359,7 @@ func RegisterCommonTypes(registry *Registry) {
 				}),
 			), nil
 		},
-		Metadata{
+		&Metadata{
 			Description: "Logs data",
 			Tags:        []string{"utility", "debugging"},
 			ConfigSchema: map[string]ConfigField{

@@ -14,7 +14,7 @@ const (
 
 // NodeFactory creates nodes from definitions.
 type NodeFactory interface {
-	CreateNode(def NodeDefinition) (*pocket.Node, error)
+	CreateNode(def *NodeDefinition) (*pocket.Node, error)
 }
 
 // defaultNodeFactory provides basic node creation.
@@ -23,7 +23,7 @@ type defaultNodeFactory struct {
 }
 
 // NodeBuilder is a function that builds a node from a definition.
-type NodeBuilder func(def NodeDefinition) (*pocket.Node, error)
+type NodeBuilder func(def *NodeDefinition) (*pocket.Node, error)
 
 // Loader loads flow definitions and creates executable flows.
 type Loader struct {
@@ -83,7 +83,7 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 	// Create all nodes
 	nodes := make(map[string]*pocket.Node)
 	for _, nodeDef := range def.Nodes {
-		node, err := l.factory.CreateNode(nodeDef)
+		node, err := l.factory.CreateNode(&nodeDef)
 		if err != nil {
 			return nil, fmt.Errorf("create node %s: %w", nodeDef.Name, err)
 		}
@@ -120,7 +120,7 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 }
 
 // CreateNode implements NodeFactory for defaultNodeFactory.
-func (f *defaultNodeFactory) CreateNode(def NodeDefinition) (*pocket.Node, error) {
+func (f *defaultNodeFactory) CreateNode(def *NodeDefinition) (*pocket.Node, error) {
 	builder, exists := f.registry[def.Type]
 	if !exists {
 		// Fall back to generic node creation
@@ -131,7 +131,7 @@ func (f *defaultNodeFactory) CreateNode(def NodeDefinition) (*pocket.Node, error
 }
 
 // createGenericNode creates a basic node with config stored.
-func (f *defaultNodeFactory) createGenericNode(def NodeDefinition) (*pocket.Node, error) {
+func (f *defaultNodeFactory) createGenericNode(def *NodeDefinition) (*pocket.Node, error) {
 	// Set up basic exec that stores config
 	execFunc := func(ctx context.Context, input any) (any, error) {
 		// Return input with config data to be stored in post
@@ -254,7 +254,7 @@ func (f *defaultNodeFactory) createGenericNode(def NodeDefinition) (*pocket.Node
 // Example builders for common node types
 
 // LLMNodeBuilder creates an LLM node from a definition.
-func LLMNodeBuilder(def NodeDefinition) (*pocket.Node, error) {
+func LLMNodeBuilder(def *NodeDefinition) (*pocket.Node, error) {
 	model, _ := def.Config["model"].(string)
 	prompt, _ := def.Config["prompt"].(string)
 
@@ -267,7 +267,7 @@ func LLMNodeBuilder(def NodeDefinition) (*pocket.Node, error) {
 }
 
 // ValidatorNodeBuilder creates a validator node.
-func ValidatorNodeBuilder(def NodeDefinition) (*pocket.Node, error) {
+func ValidatorNodeBuilder(def *NodeDefinition) (*pocket.Node, error) {
 	requiredFields, _ := def.Config["required_fields"].([]interface{})
 
 	return pocket.NewNode[any, any](def.Name,

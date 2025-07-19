@@ -11,7 +11,7 @@ import (
 // Hook represents a lifecycle hook.
 type Hook interface {
 	Name() string
-	Execute(ctx context.Context, event Event) error
+	Execute(ctx context.Context, event *Event) error
 }
 
 // Event represents a lifecycle event.
@@ -69,7 +69,7 @@ func (m *HookManager) Register(hook Hook, events ...EventType) {
 }
 
 // Trigger executes hooks for an event.
-func (m *HookManager) Trigger(ctx context.Context, event Event) error {
+func (m *HookManager) Trigger(ctx context.Context, event *Event) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -101,7 +101,7 @@ func WithHooks(manager *HookManager) Middleware {
 
 		node.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Trigger pre-prep event
-			_ = manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, &Event{
 				Type:     EventPrep,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -126,13 +126,13 @@ func WithHooks(manager *HookManager) Middleware {
 				event.Type = EventError
 			}
 			
-			_ = manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, &event)
 			return result, err
 		}
 
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			// Trigger pre-exec event
-			_ = manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, &Event{
 				Type:     EventExec,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -156,7 +156,7 @@ func WithHooks(manager *HookManager) Middleware {
 			if err != nil {
 				event.Type = EventError
 			} else {
-				_ = manager.Trigger(ctx, Event{
+				_ = manager.Trigger(ctx, &Event{
 					Type:     EventSuccess,
 					NodeName: node.Name,
 					Phase:    "exec",
@@ -164,13 +164,13 @@ func WithHooks(manager *HookManager) Middleware {
 				})
 			}
 			
-			_ = manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, &event)
 			return result, err
 		}
 
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			// Trigger pre-post event
-			_ = manager.Trigger(ctx, Event{
+			_ = manager.Trigger(ctx, &Event{
 				Type:     EventPost,
 				NodeName: node.Name,
 				Phase:    "before",
@@ -200,7 +200,7 @@ func WithHooks(manager *HookManager) Middleware {
 			
 			if err == nil {
 				// Trigger routing event
-				_ = manager.Trigger(ctx, Event{
+				_ = manager.Trigger(ctx, &Event{
 					Type:     EventRoute,
 					NodeName: node.Name,
 					Metadata: map[string]any{
@@ -210,7 +210,7 @@ func WithHooks(manager *HookManager) Middleware {
 				})
 			}
 			
-			_ = manager.Trigger(ctx, event)
+			_ = manager.Trigger(ctx, &event)
 			return output, next, err
 		}
 
@@ -238,7 +238,7 @@ func (h *LoggingHook) Name() string {
 	return h.name
 }
 
-func (h *LoggingHook) Execute(ctx context.Context, event Event) error {
+func (h *LoggingHook) Execute(ctx context.Context, event *Event) error {
 	fields := []any{
 		"event", event.Type,
 		"node", event.NodeName,
@@ -273,7 +273,7 @@ func (h *MetricsHook) Name() string {
 	return h.name
 }
 
-func (h *MetricsHook) Execute(ctx context.Context, event Event) error {
+func (h *MetricsHook) Execute(ctx context.Context, event *Event) error {
 	switch event.Type {
 	case EventPrep, EventExec, EventPost:
 		if event.Phase == "before" {
@@ -310,7 +310,7 @@ func (h *TracingHook) Name() string {
 	return h.name
 }
 
-func (h *TracingHook) Execute(ctx context.Context, event Event) error {
+func (h *TracingHook) Execute(ctx context.Context, event *Event) error {
 	spanKey := fmt.Sprintf("%s-%s-%s", event.NodeName, event.Type, event.Phase)
 
 	h.mu.Lock()
@@ -350,7 +350,7 @@ func (h *StoreHook) Name() string {
 	return h.name
 }
 
-func (h *StoreHook) Execute(ctx context.Context, event Event) error {
+func (h *StoreHook) Execute(ctx context.Context, event *Event) error {
 	// This would need access to the store
 	// In practice, you'd pass the store in the context or hook constructor
 	return nil
@@ -359,12 +359,12 @@ func (h *StoreHook) Execute(ctx context.Context, event Event) error {
 // ConditionalHook executes only when condition is met.
 type ConditionalHook struct {
 	name      string
-	condition func(Event) bool
+	condition func(*Event) bool
 	wrapped   Hook
 }
 
 // NewConditionalHook creates a conditional hook.
-func NewConditionalHook(condition func(Event) bool, wrapped Hook) *ConditionalHook {
+func NewConditionalHook(condition func(*Event) bool, wrapped Hook) *ConditionalHook {
 	return &ConditionalHook{
 		name:      fmt.Sprintf("conditional(%s)", wrapped.Name()),
 		condition: condition,
@@ -376,7 +376,7 @@ func (h *ConditionalHook) Name() string {
 	return h.name
 }
 
-func (h *ConditionalHook) Execute(ctx context.Context, event Event) error {
+func (h *ConditionalHook) Execute(ctx context.Context, event *Event) error {
 	if h.condition(event) {
 		return h.wrapped.Execute(ctx, event)
 	}
@@ -401,7 +401,7 @@ func (h *ChainHook) Name() string {
 	return h.name
 }
 
-func (h *ChainHook) Execute(ctx context.Context, event Event) error {
+func (h *ChainHook) Execute(ctx context.Context, event *Event) error {
 	for _, hook := range h.hooks {
 		if err := hook.Execute(ctx, event); err != nil {
 			return err

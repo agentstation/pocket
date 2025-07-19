@@ -55,7 +55,7 @@ const (
 
 // EventHandler processes events.
 type EventHandler interface {
-	Handle(ctx context.Context, event Event) error
+	Handle(ctx context.Context, event *Event) error
 }
 
 // EventBus distributes events to handlers.
@@ -63,20 +63,20 @@ type EventBus struct {
 	mu       sync.RWMutex
 	handlers map[EventType][]EventHandler
 	filters  []EventFilter
-	buffer   chan Event
+	buffer   chan *Event
 	workers  int
 	stopCh   chan struct{}
 }
 
 // EventFilter filters events before processing.
-type EventFilter func(Event) bool
+type EventFilter func(*Event) bool
 
 // NewEventBus creates a new event bus.
 func NewEventBus(bufferSize, workers int) *EventBus {
 	bus := &EventBus{
 		handlers: make(map[EventType][]EventHandler),
 		filters:  []EventFilter{},
-		buffer:   make(chan Event, bufferSize),
+		buffer:   make(chan *Event, bufferSize),
 		workers:  workers,
 		stopCh:   make(chan struct{}),
 	}
@@ -126,7 +126,7 @@ func (b *EventBus) AddFilter(filter EventFilter) {
 }
 
 // Publish publishes an event.
-func (b *EventBus) Publish(event Event) {
+func (b *EventBus) Publish(event *Event) {
 	// Apply filters
 	b.mu.RLock()
 	for _, filter := range b.filters {
@@ -164,7 +164,7 @@ func (b *EventBus) worker() {
 }
 
 // processEvent handles a single event.
-func (b *EventBus) processEvent(event Event) {
+func (b *EventBus) processEvent(event *Event) {
 	b.mu.RLock()
 	handlers := b.handlers[event.Type]
 	b.mu.RUnlock()
@@ -195,7 +195,7 @@ func NewLoggingHandler(logger pocket.Logger, level string) *LoggingHandler {
 }
 
 // Handle logs the event.
-func (h *LoggingHandler) Handle(ctx context.Context, event Event) error {
+func (h *LoggingHandler) Handle(ctx context.Context, event *Event) error {
 	fields := []any{
 		"event_type", event.Type,
 		"flow_id", event.FlowID,
@@ -249,7 +249,7 @@ func NewMetricsHandler() *MetricsHandler {
 }
 
 // Handle updates metrics based on event.
-func (h *MetricsHandler) Handle(ctx context.Context, event Event) error {
+func (h *MetricsHandler) Handle(ctx context.Context, event *Event) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -303,7 +303,7 @@ func NewStorageHandler(store pocket.Store) *StorageHandler {
 }
 
 // Handle stores the event.
-func (h *StorageHandler) Handle(ctx context.Context, event Event) error {
+func (h *StorageHandler) Handle(ctx context.Context, event *Event) error {
 	key := fmt.Sprintf("event:%s:%s", event.Type, event.ID)
 	return h.store.Set(ctx, key, event)
 }
@@ -319,7 +319,7 @@ func NewChainHandler(handlers ...EventHandler) *ChainHandler {
 }
 
 // Handle calls all handlers in sequence.
-func (h *ChainHandler) Handle(ctx context.Context, event Event) error {
+func (h *ChainHandler) Handle(ctx context.Context, event *Event) error {
 	for _, handler := range h.handlers {
 		if err := handler.Handle(ctx, event); err != nil {
 			return err
@@ -330,12 +330,12 @@ func (h *ChainHandler) Handle(ctx context.Context, event Event) error {
 
 // ConditionalHandler conditionally handles events.
 type ConditionalHandler struct {
-	condition func(Event) bool
+	condition func(*Event) bool
 	handler   EventHandler
 }
 
 // NewConditionalHandler creates a conditional handler.
-func NewConditionalHandler(condition func(Event) bool, handler EventHandler) *ConditionalHandler {
+func NewConditionalHandler(condition func(*Event) bool, handler EventHandler) *ConditionalHandler {
 	return &ConditionalHandler{
 		condition: condition,
 		handler:   handler,
@@ -343,7 +343,7 @@ func NewConditionalHandler(condition func(Event) bool, handler EventHandler) *Co
 }
 
 // Handle processes event if condition is met.
-func (h *ConditionalHandler) Handle(ctx context.Context, event Event) error {
+func (h *ConditionalHandler) Handle(ctx context.Context, event *Event) error {
 	if h.condition(event) {
 		return h.handler.Handle(ctx, event)
 	}
@@ -353,20 +353,20 @@ func (h *ConditionalHandler) Handle(ctx context.Context, event Event) error {
 // EventRecorder records events for replay.
 type EventRecorder struct {
 	mu      sync.RWMutex
-	events  []Event
+	events  []*Event
 	maxSize int
 }
 
 // NewEventRecorder creates an event recorder.
 func NewEventRecorder(maxSize int) *EventRecorder {
 	return &EventRecorder{
-		events:  make([]Event, 0, maxSize),
+		events:  make([]*Event, 0, maxSize),
 		maxSize: maxSize,
 	}
 }
 
 // Handle records the event.
-func (r *EventRecorder) Handle(ctx context.Context, event Event) error {
+func (r *EventRecorder) Handle(ctx context.Context, event *Event) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -381,11 +381,11 @@ func (r *EventRecorder) Handle(ctx context.Context, event Event) error {
 }
 
 // GetEvents returns recorded events.
-func (r *EventRecorder) GetEvents() []Event {
+func (r *EventRecorder) GetEvents() []*Event {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := make([]Event, len(r.events))
+	result := make([]*Event, len(r.events))
 	copy(result, r.events)
 	return result
 }
