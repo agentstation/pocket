@@ -9,6 +9,11 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	successResult  = "success"
+	fallbackResult = "fallback result"
+)
+
 func TestCircuitBreaker(t *testing.T) {
 	t.Run("opens after max failures", func(t *testing.T) {
 		cb := NewCircuitBreaker("test", WithMaxFailures(2))
@@ -55,14 +60,14 @@ func TestCircuitBreaker(t *testing.T) {
 		failingFunc := func(ctx context.Context, input any) (any, error) {
 			return nil, errors.New("service error")
 		}
-		cb.Execute(ctx, store, failingFunc, "input1")
+		_, _ = cb.Execute(ctx, store, failingFunc, "input1")
 
 		// Wait for reset timeout
 		time.Sleep(100 * time.Millisecond)
 
 		// Successful function
 		successFunc := func(ctx context.Context, input any) (any, error) {
-			return "success", nil
+			return successResult, nil
 		}
 
 		// Should transition to half-open and allow request
@@ -95,15 +100,15 @@ func TestCircuitBreaker(t *testing.T) {
 		ctx := context.Background()
 
 		successFunc := func(ctx context.Context, input any) (any, error) {
-			return "success", nil
+			return successResult, nil
 		}
 		failingFunc := func(ctx context.Context, input any) (any, error) {
 			return nil, errors.New("fail")
 		}
 
 		// Mix of success and failure
-		cb.Execute(ctx, store, successFunc, "1")
-		cb.Execute(ctx, store, failingFunc, "2")
+		_, _ = cb.Execute(ctx, store, successFunc, "1")
+		_, _ = cb.Execute(ctx, store, failingFunc, "2")
 		cb.Execute(ctx, store, successFunc, "3")
 
 		metrics := cb.GetMetrics()
@@ -131,7 +136,7 @@ func TestCircuitBreakerPolicy(t *testing.T) {
 
 		fallback := func(ctx context.Context, store pocket.StoreWriter, input any, err error) (any, error) {
 			fallbackCalled = true
-			return "fallback result", nil
+			return fallbackResult, nil
 		}
 
 		policy := NewCircuitBreakerPolicy("test", primary, fallback,
@@ -201,8 +206,8 @@ func TestCircuitBreakerGroup(t *testing.T) {
 			return "ok", nil
 		}
 		
-		cb1.Execute(ctx, store, successFunc, "test")
-		cb3.Execute(ctx, store, successFunc, "test")
+		_, _ = cb1.Execute(ctx, store, successFunc, "test")
+		_, _ = cb3.Execute(ctx, store, successFunc, "test")
 
 		allMetrics := group.GetAllMetrics()
 		if len(allMetrics) != 2 {

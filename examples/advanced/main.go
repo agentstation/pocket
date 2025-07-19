@@ -15,6 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	defaultRoute = "default"
+)
+
 // LLMRequest represents a request to an LLM service
 type LLMRequest struct {
 	Prompt      string  `yaml:"prompt"`
@@ -142,7 +146,7 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			data := prepData.(map[string]interface{})
 			store.Set(ctx, "original_text", data["original_text"])
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 
@@ -392,7 +396,7 @@ func createExtractionFlow() *pocket.Flow {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			store.Set(ctx, "entities", result)
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 
@@ -403,7 +407,7 @@ func createExtractionFlow() *pocket.Flow {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			store.Set(ctx, "sentiment", result)
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 

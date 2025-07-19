@@ -338,11 +338,11 @@ func main() {
 			
 			// Delete all compensation keys
 			for _, key := range execResult["keysToDelete"].([]string) {
-				store.Delete(ctx, key)
+				_ = store.Delete(ctx, key)
 			}
 			
 			// Clear transaction state
-			store.Delete(ctx, "transaction_state")
+			_ = store.Delete(ctx, "transaction_state")
 			
 			return execResult["message"], "done", nil
 		}),

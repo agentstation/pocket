@@ -253,7 +253,7 @@ func CacheMiddleware(cache Cache, keyFunc func(any) string, ttl time.Duration) f
 func HashKeyFunc(prefix string) func(any) string {
 	return func(input any) string {
 		h := sha256.New()
-		fmt.Fprintf(h, "%v", input)
+		_, _ = fmt.Fprintf(h, "%v", input)
 		return prefix + ":" + hex.EncodeToString(h.Sum(nil))
 	}
 }

@@ -331,7 +331,7 @@ func (s *WeightedRandomStrategy) Execute(ctx context.Context, chain *Chain, stor
 
 				result, err := link.Handler(ctx, linkInput)
 				if err == nil {
-					store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), link.Name)
+					_ = store.Set(ctx, fmt.Sprintf("chain:%s:succeeded_at", chain.name), link.Name)
 					return result, nil
 				}
 				

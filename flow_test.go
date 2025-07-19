@@ -210,7 +210,7 @@ func TestBuilderFluent(t *testing.T) {
 			return n, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 
@@ -220,7 +220,7 @@ func TestBuilderFluent(t *testing.T) {
 			return input.(int) * 10, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "default", nil
+			return result, defaultRoute, nil
 		}),
 	)
 

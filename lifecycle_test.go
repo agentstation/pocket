@@ -123,7 +123,7 @@ func TestCleanupHooks(t *testing.T) {
 		)
 		
 		flow := pocket.NewFlow(node, store)
-		flow.Run(ctx, "input")
+		_, _ = flow.Run(ctx, "input")
 		
 		if !completeCalled {
 			t.Error("onComplete hook should have been called even on error")
@@ -160,7 +160,7 @@ func TestCleanupHooks(t *testing.T) {
 		)
 		
 		flow := pocket.NewFlow(node, store)
-		flow.Run(ctx, "input")
+		_, _ = flow.Run(ctx, "input")
 		
 		// Check that cleanup could read the value
 		if val, exists := store.Get(ctx, "cleanup_read"); !exists || val != "important_value" {

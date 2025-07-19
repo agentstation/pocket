@@ -58,7 +58,7 @@ func TestNodeLifecycle(t *testing.T) {
 						return strings.ToUpper(s.(string)), nil
 					}),
 					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						return result, "done", nil
+						return result, doneRoute, nil
 					}),
 				)
 
@@ -75,7 +75,7 @@ func TestNodeLifecycle(t *testing.T) {
 						return n.(int) * 2, nil
 					}),
 					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						return result, "done", nil
+						return result, doneRoute, nil
 					}),
 				)
 
@@ -519,7 +519,7 @@ func TestTypedNode(t *testing.T) {
 			return Greeting{Message: fmt.Sprintf("Hello, %s!", user.Name)}, nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, user User, prep any, greeting Greeting) (Greeting, string, error) {
-			return greeting, "done", nil
+			return greeting, doneRoute, nil
 		}),
 	)
 
@@ -635,7 +635,7 @@ func TestValidateFlow(t *testing.T) {
 						return Output{Result: "processed"}, nil
 					}),
 					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input Input, prep any, result Output) (Output, string, error) {
-						return result, "default", nil
+						return result, defaultRoute, nil
 					}),
 				)
 
@@ -644,7 +644,7 @@ func TestValidateFlow(t *testing.T) {
 						return Input{Value: 42}, nil
 					}),
 					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input Output, prep any, result Input) (Input, string, error) {
-						return result, "default", nil
+						return result, defaultRoute, nil
 					}),
 				)
 
@@ -733,7 +733,7 @@ func TestLifecyclePhases(t *testing.T) {
 			if execResult.(string) != "input-prepped-executed" {
 				t.Errorf("Post got wrong execResult: %v", execResult)
 			}
-			return execResult.(string) + "-posted", "done", nil
+			return execResult.(string) + "-posted", doneRoute, nil
 		}),
 	)
 	

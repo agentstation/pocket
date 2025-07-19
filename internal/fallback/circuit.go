@@ -318,8 +318,8 @@ func (p *CircuitBreakerPolicy) Execute(ctx context.Context, store pocket.Store, 
 	}
 	
 	// Store circuit breaker error
-	store.Set(ctx, fmt.Sprintf("circuit:%s:error", p.name), err)
-	store.Set(ctx, fmt.Sprintf("circuit:%s:state", p.name), p.breaker.GetState().String())
+	_ = store.Set(ctx, fmt.Sprintf("circuit:%s:error", p.name), err)
+	_ = store.Set(ctx, fmt.Sprintf("circuit:%s:state", p.name), p.breaker.GetState().String())
 	
 	// Use fallback if available
 	if p.fallback != nil {

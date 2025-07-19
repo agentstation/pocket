@@ -316,11 +316,12 @@ func (h *TracingHook) Execute(ctx context.Context, event Event) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if event.Phase == "before" {
+	switch event.Phase {
+	case "before":
 		// Start span
 		_, finish := h.tracer.StartSpan(ctx, fmt.Sprintf("%s.%s", event.NodeName, event.Type))
 		h.spans[spanKey] = finish
-	} else if event.Phase == "after" {
+	case "after":
 		// End span
 		if finish, ok := h.spans[spanKey]; ok {
 			finish()

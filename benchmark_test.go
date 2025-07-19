@@ -246,12 +246,12 @@ func BenchmarkScopedStore(b *testing.B) {
 
 	b.Run("Set", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			scoped.Set(ctx, "key", "value")
+			_ = scoped.Set(ctx, "key", "value")
 		}
 	})
 
 	b.Run("Get", func(b *testing.B) {
-		scoped.Set(ctx, "key", "value")
+		_ = scoped.Set(ctx, "key", "value")
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = scoped.Get(ctx, "key")

@@ -12,6 +12,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	validateRoute = "validate"
+)
+
 func main() {
 	// Create store for shared state
 	store := pocket.NewStore()
@@ -195,7 +199,7 @@ func main() {
 			return fmt.Sprintf("Single item processed: %s", input), nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "validate", nil
+			return result, validateRoute, nil
 		}),
 	)
 
@@ -204,7 +208,7 @@ func main() {
 			return fmt.Sprintf("Multiple items (%d) accumulated: %s", strings.Count(input.(string), ",")+1, input), nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "validate", nil
+			return result, validateRoute, nil
 		}),
 	)
 
@@ -213,7 +217,7 @@ func main() {
 			return fmt.Sprintf("Many items accumulated! Summary: %s", input), nil
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "validate", nil
+			return result, validateRoute, nil
 		}),
 	)
 
@@ -318,10 +322,10 @@ func main() {
 	sessionStore := store.Scope("session")
 	
 	// Set scoped values
-	userStore.Set(ctx, "id", "user123")
-	userStore.Set(ctx, "name", "Alice")
-	sessionStore.Set(ctx, "id", "session456")
-	sessionStore.Set(ctx, "active", true)
+	_ = userStore.Set(ctx, "id", "user123")
+	_ = userStore.Set(ctx, "name", "Alice")
+	_ = sessionStore.Set(ctx, "id", "session456")
+	_ = sessionStore.Set(ctx, "active", true)
 	
 	// Retrieve scoped values
 	if userId, exists := userStore.Get(ctx, "id"); exists {

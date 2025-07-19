@@ -12,13 +12,17 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	doneRoute = "done"
+)
+
 func main() {
 	// Create shared store
 	store := pocket.NewStore()
 	ctx := context.Background()
 
 	// Initialize chat history
-	store.Set(ctx, "history", []string{})
+	_ = store.Set(ctx, "history", []string{})
 
 	// Create router node that analyzes messages and routes to appropriate bot
 	router := pocket.NewNode[any, any]("router",
@@ -95,9 +99,9 @@ func main() {
 			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
-			store.Set(ctx, "history", history)
+			_ = store.Set(ctx, "history", history)
 
-			return response, "done", nil
+			return response, doneRoute, nil
 		}),
 	)
 
@@ -135,9 +139,9 @@ func main() {
 			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
-			store.Set(ctx, "history", history)
+			_ = store.Set(ctx, "history", history)
 
-			return response, "done", nil
+			return response, doneRoute, nil
 		}),
 	)
 
@@ -184,9 +188,9 @@ func main() {
 			history = append(history,
 				fmt.Sprintf("User: %s", message),
 				response.(string))
-			store.Set(ctx, "history", history)
+			_ = store.Set(ctx, "history", history)
 
-			return response, "done", nil
+			return response, doneRoute, nil
 		}),
 	)
 
@@ -234,7 +238,7 @@ func main() {
 	fmt.Println("\n=== Using Builder Pattern ===")
 
 	// Clear history
-	store.Set(ctx, "history", []string{})
+	_ = store.Set(ctx, "history", []string{})
 
 	// Build a more complex flow with input validation
 	inputValidator := pocket.NewNode[any, any]("input",

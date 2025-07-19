@@ -8,6 +8,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	defaultAction = "default"
+)
+
 // NodeFactory creates nodes from definitions.
 type NodeFactory interface {
 	CreateNode(def NodeDefinition) (*pocket.Node, error)
@@ -93,7 +97,7 @@ func (l *Loader) LoadDefinition(def *FlowDefinition, store pocket.Store) (*pocke
 		
 		action := conn.Action
 		if action == "" {
-			action = "default"
+			action = defaultAction
 		}
 		
 		fromNode.Connect(action, toNode)

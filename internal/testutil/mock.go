@@ -10,6 +10,10 @@ import (
 	"github.com/agentstation/pocket"
 )
 
+const (
+	defaultRoute = "default"
+)
+
 // MockStore provides a mock implementation of pocket.Store for testing.
 type MockStore struct {
 	mu       sync.RWMutex
@@ -199,7 +203,7 @@ func NewMockNode(name string) *MockNode {
 
 	m.PostFunc = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 		m.recordCall("post")
-		return exec, "default", nil
+		return exec, defaultRoute, nil
 	}
 
 	return m

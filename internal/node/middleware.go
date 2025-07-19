@@ -126,8 +126,8 @@ func Timing() Middleware {
 		// Time the exec phase
 		node.Exec = func(ctx context.Context, input any) (any, error) {
 			// Extract timing data if available
-			var actualInput any = input
-			var execStart time.Time = time.Now()
+			actualInput := input
+			execStart := time.Now()
 			
 			if data, ok := input.(map[string]interface{}); ok {
 				if prepResult, ok := data["prepResult"]; ok {
@@ -154,7 +154,7 @@ func Timing() Middleware {
 		// Record timing in post phase
 		node.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			// Extract exec result and timing
-			var execResult any = exec
+			execResult := exec
 			var execDuration time.Duration
 			
 			if data, ok := exec.(map[string]interface{}); ok {
@@ -191,7 +191,7 @@ func Timing() Middleware {
 			_ = store.Set(ctx, fmt.Sprintf("node:%s:avg_duration", node.Name), totalDuration/time.Duration(execCount))
 			
 			// Call original post with correct data
-			var actualPrep any = prep
+			actualPrep := prep
 			if data, ok := prep.(map[string]interface{}); ok {
 				if prepResult, ok := data["prepResult"]; ok {
 					actualPrep = prepResult

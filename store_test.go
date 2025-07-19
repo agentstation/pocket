@@ -150,7 +150,7 @@ func TestScopedStore(t *testing.T) {
 
 	// Set values in different scopes
 	userStore.Set(ctx, "name", testUserName)
-	adminStore.Set(ctx, "name", "Bob")
+	_ = adminStore.Set(ctx, "name", "Bob")
 
 	// Check isolation
 	userName, ok := userStore.Get(ctx, "name")
@@ -170,7 +170,7 @@ func TestScopedStore(t *testing.T) {
 	}
 
 	// Test delete
-	userStore.Delete(ctx, "name")
+	_ = userStore.Delete(ctx, "name")
 	_, ok = userStore.Get(ctx, "name")
 	if ok {
 		t.Error("userStore.Get(name) after delete returned true, want false")

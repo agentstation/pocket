@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+const (
+	testValue1 = "value1"
+)
+
 func TestBoundedStore(t *testing.T) {
 	t.Run("enforces max entries limit", func(t *testing.T) {
 		store := NewBoundedStore(
@@ -16,7 +20,7 @@ func TestBoundedStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Add 4 entries (should evict the first one)
-		store.Set(ctx, "key1", "value1")
+		store.Set(ctx, "key1", testValue1)
 		store.Set(ctx, "key2", "value2")
 		store.Set(ctx, "key3", "value3")
 		store.Set(ctx, "key4", "value4")
@@ -42,7 +46,7 @@ func TestBoundedStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Add 3 entries
-		store.Set(ctx, "key1", "value1")
+		store.Set(ctx, "key1", testValue1)
 		store.Set(ctx, "key2", "value2")
 		store.Set(ctx, "key3", "value3")
 
@@ -72,7 +76,7 @@ func TestBoundedStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Add entry
-		store.Set(ctx, "key1", "value1")
+		store.Set(ctx, "key1", testValue1)
 
 		// Should exist immediately
 		if _, exists := store.Get(ctx, "key1"); !exists {
@@ -98,11 +102,11 @@ func TestBoundedStore(t *testing.T) {
 		)
 		ctx := context.Background()
 
-		store.Set(ctx, "key1", "value1")
+		store.Set(ctx, "key1", testValue1)
 		store.Set(ctx, "key2", "value2")
 		store.Set(ctx, "key3", "value3") // Should evict key1
 
-		if evicted["key1"] != "value1" {
+		if evicted["key1"] != testValue1 {
 			t.Error("eviction callback not called correctly")
 		}
 	})
@@ -139,8 +143,8 @@ func TestBoundedStore(t *testing.T) {
 		adminStore := store.Scope("admin")
 
 		// Set values in different scopes
-		userStore.Set(ctx, "name", "john")
-		adminStore.Set(ctx, "name", "alice")
+		_ = userStore.Set(ctx, "name", "john")
+		_ = adminStore.Set(ctx, "name", "alice")
 
 		// Values should be isolated
 		userVal, _ := userStore.Get(ctx, "name")
@@ -170,11 +174,11 @@ func TestMultiTieredStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Write to tier 2 directly
-		tier2.Set(ctx, "key1", "value1")
+		_ = tier2.Set(ctx, "key1", testValue1)
 
 		// Access through multi-store should promote to tier 1
 		val, exists := multi.Get(ctx, "key1")
-		if !exists || val != "value1" {
+		if !exists || val != testValue1 {
 			t.Error("should find value in tier 2")
 		}
 
@@ -195,7 +199,7 @@ func TestMultiTieredStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Write through multi-store
-		multi.Set(ctx, "key1", "value1")
+		_ = multi.Set(ctx, "key1", testValue1)
 
 		// Should exist in tier 1
 		if _, exists := tier1.Get(ctx, "key1"); !exists {
@@ -216,11 +220,11 @@ func TestMultiTieredStore(t *testing.T) {
 		ctx := context.Background()
 
 		// Add to both tiers
-		tier1.Set(ctx, "key1", "value1")
-		tier2.Set(ctx, "key1", "value1")
+		_ = tier1.Set(ctx, "key1", testValue1)
+		_ = tier2.Set(ctx, "key1", testValue1)
 
 		// Delete through multi-store
-		multi.Delete(ctx, "key1")
+		_ = multi.Delete(ctx, "key1")
 
 		// Should be deleted from both
 		if _, exists := tier1.Get(ctx, "key1"); exists {
@@ -261,11 +265,11 @@ func TestShardedStore(t *testing.T) {
 		ctx := context.Background()
 
 		scoped := store.Scope("prefix")
-		scoped.Set(ctx, "key1", "value1")
+		_ = scoped.Set(ctx, "key1", testValue1)
 
 		// Should be accessible through scoped store
 		val, exists := scoped.Get(ctx, "key1")
-		if !exists || val != "value1" {
+		if !exists || val != testValue1 {
 			t.Error("scoped value not found")
 		}
 

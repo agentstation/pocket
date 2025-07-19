@@ -432,7 +432,7 @@ func main() {
 
 			// Attempt error recovery flow  
 			errorFlow := pocket.NewFlow(errorHandler, store)
-			errorFlow.Run(ctx, order)
+			_, _ = errorFlow.Run(ctx, order)
 		} else {
 			fmt.Printf("\n✅ Order %s completed successfully\n", order.OrderID)
 			if valResult, ok := result.(ValidationResult); ok {
