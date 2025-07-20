@@ -1,0 +1,33 @@
+name: template-example
+description: Simple template rendering example
+version: 1.0.0
+
+nodes:
+  - name: generate-user
+    type: transform
+    config: {}
+
+  - name: format-greeting
+    type: template
+    config:
+      template: |
+        Welcome {{.node}}!
+        
+        This workflow was executed at {{.timestamp}}.
+        The transformation was {{if .transformed}}successful{{else}}unsuccessful{{end}}.
+        
+        Thank you for using Pocket workflows!
+
+  - name: show-result
+    type: echo
+    config:
+      message: "Template rendered successfully"
+
+connections:
+  - from: generate-user
+    to: format-greeting
+    
+  - from: format-greeting
+    to: show-result
+
+start: generate-user

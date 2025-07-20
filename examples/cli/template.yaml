@@ -1,0 +1,55 @@
+name: template-rendering
+description: Demonstrates template node for formatting output
+version: 1.0.0
+
+nodes:
+  - name: generate-data
+    type: transform
+    config: {}
+
+  - name: format-report
+    type: template
+    config:
+      template: |
+        === Workflow Report ===
+        Node: {{.node}}
+        Timestamp: {{.timestamp}}
+        Status: {{if .transformed}}✓ Success{{else}}✗ Failed{{end}}
+        
+        {{if .score -}}
+        Score: {{printf "%.2f" .score}}
+        {{- end}}
+        
+        Generated at: {{.timestamp}}
+        ===================
+
+  - name: json-output
+    type: template
+    config:
+      template: |
+        {
+          "report": {
+            "node": "{{.node}}",
+            "success": {{.transformed}},
+            "timestamp": "{{.timestamp}}"{{if .score}},
+            "score": {{.score}}{{end}}
+          }
+        }
+      output_format: json
+
+  - name: display-json
+    type: echo
+    config:
+      message: "JSON report generated"
+
+connections:
+  - from: generate-data
+    to: format-report
+    
+  - from: generate-data
+    to: json-output
+    
+  - from: json-output
+    to: display-json
+
+start: generate-data

@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/agentstation/pocket"
+	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
 	goyaml "github.com/goccy/go-yaml"
 )
 
-// RunConfig holds configuration for the run command
+// RunConfig holds configuration for the run command.
 type RunConfig struct {
 	FilePath   string
 	Verbose    bool
@@ -23,7 +24,9 @@ type RunConfig struct {
 	TTL        time.Duration
 }
 
-// runWorkflow executes a workflow from a YAML file
+// runWorkflow executes a workflow from a YAML file.
+//
+//nolint:gocyclo // Complex due to workflow parsing, validation, and execution handling
 func runWorkflow(config *RunConfig) error {
 	// Expand path (handle ~)
 	filePath, err := expandPath(config.FilePath)
@@ -50,7 +53,7 @@ func runWorkflow(config *RunConfig) error {
 	}
 
 	// Read the YAML file
-	data, err := os.ReadFile(absPath)
+	data, err := os.ReadFile(absPath) // #nosec G304 - User-provided workflow file
 	if err != nil {
 		return fmt.Errorf("read file: %w", err)
 	}
@@ -109,9 +112,9 @@ func runWorkflow(config *RunConfig) error {
 		return fmt.Errorf("unknown store type: %s", config.StoreType)
 	}
 
-	// Create a loader and register default node builders
+	// Create a loader and register built-in nodes
 	loader := yaml.NewLoader()
-	registerDefaultBuilders(loader, config.Verbose)
+	builtin.RegisterAll(loader, config.Verbose)
 
 	// Load the graph
 	graph, err := loader.LoadDefinition(&graphDef, store)
@@ -159,100 +162,4 @@ func runWorkflow(config *RunConfig) error {
 	}
 
 	return nil
-}
-
-// registerDefaultBuilders registers built-in node types
-func registerDefaultBuilders(loader *yaml.Loader, verbose bool) {
-	// Register a simple echo node type
-	loader.RegisterNodeType("echo", func(def *yaml.NodeDefinition) (pocket.Node, error) {
-		message := "Hello from echo node"
-		if msgInterface, ok := def.Config["message"]; ok {
-			if msg, ok := msgInterface.(string); ok {
-				message = msg
-			}
-		}
-
-		return pocket.NewNode[any, any](def.Name,
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				if verbose {
-					log.Printf("[%s] Echo: %s", def.Name, message)
-				}
-				return map[string]interface{}{
-					"message": message,
-					"input":   input,
-					"node":    def.Name,
-				}, nil
-			}),
-		), nil
-	})
-
-	// Register a delay node type
-	loader.RegisterNodeType("delay", func(def *yaml.NodeDefinition) (pocket.Node, error) {
-		duration := 1 * time.Second
-		if durInterface, ok := def.Config["duration"]; ok {
-			if durStr, ok := durInterface.(string); ok {
-				if d, err := time.ParseDuration(durStr); err == nil {
-					duration = d
-				}
-			}
-		}
-
-		return pocket.NewNode[any, any](def.Name,
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				if verbose {
-					log.Printf("[%s] Delaying for %v", def.Name, duration)
-				}
-				select {
-				case <-time.After(duration):
-					return input, nil
-				case <-ctx.Done():
-					return nil, ctx.Err()
-				}
-			}),
-		), nil
-	})
-
-	// Register a transform node type
-	loader.RegisterNodeType("transform", func(def *yaml.NodeDefinition) (pocket.Node, error) {
-		return pocket.NewNode[any, any](def.Name,
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				if verbose {
-					log.Printf("[%s] Transforming input", def.Name)
-				}
-				
-				// Simple transformation: wrap input in a result
-				return map[string]interface{}{
-					"transformed": true,
-					"original":    input,
-					"timestamp":   time.Now().Format(time.RFC3339),
-					"node":        def.Name,
-				}, nil
-			}),
-		), nil
-	})
-
-	// Register a router node type
-	loader.RegisterNodeType("router", func(def *yaml.NodeDefinition) (pocket.Node, error) {
-		defaultRoute := "default"
-		if routeInterface, ok := def.Config["default_route"]; ok {
-			if route, ok := routeInterface.(string); ok {
-				defaultRoute = route
-			}
-		}
-
-		return pocket.NewNode[any, any](def.Name,
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-				if verbose {
-					log.Printf("[%s] Routing to: %s", def.Name, defaultRoute)
-				}
-				return exec, defaultRoute, nil
-			}),
-		), nil
-	})
-
-	// TODO: Add more built-in node types:
-	// - http: Make HTTP requests
-	// - conditional: Route based on conditions
-	// - aggregate: Collect results
-	// - parallel: Run nodes in parallel
 }

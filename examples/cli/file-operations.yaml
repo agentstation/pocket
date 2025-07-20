@@ -1,0 +1,78 @@
+name: file-operations-example
+description: Demonstrates file I/O operations with sandboxing
+version: 1.0.0
+
+nodes:
+  - name: prepare-data
+    type: template
+    config:
+      template: |
+        {
+          "timestamp": "2024-01-15T10:30:00Z",
+          "user": "alice",
+          "message": "Processing started",
+          "count": 3
+        }
+      output_format: json
+
+  - name: write-log
+    type: file
+    config:
+      operation: write
+      path: "output/process.log"
+      content: |
+        [{{.timestamp}}] User: {{.user}}
+        Message: {{.message}}
+        Total items: {{.count}}
+      create_dirs: true
+
+  - name: show-written
+    type: echo
+    config:
+      message: "Log file written"
+
+  - name: append-status
+    type: file
+    config:
+      operation: append
+      path: "output/process.log"
+      content: |
+        
+        Status: Processing complete
+        End of log
+
+  - name: read-back
+    type: file
+    config:
+      operation: read
+      path: "output/process.log"
+
+  - name: show-content
+    type: template
+    config:
+      template: |
+        === File Content ===
+        Path: {{.path}}
+        Size: {{.size}} bytes
+        
+        Content:
+        {{.content}}
+        ==================
+
+connections:
+  - from: prepare-data
+    to: write-log
+    
+  - from: write-log
+    to: show-written
+    
+  - from: show-written
+    to: append-status
+    
+  - from: append-status
+    to: read-back
+    
+  - from: read-back
+    to: show-content
+
+start: prepare-data

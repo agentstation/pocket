@@ -1,0 +1,75 @@
+name: jsonpath-extract-example
+description: Demonstrates JSONPath extraction from API response data
+version: 1.0.0
+
+nodes:
+  - name: simulate-api-response
+    type: template
+    config:
+      template: |
+        {
+          "status": "success",
+          "data": {
+            "user": {
+              "id": 12345,
+              "name": "Alice Johnson",
+              "email": "alice@example.com",
+              "profile": {
+                "bio": "Software developer passionate about AI",
+                "location": "San Francisco, CA",
+                "skills": ["Go", "Python", "JavaScript", "Machine Learning"]
+              }
+            },
+            "recent_activity": [
+              {"type": "commit", "repo": "pocket", "message": "Add JSONPath node", "timestamp": "2024-01-15T10:30:00Z"},
+              {"type": "issue", "repo": "pocket", "title": "Feature request: YAML support", "timestamp": "2024-01-14T15:45:00Z"},
+              {"type": "pr", "repo": "pocket", "title": "Fix memory leak", "timestamp": "2024-01-13T09:20:00Z"}
+            ],
+            "stats": {
+              "total_repos": 42,
+              "total_commits": 1337,
+              "followers": 256
+            }
+          },
+          "timestamp": "2024-01-15T12:00:00Z"
+        }
+      output_format: json
+
+  - name: extract-username
+    type: jsonpath
+    config:
+      path: "$.data.user.name"
+
+  - name: show-username
+    type: echo
+    config:
+      message: "Extracted username from API response"
+
+  - name: extract-skills
+    type: jsonpath
+    config:
+      path: "$.data.user.profile.skills[*]"
+      multiple: true
+
+  - name: format-skills
+    type: template
+    config:
+      template: |
+        User Skills:
+        {{range .}}- {{.}}
+        {{end}}
+
+connections:
+  - from: simulate-api-response
+    to: extract-username
+    
+  - from: extract-username
+    to: show-username
+    
+  - from: simulate-api-response
+    to: extract-skills
+    
+  - from: extract-skills
+    to: format-skills
+
+start: simulate-api-response

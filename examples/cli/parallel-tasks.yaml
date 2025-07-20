@@ -1,0 +1,67 @@
+name: parallel-tasks-example
+description: Demonstrates parallel task execution
+version: 1.0.0
+
+nodes:
+  - name: start
+    type: echo
+    config:
+      message: "Starting parallel execution..."
+      
+  - name: parallel-fetch
+    type: parallel
+    config:
+      max_concurrency: 3
+      timeout: 30s
+      tasks:
+        - name: fetch_users
+          operation: http_get
+          config:
+            url: "https://api.example.com/users"
+            
+        - name: fetch_posts
+          operation: http_get
+          config:
+            url: "https://api.example.com/posts"
+            
+        - name: fetch_comments
+          operation: http_get
+          config:
+            url: "https://api.example.com/comments"
+            
+        - name: process_data
+          operation: transform
+          config:
+            type: uppercase
+            
+        - name: validate_data
+          operation: transform
+          config:
+            type: validate
+  
+  - name: show-results
+    type: template
+    config:
+      template: |
+        === Parallel Execution Results ===
+        Total tasks: {{.summary.total}}
+        Successful: {{.summary.successful}}
+        Failed: {{.summary.failed}}
+        Duration: {{.duration}}
+        
+        {{if .errors}}
+        Errors:
+        {{range .errors}}
+        - Task {{.task}}: {{.error}}
+        {{end}}
+        {{end}}
+        ================================
+
+connections:
+  - from: start
+    to: parallel-fetch
+    
+  - from: parallel-fetch
+    to: show-results
+
+start: start

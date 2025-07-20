@@ -30,7 +30,9 @@
       "Bash(go list:*)",
       "Bash(./bin/pocket run:*)",
       "Bash(make:*)",
-      "Bash(./bin/pocket:*)"
+      "Bash(./bin/pocket:*)",
+      "Bash(./pocket run:*)",
+      "Bash(./pocket:*)"
     ],
     "deny": []
   }

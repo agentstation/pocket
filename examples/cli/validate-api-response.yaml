@@ -1,0 +1,119 @@
+name: validate-api-response
+description: Demonstrates JSON Schema validation for API responses
+version: 1.0.0
+
+nodes:
+  - name: simulate-user-api
+    type: template
+    config:
+      template: |
+        {
+          "id": 12345,
+          "username": "alice_dev",
+          "email": "alice@example.com",
+          "profile": {
+            "fullName": "Alice Johnson",
+            "age": 30,
+            "location": "San Francisco",
+            "verified": true
+          },
+          "accountType": "premium",
+          "createdAt": "2023-01-15T10:30:00Z",
+          "lastLogin": "2024-01-15T08:45:00Z"
+        }
+      output_format: json
+
+  - name: validate-user-schema
+    type: validate
+    config:
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            minimum: 1
+          username:
+            type: string
+            pattern: "^[a-z0-9_]{3,20}$"
+          email:
+            type: string
+            format: email
+          profile:
+            type: object
+            properties:
+              fullName:
+                type: string
+                minLength: 1
+              age:
+                type: integer
+                minimum: 13
+                maximum: 120
+              location:
+                type: string
+              verified:
+                type: boolean
+            required: ["fullName", "age"]
+          accountType:
+            type: string
+            enum: ["free", "basic", "premium", "enterprise"]
+          createdAt:
+            type: string
+            format: date-time
+          lastLogin:
+            type: string
+            format: date-time
+        required: ["id", "username", "email", "profile", "accountType"]
+      fail_on_error: false  # Continue even if validation fails
+
+  - name: check-validation
+    type: conditional
+    config:
+      conditions:
+        - if: "{{.valid}}"
+          then: "valid"
+      else: "invalid"
+
+  - name: format-success
+    type: template
+    config:
+      template: |
+        ✅ User data validation PASSED
+        
+        User ID: {{.data.id}}
+        Username: {{.data.username}}
+        Email: {{.data.email}}
+        Account Type: {{.data.accountType}}
+        
+        Profile verified: {{.data.profile.verified}}
+
+  - name: format-errors
+    type: template
+    config:
+      template: |
+        ❌ User data validation FAILED
+        
+        Found {{len .errors}} validation error(s):
+        {{range .errors}}
+        - Field: {{.field}}
+          Type: {{.type}}
+          Description: {{.description}}
+        {{end}}
+        
+        Please fix the data and try again.
+
+connections:
+  - from: simulate-user-api
+    to: validate-user-schema
+    
+  - from: validate-user-schema
+    to: check-validation
+    
+  - from: check-validation
+    to: format-success
+    action: valid
+    
+  - from: check-validation
+    to: format-errors
+    action: invalid
+
+start: simulate-user-api

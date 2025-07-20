@@ -32,6 +32,7 @@ Common patterns and recipes for building sophisticated workflows.
 ### 🚀 Advanced Topics
 Deep dives into advanced features and customization.
 
+- [**Plugin Development**](PLUGIN_DEVELOPMENT.md) - Guide to creating custom nodes for Pocket
 - [**Middleware System**](advanced/MIDDLEWARE.md) - Hooks, middleware, and lifecycle customization
 - [**YAML Integration**](advanced/YAML_INTEGRATION.md) - Building workflows from YAML definitions
 - [**Performance Optimization**](advanced/PERFORMANCE.md) - Benchmarking and optimization techniques
@@ -46,6 +47,7 @@ Features under active development - APIs may change.
 Detailed reference documentation.
 
 - [**API Reference**](reference/API.md) - Complete API documentation
+- [**Node Reference**](NODE_REFERENCE.md) - Comprehensive reference for all built-in nodes
 - [**Configuration Options**](reference/CONFIGURATION.md) - All available configuration options
 - [**Migration Guide**](reference/MIGRATION.md) - Migrating from other frameworks or versions
 
