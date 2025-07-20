@@ -1,7 +1,7 @@
-.PHONY: all test lint fmt clean coverage bench install-tools help
+.PHONY: all test lint fmt clean coverage bench install-tools generate help install-devbox devbox-update devbox
 
 # Default target
-all: test lint
+all: test lint generate
 
 # Run tests
 test:
@@ -55,15 +55,39 @@ install-tools:
 	@go install honnef.co/go/tools/cmd/staticcheck@latest
 	@echo "Tools installed successfully"
 
+# Generate documentation
+generate:
+	@echo "Generating documentation..."
+	@go generate ./...
+
+# Install devbox
+install-devbox:
+	@echo "Installing devbox..."
+	@curl -fsSL https://get.jetify.dev | bash
+
+# Update devbox packages
+devbox-update:
+	@echo "Updating devbox packages..."
+	@devbox update
+
+# Run devbox shell
+devbox:
+	@echo "Starting devbox shell..."
+	@devbox shell
+
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  make test         - Run tests"
-	@echo "  make test-race    - Run tests with race detector"
-	@echo "  make lint         - Run linters"
-	@echo "  make fmt          - Format code"
-	@echo "  make clean        - Clean build artifacts"
-	@echo "  make coverage     - Generate coverage report"
-	@echo "  make bench        - Run benchmarks"
+	@echo "  make test          - Run tests"
+	@echo "  make test-race     - Run tests with race detector"
+	@echo "  make lint          - Run linters"
+	@echo "  make fmt           - Format code"
+	@echo "  make clean         - Clean build artifacts"
+	@echo "  make coverage      - Generate coverage report"
+	@echo "  make bench         - Run benchmarks"
+	@echo "  make generate      - Generate documentation"
 	@echo "  make install-tools - Install development tools"
-	@echo "  make help         - Show this help message"
+	@echo "  make install-devbox - Install devbox"
+	@echo "  make devbox-update - Update devbox packages"
+	@echo "  make devbox        - Run devbox shell"
+	@echo "  make help          - Show this help message"
