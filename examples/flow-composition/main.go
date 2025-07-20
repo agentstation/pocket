@@ -13,7 +13,7 @@ import (
 	"github.com/agentstation/pocket/compose"
 )
 
-// TextProcessor represents a reusable text processing workflow
+// TextProcessor represents a reusable text processing workflow.
 func createTextProcessorGraph(store pocket.Store) *pocket.Graph {
 	// Node 1: Clean text
 	cleaner := pocket.NewNode[any, any]("clean",
@@ -52,7 +52,7 @@ func createTextProcessorGraph(store pocket.Store) *pocket.Graph {
 	return pocket.NewGraph(cleaner, store)
 }
 
-// TranslationGraph simulates a translation workflow
+// TranslationGraph simulates a translation workflow.
 func createTranslationGraph(store pocket.Store) *pocket.Graph {
 	translator := pocket.NewNode[any, any]("translate",
 		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
@@ -87,7 +87,7 @@ func createTranslationGraph(store pocket.Store) *pocket.Graph {
 	return pocket.NewGraph(translator, store)
 }
 
-// QualityCheckGraph performs quality checks on translations
+// QualityCheckGraph performs quality checks on translations.
 func createQualityCheckGraph(store pocket.Store) *pocket.Graph {
 	checker := pocket.NewNode[any, any]("quality-check",
 		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
@@ -288,8 +288,12 @@ func main() {
 	fmt.Println("-------------------------------------------")
 
 	// Store configuration in shared store
-	store.Set(ctx, "config:maxLength", 100)
-	store.Set(ctx, "config:targetLanguage", "es")
+	if err := store.Set(ctx, "config:maxLength", 100); err != nil {
+		log.Fatalf("Failed to set maxLength: %v", err)
+	}
+	if err := store.Set(ctx, "config:targetLanguage", "es"); err != nil {
+		log.Fatalf("Failed to set targetLanguage: %v", err)
+	}
 
 	// Create a graph that uses shared configuration
 	configAwareGraph := pocket.NewGraph(

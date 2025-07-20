@@ -161,8 +161,8 @@ func TestGraphWithStore(t *testing.T) {
 	ctx := context.Background()
 
 	// Set initial values in store
-	store.Set(ctx, "multiplier", 5)
-	store.Set(ctx, "input", 10)
+	_ = store.Set(ctx, "multiplier", 5)
+	_ = store.Set(ctx, "input", 10)
 
 	// Create a graph that reads from store
 	calculatorGraph := pocket.NewGraph(

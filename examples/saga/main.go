@@ -97,11 +97,15 @@ func main() {
 
 			// Initialize inventory if needed
 			if execResult["needsInit"].(bool) {
-				store.Set(ctx, "inventory", execResult["inventory"])
+				if err := store.Set(ctx, "inventory", execResult["inventory"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store inventory: %w", err)
+				}
 			}
 
 			// Store reservation
-			store.Set(ctx, execResult["reservationKey"].(string), execResult["items"])
+			if err := store.Set(ctx, execResult["reservationKey"].(string), execResult["items"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store reservation: %w", err)
+			}
 
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
@@ -110,7 +114,9 @@ func main() {
 			}
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "reserve_inventory")
-			store.Set(ctx, "transaction_state", txState)
+			if err := store.Set(ctx, "transaction_state", txState); err != nil {
+				return nil, "", fmt.Errorf("failed to update transaction state: %w", err)
+			}
 
 			return o, "charge_payment", nil
 		}),
@@ -158,17 +164,23 @@ func main() {
 
 			// Initialize payment service if needed
 			if execResult["needsInit"].(bool) {
-				store.Set(ctx, "payment_service_available", true)
+				if err := store.Set(ctx, "payment_service_available", true); err != nil {
+					return nil, "", fmt.Errorf("failed to initialize payment service: %w", err)
+				}
 			}
 
 			// Record payment
-			store.Set(ctx, execResult["paymentKey"].(string), execResult["amount"])
+			if err := store.Set(ctx, execResult["paymentKey"].(string), execResult["amount"]); err != nil {
+				return nil, "", fmt.Errorf("failed to record payment: %w", err)
+			}
 
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "charge_payment")
-			store.Set(ctx, "transaction_state", txState)
+			if err := store.Set(ctx, "transaction_state", txState); err != nil {
+				return nil, "", fmt.Errorf("failed to update transaction state: %w", err)
+			}
 
 			return o, "create_shipment", nil
 		}),
@@ -212,13 +224,17 @@ func main() {
 			o := execResult["order"].(*Order)
 
 			// Store shipment
-			store.Set(ctx, execResult["shipmentKey"].(string), execResult["shipmentID"])
+			if err := store.Set(ctx, execResult["shipmentKey"].(string), execResult["shipmentID"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store shipment: %w", err)
+			}
 
 			// Record successful step
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "create_shipment")
-			store.Set(ctx, "transaction_state", txState)
+			if err := store.Set(ctx, "transaction_state", txState); err != nil {
+				return nil, "", fmt.Errorf("failed to update transaction state: %w", err)
+			}
 
 			return o, "send_confirmation", nil
 		}),
@@ -256,13 +272,17 @@ func main() {
 			o.Status = "completed"
 
 			// Record confirmation
-			store.Set(ctx, execResult["confirmationKey"].(string), execResult["confirmationTime"])
+			if err := store.Set(ctx, execResult["confirmationKey"].(string), execResult["confirmationTime"]); err != nil {
+				return nil, "", fmt.Errorf("failed to record confirmation: %w", err)
+			}
 
 			// Mark saga as complete
 			state, _ := store.Get(ctx, "transaction_state")
 			txState := state.(*TransactionState)
 			txState.CompletedSteps = append(txState.CompletedSteps, "send_confirmation")
-			store.Set(ctx, "transaction_state", txState)
+			if err := store.Set(ctx, "transaction_state", txState); err != nil {
+				return nil, "", fmt.Errorf("failed to update transaction state: %w", err)
+			}
 
 			return o, "success", nil
 		}),
@@ -415,8 +435,11 @@ func main() {
 		fmt.Println("------------------------")
 
 		// Clear previous transaction state
-		store.Delete(ctx, "transaction_state")
-		store.Set(ctx, "transaction_state", &TransactionState{})
+		_ = store.Delete(ctx, "transaction_state")
+		if err := store.Set(ctx, "transaction_state", &TransactionState{}); err != nil {
+			fmt.Printf("Failed to initialize transaction state: %v\n", err)
+			continue
+		}
 
 		// Create saga graph
 		graph := pocket.NewGraph(reserveInventory, store)

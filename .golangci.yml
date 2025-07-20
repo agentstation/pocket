@@ -28,56 +28,43 @@ linters:
     - bodyclose
     - nilerr
     - godot
-
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-  nakedret:
-    max-func-lines: 30
-  godot:
-    scope: declarations
-    capital: true
-    # Enable auto-fixing for godot
-    autofix: true
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
-
-formatters-settings:
-  goimports:
-    # Set the local import prefix for proper grouping
-    local-prefixes: github.com/agentstation/pocket
+  
+  settings:
+    gocyclo:
+      min-complexity: 15
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+    nakedret:
+      max-func-lines: 30
+    godot:
+      scope: declarations
+      capital: true
+  
+  exclusions:
+    generated: lax
+    rules:
+      # Exclude some linters from running on test files
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - gocyclo
+      
+      # Exclude examples directory
+      - path: examples/
+        linters:
+          - gosec
+          - errcheck
+          - godot
+          - gocyclo
 
 issues:
-  # Exclude some linters from running on test files
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - errcheck
-        - gocyclo
-    
-    # Exclude examples directory
-    - path: examples/
-      linters:
-        - gosec
-        - errcheck
-        - godot
-        - gocyclo
-  
-  # Don't exclude issues about comments from golint
-  exclude-use-default: false
-  
   # Maximum issues count per one linter
   max-issues-per-linter: 0
   

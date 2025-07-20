@@ -141,7 +141,9 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, query Query, data any, retrieved RetrievedContext) (RetrievedContext, string, error) {
 			// Cache the results
 			cacheKey := fmt.Sprintf("query_cache:%s", query.Text)
-			store.Set(ctx, cacheKey, retrieved)
+			if err := store.Set(ctx, cacheKey, retrieved); err != nil {
+				return RetrievedContext{}, "", fmt.Errorf("failed to cache retrieval results: %w", err)
+			}
 
 			// Route based on retrieval results
 			if len(retrieved.Documents) == 0 {
@@ -260,7 +262,9 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, augmented AugmentedQuery, data any, response GeneratedResponse) (GeneratedResponse, string, error) {
 			// Cache the response
 			cacheKey := fmt.Sprintf("response_cache:%s", augmented.Original.Text)
-			store.Set(ctx, cacheKey, response)
+			if err := store.Set(ctx, cacheKey, response); err != nil {
+				return GeneratedResponse{}, "", fmt.Errorf("failed to cache response: %w", err)
+			}
 
 			// Update user history
 			userHistory, _ := store.Get(ctx, fmt.Sprintf("user:%s:history", augmented.Original.UserID))
@@ -269,7 +273,9 @@ func main() {
 			}
 			history := userHistory.([]string)
 			history = append(history, augmented.Original.Text)
-			store.Set(ctx, fmt.Sprintf("user:%s:history", augmented.Original.UserID), history)
+			if err := store.Set(ctx, fmt.Sprintf("user:%s:history", augmented.Original.UserID), history); err != nil {
+				return GeneratedResponse{}, "", fmt.Errorf("failed to update user history: %w", err)
+			}
 
 			return response, "done", nil
 		}),

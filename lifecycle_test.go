@@ -3,6 +3,7 @@ package pocket_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -153,18 +154,20 @@ func TestCleanupHooks(t *testing.T) {
 			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
 				// Store the exec_data in post step
 				data := execResult.(map[string]interface{})
-				store.Set(ctx, "exec_data", data["exec_data"])
+				if err := store.Set(ctx, "exec_data", data["exec_data"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store exec_data: %w", err)
+				}
 				return data["result"], doneRoute, nil
 			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				// Should be able to read from store
 				if val, exists := store.Get(ctx, "exec_data"); exists {
-					store.Set(ctx, "cleanup_read", val)
+					_ = store.Set(ctx, "cleanup_read", val)
 				}
 			}),
 			pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
 				// Clean up by removing temporary data
-				store.Delete(ctx, "exec_data")
+				_ = store.Delete(ctx, "exec_data")
 			}),
 		)
 

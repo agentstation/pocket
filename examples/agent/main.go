@@ -32,7 +32,9 @@ func main() {
 		Description: "write a blog post about Go concurrency patterns",
 		Steps:       []string{},
 	}
-	store.Set(ctx, "task", task)
+	if err := store.Set(ctx, "task", task); err != nil {
+		log.Fatalf("Failed to set initial task: %v", err)
+	}
 
 	// Create think node that analyzes the task and decides next action
 	think := pocket.NewNode[any, any]("think",
@@ -109,7 +111,9 @@ func main() {
 				// Update task steps (except for complete)
 				if actionType != completeAction {
 					t.Steps = append(t.Steps, fmt.Sprintf("%s: %s", actionType, resultStr))
-					store.Set(ctx, "task", t)
+					if err := store.Set(ctx, "task", t); err != nil {
+						return nil, "", fmt.Errorf("failed to update task: %w", err)
+					}
 				}
 
 				// Decide next step
@@ -175,7 +179,9 @@ func main() {
 		Description: "analyze complex data and generate insights",
 		Steps:       []string{},
 	}
-	store.Set(ctx, "task", task2)
+	if err := store.Set(ctx, "task", task2); err != nil {
+		log.Fatalf("Failed to set task2: %v", err)
+	}
 
 	// Create a flaky action that sometimes fails
 	attempts := 0

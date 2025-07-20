@@ -1303,10 +1303,18 @@ func TestFileNode(t *testing.T) {
 	t.Run("list directory", func(t *testing.T) {
 		// Create test files
 		listDir := filepath.Join(tempDir, "list")
-		os.MkdirAll(listDir, 0o755)
-		os.WriteFile(filepath.Join(listDir, "file1.txt"), []byte("content1"), 0o644)
-		os.WriteFile(filepath.Join(listDir, "file2.txt"), []byte("content2"), 0o644)
-		os.MkdirAll(filepath.Join(listDir, "subdir"), 0o755)
+		if err := os.MkdirAll(listDir, 0o755); err != nil {
+			t.Fatalf("Failed to create directory: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(listDir, "file1.txt"), []byte("content1"), 0o644); err != nil {
+			t.Fatalf("Failed to write file1.txt: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(listDir, "file2.txt"), []byte("content2"), 0o644); err != nil {
+			t.Fatalf("Failed to write file2.txt: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(listDir, "subdir"), 0o755); err != nil {
+			t.Fatalf("Failed to create subdir: %v", err)
+		}
 
 		builder := &FileNodeBuilder{}
 		def := &yaml.NodeDefinition{

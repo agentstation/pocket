@@ -178,8 +178,12 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, results any) (any, string, error) {
 			// Store metadata from prep step
 			data := prepData.(map[string]interface{})
-			store.Set(ctx, "doc_count", data["doc_count"])
-			store.Set(ctx, "start_time", data["start_time"])
+			if err := store.Set(ctx, "doc_count", data["doc_count"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store doc_count: %w", err)
+			}
+			if err := store.Set(ctx, "start_time", data["start_time"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store start_time: %w", err)
+			}
 
 			// Aggregate results in post step
 			processedDocs := results.([]ProcessedDoc)
