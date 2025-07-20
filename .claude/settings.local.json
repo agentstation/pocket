@@ -26,7 +26,8 @@
       "Bash(gh repo view:*)",
       "Bash(cp:*)",
       "Bash(make lint:*)",
-      "Bash(make test:*)"
+      "Bash(make test:*)",
+      "Bash(go list:*)"
     ],
     "deny": []
   }

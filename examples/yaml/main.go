@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/agentstation/pocket"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // Resume represents a structured resume format
