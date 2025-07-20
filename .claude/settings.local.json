@@ -40,7 +40,8 @@
       "Bash(./scripts/debug-hook.sh:*)",
       "Bash(chmod:*)",
       "Bash(cat:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(godot:*)"
     ],
     "deny": []
   },

@@ -13,14 +13,29 @@ fi
 # Read the JSON input
 json_input=$(cat)
 
-# Extract file path - try different field names
-# Claude Code might use 'path' or 'file_path'
-file_path=$(echo "$json_input" | sed -n 's/.*"path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+# Debug: Log the JSON input
+echo "Hook received JSON: $json_input" >&2
 
-# If no file path found, try alternative JSON fields
+# For PostToolUse hooks, the file path might be in tool_use.inputs
+# Try multiple extraction patterns
+file_path=""
+
+# Pattern 1: Direct file_path field
 if [ -z "$file_path" ]; then
-    file_path=$(echo "$json_input" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    file_path=$(echo "$json_input" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 fi
+
+# Pattern 2: Path field
+if [ -z "$file_path" ]; then
+    file_path=$(echo "$json_input" | grep -o '"path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
+
+# Pattern 3: Inside tool_use.inputs
+if [ -z "$file_path" ]; then
+    file_path=$(echo "$json_input" | grep -o '"inputs"[[:space:]]*:[[:space:]]*{[^}]*"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+fi
+
+echo "Extracted file path: $file_path" >&2
 
 # Check if it's a Go file
 if [[ ! "$file_path" =~ \.go$ ]]; then
@@ -51,14 +66,20 @@ elif command -v gofmt >/dev/null 2>&1; then
     gofmt -w "$file_path"
 fi
 
-# Add periods to Go comments for godot compliance
-# This sed command adds a period to comments that don't end with punctuation
-sed -i.bak -E '
-    # Match single-line comments that dont end with punctuation
-    s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])$|\1//\2.|g
-    # Match comment lines that start with a capital letter and dont end with punctuation
-    s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])([[:space:]]*)$|\1//\2.\3|g
-' "$file_path" && rm -f "${file_path}.bak"
+# Run godot to add periods to comments
+if command -v godot >/dev/null 2>&1; then
+    # Run with -w to fix in place
+    godot -w "$file_path" 2>/dev/null || true
+else
+    # Fallback: Use sed to add periods to Go comments
+    # This sed command adds a period to comments that don't end with punctuation
+    sed -i.bak -E '
+        # Match single-line comments that dont end with punctuation
+        s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])$|\1//\2.|g
+        # Match comment lines that start with a capital letter and dont end with punctuation
+        s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])([[:space:]]*)$|\1//\2.\3|g
+    ' "$file_path" && rm -f "${file_path}.bak"
+fi
 
 # Run specific golangci-lint fixers if available
 if command -v golangci-lint >/dev/null 2>&1; then

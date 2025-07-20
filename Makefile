@@ -50,6 +50,12 @@ fmt-all:
 	else \
 		echo "    goimports not installed, skipping..."; \
 	fi
+	@echo "  → Running godot..."
+	@if command -v godot >/dev/null 2>&1; then \
+		godot -w .; \
+	else \
+		echo "    godot not installed, skipping..."; \
+	fi
 	@echo "  → Running golangci-lint with auto-fix..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run --fix; \
@@ -95,6 +101,7 @@ install-tools:
 	@go install golang.org/x/tools/cmd/goimports@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@go install honnef.co/go/tools/cmd/staticcheck@latest
+	@go install github.com/tetafro/godot/cmd/godot@latest
 	@echo "Tools installed successfully"
 
 # Generate documentation
