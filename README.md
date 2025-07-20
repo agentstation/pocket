@@ -21,7 +21,7 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 
 - **[Getting Started Guide](docs/guides/GETTING_STARTED.md)** - Your first Pocket workflow
 - **[Full Documentation](docs/README.md)** - Complete guide with examples and patterns
-- **[API Reference](https://pkg.go.dev/github.com/agentstation/pocket)** - Detailed API documentation
+- **[API Reference](docs/reference/API.md)** - Complete API documentation with examples
 
 ## Installation
 
