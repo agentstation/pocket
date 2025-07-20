@@ -50,10 +50,13 @@ examples/*/[!.]?*
 /stateful
 /typed
 /workflow
-/yaml
 
 # CLI binary build directory
 /bin/
 
+# CLI binary in root
+/pocket
+
 # Temporary scripts
 *.sh
+!scripts/go-format-hook.sh

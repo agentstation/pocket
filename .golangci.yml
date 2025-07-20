@@ -28,7 +28,7 @@ linters:
     - bodyclose
     - nilerr
     - godot
-
+  
   settings:
     gocyclo:
       min-complexity: 15
@@ -45,8 +45,9 @@ linters:
     godot:
       scope: declarations
       capital: true
-
+  
   exclusions:
+    generated: lax
     rules:
       # Exclude some linters from running on test files
       - path: _test\.go
@@ -63,7 +64,9 @@ linters:
           - godot
           - gocyclo
 
-formatters:
-  enable:
-    - gofmt
-    - goimports
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+  
+  # Maximum count of issues with the same text
+  max-same-issues: 0

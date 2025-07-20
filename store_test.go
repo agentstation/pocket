@@ -23,7 +23,7 @@ func TestStoreConcurrency(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			key := string(rune('a' + n%26))
-			store.Set(ctx, key, n)
+			_ = store.Set(ctx, key, n)
 		}(i)
 	}
 
@@ -102,7 +102,7 @@ func TestTypedStore(t *testing.T) {
 			name: "type mismatch",
 			op: func() error {
 				// Store a different type
-				store.Set(ctx, "user:bad", "not a user")
+				_ = store.Set(ctx, "user:bad", "not a user")
 				return nil
 			},
 			check: func(t *testing.T) {
@@ -190,13 +190,13 @@ func BenchmarkStore(b *testing.B) {
 		store := pocket.NewStore()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			store.Set(ctx, "key", i)
+			_ = store.Set(ctx, "key", i)
 		}
 	})
 
 	b.Run("Get", func(b *testing.B) {
 		store := pocket.NewStore()
-		store.Set(ctx, "key", "value")
+		_ = store.Set(ctx, "key", "value")
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			store.Get(ctx, "key")
@@ -209,7 +209,7 @@ func BenchmarkStore(b *testing.B) {
 			i := 0
 			for pb.Next() {
 				if i%2 == 0 {
-					store.Set(ctx, "key", i)
+					_ = store.Set(ctx, "key", i)
 				} else {
 					store.Get(ctx, "key")
 				}

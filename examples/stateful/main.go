@@ -22,8 +22,12 @@ func main() {
 	ctx := context.Background()
 
 	// Initialize accumulator state
-	store.Set(ctx, "accumulator:data", []string{})
-	store.Set(ctx, "process:count", 0)
+	if err := store.Set(ctx, "accumulator:data", []string{}); err != nil {
+		log.Fatalf("Failed to initialize accumulator data: %v", err)
+	}
+	if err := store.Set(ctx, "process:count", 0); err != nil {
+		log.Fatalf("Failed to initialize process count: %v", err)
+	}
 
 	// Create processor node that maintains state
 	processor := pocket.NewNode[any, any]("processor",
@@ -71,15 +75,21 @@ func main() {
 			historyKey := execResult["historyKey"].(string)
 
 			// Store processing history
-			store.Set(ctx, historyKey, history)
+			if err := store.Set(ctx, historyKey, history); err != nil {
+				return nil, "", fmt.Errorf("failed to store history: %w", err)
+			}
 
 			// Update process count
 			data := prepData.(map[string]interface{})
 			newCount := data["processCount"].(int) + 1
-			store.Set(ctx, "process:count", newCount)
+			if err := store.Set(ctx, "process:count", newCount); err != nil {
+				return nil, "", fmt.Errorf("failed to update process count: %w", err)
+			}
 
 			// Store last processed item
-			store.Set(ctx, "processor:last", processed)
+			if err := store.Set(ctx, "processor:last", processed); err != nil {
+				return nil, "", fmt.Errorf("failed to store last processed item: %w", err)
+			}
 
 			return processed, "accumulate", nil
 		}),
@@ -118,8 +128,12 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Save accumulated state
 			r := result.(map[string]interface{})
-			store.Set(ctx, "accumulator:data", r["accumulated"])
-			store.Set(ctx, "accumulator:count", r["count"])
+			if err := store.Set(ctx, "accumulator:data", r["accumulated"]); err != nil {
+				return nil, "", fmt.Errorf("failed to save accumulated data: %w", err)
+			}
+			if err := store.Set(ctx, "accumulator:count", r["count"]); err != nil {
+				return nil, "", fmt.Errorf("failed to save accumulator count: %w", err)
+			}
 
 			// Route based on accumulated count
 			count := r["count"].(int)
@@ -168,11 +182,15 @@ func main() {
 			v := result.(map[string]interface{})
 
 			// Store validation results
-			store.Set(ctx, "validator:lastResult", v)
+			if err := store.Set(ctx, "validator:lastResult", v); err != nil {
+				return nil, "", fmt.Errorf("failed to store validation result: %w", err)
+			}
 
 			// Set default maxLength if it wasn't already set
 			if _, exists := store.Get(ctx, "validator:maxLength"); !exists {
-				store.Set(ctx, "validator:maxLength", 50)
+				if err := store.Set(ctx, "validator:maxLength", 50); err != nil {
+					return nil, "", fmt.Errorf("failed to set default maxLength: %w", err)
+				}
 			}
 
 			// Update validation statistics
@@ -187,7 +205,9 @@ func main() {
 			} else {
 				s["invalid"]++
 			}
-			store.Set(ctx, "validator:stats", s)
+			if err := store.Set(ctx, "validator:stats", s); err != nil {
+				return nil, "", fmt.Errorf("failed to update validator stats: %w", err)
+			}
 
 			return v["data"], "report", nil
 		}),

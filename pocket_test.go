@@ -300,8 +300,8 @@ func TestStore(t *testing.T) {
 		{
 			name: "set and get",
 			op: func() {
-				store.Set(ctx, "key1", "value1")
-				store.Set(ctx, "key2", 42)
+				_ = store.Set(ctx, "key1", "value1")
+				_ = store.Set(ctx, "key2", 42)
 			},
 			check: func(t *testing.T) {
 				val1, ok := store.Get(ctx, "key1")
@@ -328,8 +328,8 @@ func TestStore(t *testing.T) {
 		{
 			name: "delete",
 			op: func() {
-				store.Set(ctx, "temp", "data")
-				store.Delete(ctx, "temp")
+				_ = store.Set(ctx, "temp", "data")
+				_ = store.Delete(ctx, "temp")
 			},
 			check: func(t *testing.T) {
 				_, ok := store.Get(ctx, "temp")

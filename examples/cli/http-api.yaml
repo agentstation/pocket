@@ -1,0 +1,61 @@
+name: http-api-example
+description: Fetches data from a public API using the HTTP node
+version: 1.0.0
+
+nodes:
+  - name: fetch-joke
+    type: http
+    config:
+      url: "https://official-joke-api.appspot.com/random_joke"
+      method: GET
+      timeout: "10s"
+      retry:
+        max_attempts: 3
+        delay: "1s"
+
+  - name: check-status
+    type: conditional
+    config:
+      conditions:
+        - if: "{{eq .status 200}}"
+          then: "success"
+      else: "error"
+
+  - name: format-joke
+    type: template
+    config:
+      template: |
+        === Random Joke ===
+        Setup: {{.body.setup}}
+        Punchline: {{.body.punchline}}
+        
+        Type: {{.body.type}}
+        ID: {{.body.id}}
+        ==================
+
+  - name: show-joke
+    type: echo
+    config:
+      message: "Joke retrieved successfully!"
+
+  - name: error-handler
+    type: echo
+    config:
+      message: "Failed to fetch joke from API"
+
+connections:
+  - from: fetch-joke
+    to: check-status
+    
+  - from: check-status
+    to: format-joke
+    action: success
+    
+  - from: check-status
+    to: error-handler
+    action: error
+    
+  - from: format-joke
+    to: show-joke
+
+start: fetch-joke

@@ -39,6 +39,43 @@ fmt:
 	@gofmt -w .
 	@go mod tidy
 
+# Comprehensive formatting with all tools
+fmt-all:
+	@echo "Running comprehensive formatting..."
+	@echo "  → Running gofmt..."
+	@gofmt -w .
+	@echo "  → Running goimports..."
+	@if command -v goimports >/dev/null 2>&1; then \
+		goimports -w -local "github.com/agentstation/pocket" .; \
+	else \
+		echo "    goimports not installed, skipping..."; \
+	fi
+	@echo "  → Running godot..."
+	@if command -v godot >/dev/null 2>&1; then \
+		godot -w .; \
+	else \
+		echo "    godot not installed, skipping..."; \
+	fi
+	@echo "  → Running golangci-lint with auto-fix..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --fix; \
+	else \
+		echo "    golangci-lint not installed, skipping..."; \
+	fi
+	@echo "  → Running go mod tidy..."
+	@go mod tidy
+	@echo "Formatting complete!"
+
+# Check formatting without making changes
+fmt-check:
+	@echo "Checking code formatting..."
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "The following files need formatting:"; \
+		gofmt -l .; \
+		exit 1; \
+	fi
+	@echo "All files are properly formatted."
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
@@ -61,8 +98,10 @@ bench:
 install-tools:
 	@echo "Installing development tools..."
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install golang.org/x/tools/cmd/goimports@latest
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 	@go install honnef.co/go/tools/cmd/staticcheck@latest
+	@go install github.com/tetafro/godot/cmd/godot@latest
 	@echo "Tools installed successfully"
 
 # Generate documentation
@@ -118,7 +157,9 @@ help:
 	@echo "  make test          - Run tests"
 	@echo "  make test-race     - Run tests with race detector"
 	@echo "  make lint          - Run linters"
-	@echo "  make fmt           - Format code"
+	@echo "  make fmt           - Format code (basic)"
+	@echo "  make fmt-all       - Comprehensive formatting with all tools"
+	@echo "  make fmt-check     - Check formatting without changes"
 	@echo "  make clean         - Clean build artifacts"
 	@echo "  make coverage      - Generate coverage report"
 	@echo "  make bench         - Run benchmarks"

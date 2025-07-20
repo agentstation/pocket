@@ -9,16 +9,17 @@ import (
 	"log"
 	"time"
 
+	"github.com/goccy/go-yaml"
+
 	"github.com/agentstation/pocket"
 	"github.com/agentstation/pocket/fallback"
-	"github.com/goccy/go-yaml"
 )
 
 const (
 	defaultRoute = "default"
 )
 
-// LLMRequest represents a request to an LLM service
+// LLMRequest represents a request to an LLM service.
 type LLMRequest struct {
 	Prompt      string  `yaml:"prompt"`
 	MaxTokens   int     `yaml:"max_tokens"`
@@ -26,7 +27,7 @@ type LLMRequest struct {
 	Model       string  `yaml:"model"`
 }
 
-// LLMResponse represents a response from an LLM service
+// LLMResponse represents a response from an LLM service.
 type LLMResponse struct {
 	Text       string    `yaml:"text"`
 	Model      string    `yaml:"model"`
@@ -145,7 +146,9 @@ func main() {
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			data := prepData.(map[string]interface{})
-			store.Set(ctx, "original_text", data["original_text"])
+			if err := store.Set(ctx, "original_text", data["original_text"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store original text: %w", err)
+			}
 			return result, defaultRoute, nil
 		}),
 	)
@@ -289,24 +292,34 @@ func main() {
 		}),
 		pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 			fmt.Println("Success hook: Marking resources as successfully used")
-			store.Set(ctx, "cleanup_status", "success")
+			if err := store.Set(ctx, "cleanup_status", "success"); err != nil {
+				log.Printf("Failed to set cleanup status: %v", err)
+			}
 		}),
 		pocket.WithOnFailure(func(ctx context.Context, store pocket.StoreWriter, err error) {
 			fmt.Printf("Failure hook: Cleaning up after error: %v\n", err)
-			store.Set(ctx, "cleanup_status", "failed")
+			if setErr := store.Set(ctx, "cleanup_status", "failed"); setErr != nil {
+				log.Printf("Failed to set cleanup status: %v", setErr)
+			}
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
 			// Store resource info and mark as allocated
 			data := prepData.(map[string]interface{})
-			store.Set(ctx, "resource_id", data["resource_id"])
-			store.Set(ctx, "allocated_at", data["allocated_at"])
+			if err := store.Set(ctx, "resource_id", data["resource_id"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store resource_id: %w", err)
+			}
+			if err := store.Set(ctx, "allocated_at", data["allocated_at"]); err != nil {
+				return nil, "", fmt.Errorf("failed to store allocated_at: %w", err)
+			}
 			fmt.Println("Resources allocated")
 			return execResult, "done", nil
 		}),
 		pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
 			// Always runs - cleanup
 			fmt.Println("Complete hook: Cleaning up resources")
-			store.Set(ctx, "cleanup_completed", time.Now())
+			if err := store.Set(ctx, "cleanup_completed", time.Now()); err != nil {
+				log.Printf("Failed to set cleanup_completed: %v", err)
+			}
 		}),
 	)
 
@@ -330,7 +343,7 @@ func main() {
 	fmt.Println("\n=== Demo Complete ===")
 }
 
-// createExtractionGraph creates a sub-graph for data extraction
+// createExtractionGraph creates a sub-graph for data extraction.
 func createExtractionGraph() *pocket.Graph {
 	graphStore := pocket.NewStore()
 
@@ -392,7 +405,9 @@ func createExtractionGraph() *pocket.Graph {
 			return result, err
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			store.Set(ctx, "entities", result)
+			if err := store.Set(ctx, "entities", result); err != nil {
+				return nil, "", fmt.Errorf("failed to store entities: %w", err)
+			}
 			return result, defaultRoute, nil
 		}),
 	)
@@ -403,7 +418,9 @@ func createExtractionGraph() *pocket.Graph {
 			return result, err
 		}),
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			store.Set(ctx, "sentiment", result)
+			if err := store.Set(ctx, "sentiment", result); err != nil {
+				return nil, "", fmt.Errorf("failed to store sentiment: %w", err)
+			}
 			return result, defaultRoute, nil
 		}),
 	)

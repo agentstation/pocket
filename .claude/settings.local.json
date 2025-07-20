@@ -30,8 +30,50 @@
       "Bash(go list:*)",
       "Bash(./bin/pocket run:*)",
       "Bash(make:*)",
-      "Bash(./bin/pocket:*)"
+      "Bash(./bin/pocket:*)",
+      "Bash(./pocket run:*)",
+      "Bash(./pocket:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(sed:*)",
+      "Bash(goimports:*)",
+      "Bash(./scripts/go-format-hook.sh:*)",
+      "Bash(./scripts/debug-hook.sh:*)",
+      "Bash(chmod:*)",
+      "Bash(cat:*)",
+      "Bash(tee:*)",
+      "Bash(godot:*)"
     ],
     "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/go-format-hook.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/go-format-hook.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/go-format-hook.sh"
+          }
+        ]
+      }
+    ]
   }
 }

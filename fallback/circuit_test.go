@@ -109,7 +109,7 @@ func TestCircuitBreaker(t *testing.T) {
 		// Mix of success and failure
 		_, _ = cb.Execute(ctx, store, successFunc, "1")
 		_, _ = cb.Execute(ctx, store, failingFunc, "2")
-		cb.Execute(ctx, store, successFunc, "3")
+		_, _ = cb.Execute(ctx, store, successFunc, "3")
 
 		metrics := cb.GetMetrics()
 		if metrics.TotalRequests != 3 {

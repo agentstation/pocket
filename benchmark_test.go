@@ -111,12 +111,12 @@ func BenchmarkStoreOperations(b *testing.B) {
 
 	b.Run("Set", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			store.Set(ctx, "key", "value")
+			_ = store.Set(ctx, "key", "value")
 		}
 	})
 
 	b.Run("Get", func(b *testing.B) {
-		store.Set(ctx, "key", "value")
+		_ = store.Set(ctx, "key", "value")
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = store.Get(ctx, "key")
@@ -125,8 +125,8 @@ func BenchmarkStoreOperations(b *testing.B) {
 
 	b.Run("Delete", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			store.Set(ctx, "key", "value")
-			store.Delete(ctx, "key")
+			_ = store.Set(ctx, "key", "value")
+			_ = store.Delete(ctx, "key")
 		}
 	})
 }

@@ -93,7 +93,9 @@ func main() {
 			valResult := result.(ValidationResult)
 
 			// Store validation result
-			store.Set(ctx, fmt.Sprintf("order:%s:validation", valResult.Data.OrderID), valResult)
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:validation", valResult.Data.OrderID), valResult); err != nil {
+				return nil, "", fmt.Errorf("failed to store validation result: %w", err)
+			}
 
 			if valResult.Valid {
 				valResult.Data.Status = "validated"
@@ -156,7 +158,9 @@ func main() {
 
 			// Initialize inventory if needed
 			if execResult["needsInit"].(bool) {
-				store.Set(ctx, "inventory", execResult["inventory"])
+				if err := store.Set(ctx, "inventory", execResult["inventory"]); err != nil {
+					return nil, "", fmt.Errorf("failed to initialize inventory: %w", err)
+				}
 			}
 
 			// Reserve inventory
@@ -166,10 +170,14 @@ func main() {
 			for _, item := range valResult.Data.Items {
 				stock[item.SKU] -= item.Quantity
 			}
-			store.Set(ctx, "inventory", stock)
+			if err := store.Set(ctx, "inventory", stock); err != nil {
+				return nil, "", fmt.Errorf("failed to update inventory: %w", err)
+			}
 
 			// Store reservation
-			store.Set(ctx, fmt.Sprintf("order:%s:reserved_items", valResult.Data.OrderID), valResult.Data.Items)
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:reserved_items", valResult.Data.OrderID), valResult.Data.Items); err != nil {
+				return nil, "", fmt.Errorf("failed to store reservation: %w", err)
+			}
 
 			return valResult, "payment", nil
 		}),
@@ -213,8 +221,12 @@ func main() {
 			d := data.(map[string]interface{})
 			total := d["total"].(float64)
 
-			store.Set(ctx, fmt.Sprintf("order:%s:payment", valResult.Data.OrderID), total)
-			store.Set(ctx, fmt.Sprintf("order:%s:payment_time", valResult.Data.OrderID), time.Now())
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:payment", valResult.Data.OrderID), total); err != nil {
+				return nil, "", fmt.Errorf("failed to store payment amount: %w", err)
+			}
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:payment_time", valResult.Data.OrderID), time.Now()); err != nil {
+				return nil, "", fmt.Errorf("failed to store payment time: %w", err)
+			}
 
 			return valResult, "fulfillment", nil
 		}),
@@ -270,11 +282,17 @@ func main() {
 			// Store shipping info if it was created
 			prep := prepData.(map[string]interface{})
 			if prep["needsShipInfo"].(bool) {
-				store.Set(ctx, prep["shipInfoKey"].(string), prep["shipping"])
+				if err := store.Set(ctx, prep["shipInfoKey"].(string), prep["shipping"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store shipping info: %w", err)
+				}
 			}
 
-			store.Set(ctx, fmt.Sprintf("order:%s:tracking", result.Data.OrderID), tracking)
-			store.Set(ctx, fmt.Sprintf("order:%s:status", result.Data.OrderID), "fulfilled")
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:tracking", result.Data.OrderID), tracking); err != nil {
+				return nil, "", fmt.Errorf("failed to store tracking info: %w", err)
+			}
+			if err := store.Set(ctx, fmt.Sprintf("order:%s:status", result.Data.OrderID), "fulfilled"); err != nil {
+				return nil, "", fmt.Errorf("failed to update order status: %w", err)
+			}
 
 			return result, "notify", nil
 		}),
@@ -331,7 +349,9 @@ func main() {
 			}
 			log := notificationLog.([]string)
 			log = append(log, fmt.Sprintf("%s: Order %s - %s", time.Now().Format(time.RFC3339), valResult.Data.OrderID, valResult.Data.Status))
-			store.Set(ctx, fmt.Sprintf("customer:%s:notifications", valResult.Data.CustomerID), log)
+			if err := store.Set(ctx, fmt.Sprintf("customer:%s:notifications", valResult.Data.CustomerID), log); err != nil {
+				return nil, "", fmt.Errorf("failed to update notification log: %w", err)
+			}
 
 			return valResult, "done", nil
 		}),
@@ -360,7 +380,9 @@ func main() {
 		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Log error and send notification
 			if valResult, ok := result.(ValidationResult); ok {
-				store.Set(ctx, fmt.Sprintf("order:%s:error", valResult.Data.OrderID), valResult.Errors)
+				if err := store.Set(ctx, fmt.Sprintf("order:%s:error", valResult.Data.OrderID), valResult.Errors); err != nil {
+					return nil, "", fmt.Errorf("failed to store error: %w", err)
+				}
 				return valResult, "notify", nil
 			}
 			return result, "done", nil

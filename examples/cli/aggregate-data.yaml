@@ -1,0 +1,76 @@
+name: aggregate-data-example
+description: Demonstrates data aggregation with different modes
+version: 1.0.0
+
+nodes:
+  - name: generate-items
+    type: template
+    config:
+      template: |
+        [
+          {"type": "user", "id": 1, "name": "Alice", "role": "admin"},
+          {"type": "user", "id": 2, "name": "Bob", "role": "developer"},
+          {"type": "product", "id": 101, "name": "Widget", "price": 29.99},
+          {"type": "product", "id": 102, "name": "Gadget", "price": 49.99}
+        ]
+      output_format: json
+
+  - name: aggregate-by-type
+    type: aggregate
+    config:
+      mode: object
+      key: "{{.type}}_{{.id}}"
+
+  - name: show-aggregated
+    type: template
+    config:
+      template: |
+        === Aggregated Data ===
+        Total items: {{.count}}
+        
+        Aggregated by type and ID:
+        {{range $key, $value := .data}}
+        - {{$key}}: {{$value.name}} ({{$value.type}})
+        {{end}}
+
+  - name: generate-configs
+    type: template
+    config:
+      template: |
+        [
+          {"service": "api", "port": 8080, "enabled": true},
+          {"service": "web", "port": 3000, "enabled": true},
+          {"database": {"host": "localhost", "port": 5432}}
+        ]
+      output_format: json
+
+  - name: merge-configs
+    type: aggregate
+    config:
+      mode: merge
+
+  - name: show-merged
+    type: template
+    config:
+      template: |
+        === Merged Configuration ===
+        Items merged: {{.count}}
+        
+        Final configuration:
+        - API Service: port {{.data.service}} (enabled: {{.data.enabled}})
+        - Database: {{.data.database.host}}:{{.data.database.port}}
+
+connections:
+  - from: generate-items
+    to: aggregate-by-type
+    
+  - from: aggregate-by-type
+    to: show-aggregated
+    
+  - from: generate-configs
+    to: merge-configs
+    
+  - from: merge-configs
+    to: show-merged
+
+start: generate-items

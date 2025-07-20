@@ -1,0 +1,75 @@
+name: validate-invalid-data
+description: Demonstrates JSON Schema validation with invalid data
+version: 1.0.0
+
+nodes:
+  - name: create-invalid-user
+    type: template
+    config:
+      template: |
+        {
+          "username": "a",
+          "email": "not-an-email",
+          "profile": {
+            "fullName": "",
+            "age": 150
+          },
+          "accountType": "super"
+        }
+      output_format: json
+
+  - name: validate-user
+    type: validate
+    config:
+      schema:
+        type: object
+        properties:
+          id:
+            type: integer
+            minimum: 1
+          username:
+            type: string
+            pattern: "^[a-z0-9_]{3,20}$"
+          email:
+            type: string
+            format: email
+          profile:
+            type: object
+            properties:
+              fullName:
+                type: string
+                minLength: 1
+              age:
+                type: integer
+                minimum: 13
+                maximum: 120
+            required: ["fullName", "age"]
+          accountType:
+            type: string
+            enum: ["free", "basic", "premium", "enterprise"]
+        required: ["id", "username", "email", "profile", "accountType"]
+      fail_on_error: false
+
+  - name: show-errors
+    type: template
+    config:
+      template: |
+        Validation Result: {{if .valid}}✅ PASSED{{else}}❌ FAILED{{end}}
+        
+        {{if not .valid}}
+        Found {{len .errors}} validation error(s):
+        {{range .errors}}
+        - {{.description}}
+          Field: {{.field}}
+          Type: {{.type}}
+        {{end}}
+        {{end}}
+
+connections:
+  - from: create-invalid-user
+    to: validate-user
+    
+  - from: validate-user
+    to: show-errors
+
+start: create-invalid-user

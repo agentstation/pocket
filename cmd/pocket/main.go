@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Version information set by ldflags
+// Version information set by ldflags.
 var (
 	version   = "dev"
 	commit    = "none"
@@ -16,6 +16,7 @@ var (
 	goVersion = "unknown"
 )
 
+//nolint:gocyclo // Main function handles multiple commands and their arguments
 func main() {
 	// Define flags
 	var (
@@ -35,6 +36,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  pocket [flags] <command> [arguments]\n\n")
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  run <file.yaml>    Execute a workflow from a YAML file\n")
+		fmt.Fprintf(os.Stderr, "  nodes              List available node types\n")
+		fmt.Fprintf(os.Stderr, "  nodes info <type>  Show detailed info about a node type\n")
+		fmt.Fprintf(os.Stderr, "  nodes docs         Generate node documentation\n")
 		fmt.Fprintf(os.Stderr, "  version            Show version information\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
@@ -43,6 +47,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  pocket run workflow.yaml --verbose\n")
 		fmt.Fprintf(os.Stderr, "  pocket run workflow.yaml --dry-run\n")
 		fmt.Fprintf(os.Stderr, "  pocket run workflow.yaml --store-type bounded --max-entries 1000\n")
+		fmt.Fprintf(os.Stderr, "  pocket nodes\n")
+		fmt.Fprintf(os.Stderr, "  pocket nodes info echo\n")
+		fmt.Fprintf(os.Stderr, "  pocket nodes docs\n")
 		fmt.Fprintf(os.Stderr, "  pocket version\n")
 	}
 
@@ -89,6 +96,43 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+	case "nodes":
+		// Handle nodes subcommands
+		var subCommand string
+		if len(args) > 1 {
+			subCommand = args[1]
+		}
+
+		switch subCommand {
+		case "info":
+			if len(args) < 3 {
+				fmt.Fprintf(os.Stderr, "Error: nodes info requires a node type\n")
+				fmt.Fprintf(os.Stderr, "Usage: pocket nodes info <type>\n")
+				os.Exit(1)
+			}
+			if err := runNodesInfo(args[2]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		case "docs":
+			// Generate documentation
+			config := &DocsConfig{
+				Format: "markdown",
+			}
+			if err := runGenerateDocs(config); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			// List all nodes
+			config := &NodesConfig{
+				Format: "table",
+			}
+			if err := runNodesList(config); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Error: unknown command '%s'\n", command)
 		flag.Usage()
@@ -105,7 +149,7 @@ func printVersion() {
 	}
 }
 
-// expandPath expands ~ to home directory
+// expandPath expands ~ to home directory.
 func expandPath(path string) (string, error) {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()

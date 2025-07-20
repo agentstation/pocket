@@ -1,0 +1,51 @@
+name: conditional-routing
+description: Demonstrates conditional routing based on data
+version: 1.0.0
+
+nodes:
+  - name: generate-score
+    type: transform
+    config: {}
+
+  - name: check-score
+    type: conditional
+    config:
+      conditions:
+        - if: "{{gt .score 0.8}}"
+          then: "high-score"
+        - if: "{{gt .score 0.5}}"
+          then: "medium-score"
+      else: "low-score"
+
+  - name: high-handler
+    type: echo
+    config:
+      message: "Excellent! High score achieved!"
+
+  - name: medium-handler
+    type: echo
+    config:
+      message: "Good job! Medium score achieved."
+
+  - name: low-handler
+    type: echo
+    config:
+      message: "Keep trying! Low score."
+
+connections:
+  - from: generate-score
+    to: check-score
+    
+  - from: check-score
+    to: high-handler
+    action: high-score
+    
+  - from: check-score
+    to: medium-handler
+    action: medium-score
+    
+  - from: check-score
+    to: low-handler
+    action: low-score
+
+start: generate-score
