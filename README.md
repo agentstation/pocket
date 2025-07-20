@@ -25,8 +25,24 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 
 ## Installation
 
+### As a Library
+
 ```bash
 go get github.com/agentstation/pocket
+```
+
+### As a CLI Tool (Experimental)
+
+> **Note**: The CLI feature is experimental and the YAML format may change in future versions.
+
+```bash
+# Install from source
+go install github.com/agentstation/pocket/cmd/pocket@latest
+
+# Or clone and build
+git clone https://github.com/agentstation/pocket.git
+cd pocket
+make build
 ```
 
 ## Quick Start
@@ -231,6 +247,49 @@ planNode.Connect("done", think)
 - **[YAML Integration](docs/advanced/YAML_INTEGRATION.md)** - Declarative workflows
 - **[Custom Nodes](docs/advanced/CUSTOM_NODES.md)** - Extend the framework
 - **[Performance](docs/advanced/PERFORMANCE.md)** - Optimization guide
+
+## CLI (Experimental)
+
+> **⚠️ Experimental Feature**: The CLI and YAML workflow format are experimental and subject to change.
+
+Run workflows from YAML files:
+
+```bash
+# Run a workflow
+pocket run workflow.yaml
+
+# With verbose output
+pocket run workflow.yaml --verbose
+
+# Validate without executing
+pocket run workflow.yaml --dry-run
+```
+
+Example workflow (`hello.yaml`):
+```yaml
+name: hello-world
+description: My first Pocket workflow
+version: "1.0.0"
+start: greet
+
+nodes:
+  - name: greet
+    type: echo
+    config:
+      message: "Hello, Pocket!"
+
+  - name: complete
+    type: echo
+    config:
+      message: "Workflow complete!"
+
+connections:
+  - from: greet
+    to: complete
+    action: default
+```
+
+See [CLI examples](examples/cli/) for more workflow examples and [CLI documentation](docs/advanced/CLI.md) for detailed information.
 
 ## Testing
 

@@ -52,5 +52,8 @@ examples/*/[!.]?*
 /workflow
 /yaml
 
+# CLI binary build directory
+/bin/
+
 # Temporary scripts
 *.sh

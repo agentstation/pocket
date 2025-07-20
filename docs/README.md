@@ -37,6 +37,11 @@ Deep dives into advanced features and customization.
 - [**Performance Optimization**](advanced/PERFORMANCE.md) - Benchmarking and optimization techniques
 - [**Custom Nodes**](advanced/CUSTOM_NODES.md) - Implementing custom node types
 
+### 🧪 Experimental Features
+Features under active development - APIs may change.
+
+- [**CLI and YAML Workflows**](advanced/CLI.md) - Define and run workflows from YAML files (experimental)
+
 ### 📋 Reference
 Detailed reference documentation.
 

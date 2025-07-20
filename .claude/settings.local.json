@@ -27,7 +27,10 @@
       "Bash(cp:*)",
       "Bash(make lint:*)",
       "Bash(make test:*)",
-      "Bash(go list:*)"
+      "Bash(go list:*)",
+      "Bash(./bin/pocket run:*)",
+      "Bash(make:*)",
+      "Bash(./bin/pocket:*)"
     ],
     "deny": []
   }

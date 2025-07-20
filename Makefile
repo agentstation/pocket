@@ -1,7 +1,16 @@
-.PHONY: all test lint fmt clean coverage bench install-tools generate help install-devbox devbox-update devbox
+.PHONY: all test lint fmt clean coverage bench install-tools generate help install-devbox devbox-update devbox build build-all install
+
+# Build variables
+VERSION ?= dev
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GO_VERSION := $(shell go version | cut -d ' ' -f 3)
+
+# Build flags
+LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILD_DATE) -X main.goVersion=$(GO_VERSION)"
 
 # Default target
-all: test lint generate
+all: test lint generate build
 
 # Run tests
 test:
@@ -34,6 +43,7 @@ fmt:
 clean:
 	@echo "Cleaning..."
 	@go clean -cache -testcache
+	@rm -rf bin/
 
 # Generate coverage report
 coverage:
@@ -75,6 +85,33 @@ devbox:
 	@echo "Starting devbox shell..."
 	@devbox shell
 
+# Build the pocket binary
+build:
+	@echo "Building pocket binary..."
+	@mkdir -p bin
+	@go build $(LDFLAGS) -o bin/pocket ./cmd/pocket
+	@echo "Binary built: bin/pocket"
+
+# Build for all platforms
+build-all:
+	@echo "Building for all platforms..."
+	@mkdir -p bin
+	@echo "  → Darwin AMD64"
+	@GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/pocket-darwin-amd64 ./cmd/pocket
+	@echo "  → Darwin ARM64"
+	@GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/pocket-darwin-arm64 ./cmd/pocket
+	@echo "  → Linux AMD64"
+	@GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/pocket-linux-amd64 ./cmd/pocket
+	@echo "  → Windows AMD64"
+	@GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o bin/pocket-windows-amd64.exe ./cmd/pocket
+	@echo "All binaries built in bin/"
+
+# Install the binary to GOPATH/bin
+install: build
+	@echo "Installing pocket to $(GOPATH)/bin..."
+	@cp bin/pocket $(GOPATH)/bin/pocket
+	@echo "Installed successfully!"
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -86,6 +123,9 @@ help:
 	@echo "  make coverage      - Generate coverage report"
 	@echo "  make bench         - Run benchmarks"
 	@echo "  make generate      - Generate documentation"
+	@echo "  make build         - Build pocket binary"
+	@echo "  make build-all     - Build for all platforms"
+	@echo "  make install       - Install pocket binary to GOPATH/bin"
 	@echo "  make install-tools - Install development tools"
 	@echo "  make install-devbox - Install devbox"
 	@echo "  make devbox-update - Update devbox packages"

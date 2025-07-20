@@ -1,0 +1,51 @@
+name: router-example
+description: Demonstrates routing between nodes
+version: "1.0.0"
+start: input
+
+nodes:
+  - name: input
+    type: echo
+    config:
+      message: "Processing input..."
+      
+  - name: router
+    type: router
+    config:
+      default_route: "path-a"
+      
+  - name: path-a
+    type: echo
+    config:
+      message: "Taking path A"
+      
+  - name: path-b
+    type: echo
+    config:
+      message: "Taking path B"
+      
+  - name: final
+    type: echo
+    config:
+      message: "All paths lead here!"
+
+connections:
+  - from: input
+    to: router
+    action: default
+    
+  - from: router
+    to: path-a
+    action: path-a
+    
+  - from: router
+    to: path-b
+    action: path-b
+    
+  - from: path-a
+    to: final
+    action: default
+    
+  - from: path-b
+    to: final
+    action: default

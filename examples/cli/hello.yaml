@@ -1,0 +1,27 @@
+name: hello-world
+description: A simple hello world workflow
+version: "1.0.0"
+start: greet
+
+nodes:
+  - name: greet
+    type: echo
+    config:
+      message: "Hello, World! Welcome to Pocket workflows!"
+    
+  - name: transform-greeting
+    type: transform
+    
+  - name: add-timestamp
+    type: echo
+    config:
+      message: "Workflow completed!"
+
+connections:
+  - from: greet
+    to: transform-greeting
+    action: default
+    
+  - from: transform-greeting
+    to: add-timestamp
+    action: default
