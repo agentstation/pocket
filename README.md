@@ -67,7 +67,7 @@ Every Pocket node follows a three-phase lifecycle:
 
 ```mermaid
 graph LR
-    Prep[Read State] --> Exec[Pure Logic] --> Post[Write & Route]
+    Prep["Step 1: Prep<br/>Read State"] --> Exec["Step 2: Exec<br/>Pure Logic"] --> Post["Step 3: Post<br/>Write & Route"]
 ```
 
 - **Prep**: Read-only state access, input validation
