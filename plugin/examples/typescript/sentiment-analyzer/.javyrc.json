@@ -1,0 +1,11 @@
+{
+  "name": "sentiment-analyzer",
+  "input": "dist/plugin.js",
+  "output": "plugin.wasm",
+  "wit": false,
+  "options": {
+    "simd": false,
+    "dynamicMemory": true,
+    "importMemory": false
+  }
+}

@@ -146,6 +146,7 @@ result, err := graph.Run(ctx, user)
 - **Node as Interface**: Graphs implement the Node interface, enabling natural composition
 - **Graph as Node**: Nest workflows within workflows seamlessly
 - **Custom Nodes**: Implement your own node types
+- **Plugin System**: Extend with WebAssembly plugins in any language
 
 [Learn about the architecture →](docs/concepts/ARCHITECTURE.md)
 
@@ -206,10 +207,48 @@ nodes:
         return result
 ```
 
-### Future: WebAssembly Plugins
-Coming soon - write plugins in TypeScript, Rust, or any language that compiles to WASM.
+### WebAssembly Plugins
 
-[Plugin documentation →](docs/plugins/)
+Extend Pocket with plugins written in any language that compiles to WebAssembly:
+
+```yaml
+# TypeScript plugin
+- name: sentiment-analyzer
+  type: sentiment
+  config:
+    threshold: 0.7
+
+# Rust plugin  
+- name: word-counter
+  type: word-count
+  config:
+    min_word_length: 3
+    
+# Go plugin
+- name: json-transformer
+  type: json-transform
+  config:
+    transforms:
+      flatten:
+        type: flatten
+        parameters:
+          separator: "."
+```
+
+Install and manage plugins with the CLI:
+
+```bash
+# Install a plugin
+pocket-plugins install ./my-plugin
+
+# List installed plugins
+pocket-plugins list
+
+# Get plugin info
+pocket-plugins info sentiment-analyzer
+```
+
+[Plugin documentation →](docs/PLUGINS.md) | [Create your own plugin →](docs/PLUGIN_SDK_API.md)
 
 ## Examples
 

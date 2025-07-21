@@ -296,6 +296,32 @@ let globalPlugin: Plugin | null = null;
  */
 export function initializePlugin(plugin: Plugin): void {
   globalPlugin = plugin;
+  
+  // Make plugin available for Javy runtime
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any).__plugin = plugin;
+    
+    // Export functions that Javy can call
+    (globalThis as any).__pocket_call = (requestJson: string) => {
+      try {
+        const request = JSON.parse(requestJson);
+        // Use Promise.resolve to handle async operations synchronously for Javy
+        let result: any;
+        plugin._call(request).then(r => result = r);
+        // Javy requires synchronous execution, so we need to handle this differently
+        return JSON.stringify(result || { success: false, error: 'Async not supported in Javy' });
+      } catch (error) {
+        return JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    };
+    
+    (globalThis as any).__pocket_metadata = () => {
+      return JSON.stringify(plugin.metadata);
+    };
+  }
 }
 
 // Store implementation (placeholder - actual implementation depends on host bindings)

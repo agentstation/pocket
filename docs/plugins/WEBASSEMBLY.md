@@ -1,10 +1,10 @@
-# WebAssembly Plugin Development (Coming Soon)
+# WebAssembly Plugin Development
 
-> **Note**: WebAssembly plugin support is planned for Phase 3 of the Pocket plugin system. This document outlines the planned features and development workflow.
+> **Note**: WebAssembly plugin support has been implemented in Phase 3 of the Pocket plugin system. This document describes the features and development workflow.
 
 ## Overview
 
-WebAssembly (WASM) plugins will enable developers to write Pocket nodes in any language that compiles to WebAssembly, including:
+WebAssembly (WASM) plugins enable developers to write Pocket nodes in any language that compiles to WebAssembly, including:
 
 - TypeScript/JavaScript
 - Rust
@@ -13,7 +13,7 @@ WebAssembly (WASM) plugins will enable developers to write Pocket nodes in any l
 - AssemblyScript
 - And many more
 
-## Planned Features
+## Features
 
 ### 1. Language Support
 
@@ -47,7 +47,7 @@ graph TD
 
 ### 3. Plugin SDK
 
-The planned SDK will provide:
+The SDK provides:
 
 ```typescript
 // @pocket/plugin-sdk
@@ -394,7 +394,7 @@ pocket plugins validate ./my-plugin/
 
 Want to help build WebAssembly support? Here's how:
 
-1. Review the [PLUGIN_SPEC.md](../../PLUGIN_SPEC.md)
+1. Review the [Plugin SDK API Reference](../PLUGIN_SDK_API.md)
 2. Join discussions in GitHub Issues
 3. Contribute to the design process
 4. Help build the runtime when development begins

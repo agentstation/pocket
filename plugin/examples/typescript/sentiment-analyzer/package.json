@@ -4,11 +4,14 @@
   "description": "Sentiment analysis plugin for Pocket",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "build:wasm": "javy compile dist/bundle.js -o plugin.wasm",
-    "bundle": "esbuild dist/index.js --bundle --platform=neutral --outfile=dist/bundle.js",
-    "build:all": "npm run build && npm run bundle && npm run build:wasm",
-    "clean": "rm -rf dist plugin.wasm"
+    "build": "node build.js",
+    "build:ts": "tsc",
+    "build:bundle": "node build.js",
+    "build:wasm": "javy compile dist/plugin.js -o plugin.wasm",
+    "build:all": "npm run build && npm run build:wasm",
+    "clean": "rm -rf dist plugin.wasm",
+    "test": "jest",
+    "check-javy": "javy --version || echo 'Javy not installed. Run: npm install -g @shopify/javy'"
   },
   "dependencies": {
     "@pocket/plugin-sdk": "file:../../../sdk/typescript"
