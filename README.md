@@ -38,9 +38,6 @@ go get github.com/agentstation/pocket
 # Install the Pocket CLI
 go install github.com/agentstation/pocket/cmd/pocket@latest
 
-# Install the Plugin Manager (optional)
-go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
-
 # Or clone and build from source
 git clone https://github.com/agentstation/pocket.git
 cd pocket
@@ -240,13 +237,13 @@ Install and manage plugins with the CLI:
 
 ```bash
 # Install a plugin
-pocket-plugins install ./my-plugin
+pocket plugins install ./my-plugin.wasm
 
 # List installed plugins
-pocket-plugins list
+pocket plugins list
 
 # Get plugin info
-pocket-plugins info sentiment-analyzer
+pocket plugins info sentiment-analyzer
 ```
 
 [Plugin documentation →](docs/PLUGINS.md) | [Create your own plugin →](docs/PLUGIN_SDK_API.md)
@@ -407,14 +404,11 @@ end
 Build plugins in any language that compiles to WASM:
 
 ```bash
-# Install the plugin CLI
-go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
-
-# Discover and manage plugins
-pocket-plugins list                  # List installed plugins
-pocket-plugins info <plugin>         # Show plugin details
-pocket-plugins install <path>        # Install a plugin
-pocket-plugins uninstall <plugin>    # Remove a plugin
+# Plugin management is built into the main CLI
+pocket plugins list                  # List installed plugins
+pocket plugins info <plugin>         # Show plugin details
+pocket plugins install <path>        # Install a plugin
+pocket plugins remove <plugin>       # Remove a plugin
 ```
 
 Example WASM plugin structure:
