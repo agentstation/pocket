@@ -67,6 +67,9 @@ func RegisterAll(loader *yaml.Loader, verbose bool) *Registry {
 	// Register flow nodes
 	registry.Register(&ParallelNodeBuilder{Verbose: verbose})
 
+	// Register script nodes
+	registry.Register(&LuaNodeBuilder{Verbose: verbose})
+
 	// Register all with YAML loader with validation
 	for _, builder := range registry.All() {
 		meta := builder.Metadata()

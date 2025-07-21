@@ -41,7 +41,9 @@
       "Bash(chmod:*)",
       "Bash(cat:*)",
       "Bash(tee:*)",
-      "Bash(godot:*)"
+      "Bash(godot:*)",
+      "Bash(go doc:*)",
+      "Bash(go vet:*)"
     ],
     "deny": []
   },

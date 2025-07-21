@@ -42,6 +42,7 @@ Deep dives into advanced features and customization.
 Features under active development - APIs may change.
 
 - [**CLI and YAML Workflows**](advanced/CLI.md) - Define and run workflows from YAML files (experimental)
+- [**Plugin System**](plugins/) - Extend Pocket with custom nodes using built-in types, Lua scripts, or future WebAssembly plugins
 
 ### 📋 Reference
 Detailed reference documentation.
