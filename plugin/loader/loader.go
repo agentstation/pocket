@@ -23,11 +23,8 @@ func DefaultPluginPaths() []string {
 		paths = append(paths, filepath.Join(home, ".pocket", "plugins"))
 	}
 
-	// System-wide location
-	paths = append(paths, "/usr/local/share/pocket/plugins")
-
-	// Current directory
-	paths = append(paths, "./plugins")
+	// System-wide location and current directory
+	paths = append(paths, "/usr/local/share/pocket/plugins", "./plugins")
 
 	return paths
 }
@@ -62,7 +59,7 @@ func (l *loader) Discover(paths ...string) ([]plugin.Metadata, error) {
 		// Walk the directory
 		err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Skip errors
+				return nil //nolint:nilerr // Skip errors intentionally
 			}
 
 			// Look for manifest files
@@ -150,6 +147,8 @@ func (l *loader) Load(ctx context.Context, path string) (plugin.Plugin, error) {
 }
 
 // LoadFromMetadata loads a plugin using its metadata.
+//
+//nolint:gocritic // hugeParam: metadata is copied intentionally for safety
 func (l *loader) LoadFromMetadata(ctx context.Context, metadata plugin.Metadata) (plugin.Plugin, error) {
 	// Validate metadata
 	if err := validateMetadata(metadata); err != nil {
@@ -179,30 +178,26 @@ func (l *loader) LoadFromMetadata(ctx context.Context, metadata plugin.Metadata)
 	}
 
 	// Read WASM bytes
-	wasmBytes, err := os.ReadFile(wasmPath)
+	wasmBytes, err := os.ReadFile(wasmPath) // nolint:gosec // Path is validated
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM binary: %w", err)
 	}
 
 	// Create WASM plugin
-	return wasm.NewPlugin(ctx, wasmBytes, metadata)
+	return wasm.NewPlugin(ctx, wasmBytes, &metadata)
 }
 
 // loadManifest loads a plugin manifest from a file.
 func (l *loader) loadManifest(path string) (plugin.Metadata, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // nolint:gosec // Path is from manifest
 	if err != nil {
 		return plugin.Metadata{}, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
 	var metadata plugin.Metadata
 
-	if strings.HasSuffix(path, ".yaml") {
-		err = yaml.Unmarshal(data, &metadata)
-	} else {
-		// JSON is also valid YAML
-		err = yaml.Unmarshal(data, &metadata)
-	}
+	// YAML parser can handle both YAML and JSON
+	err = yaml.Unmarshal(data, &metadata)
 
 	if err != nil {
 		return plugin.Metadata{}, fmt.Errorf("failed to parse manifest: %w", err)
@@ -217,6 +212,8 @@ func (l *loader) loadManifest(path string) (plugin.Metadata, error) {
 }
 
 // validateMetadata validates plugin metadata.
+//
+//nolint:gocritic // hugeParam: metadata is copied intentionally for validation
 func validateMetadata(metadata plugin.Metadata) error {
 	if metadata.Name == "" {
 		return fmt.Errorf("plugin name is required")

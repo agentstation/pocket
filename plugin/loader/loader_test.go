@@ -41,10 +41,10 @@ func TestDiscover(t *testing.T) {
 	plugin1Dir := filepath.Join(pluginDir, "plugin1")
 	plugin2Dir := filepath.Join(pluginDir, "plugin2")
 
-	if err := os.MkdirAll(plugin1Dir, 0755); err != nil {
+	if err := os.MkdirAll(plugin1Dir, 0o755); err != nil {
 		t.Fatalf("Failed to create plugin1 dir: %v", err)
 	}
-	if err := os.MkdirAll(plugin2Dir, 0755); err != nil {
+	if err := os.MkdirAll(plugin2Dir, 0o755); err != nil {
 		t.Fatalf("Failed to create plugin2 dir: %v", err)
 	}
 
@@ -70,7 +70,7 @@ func TestDiscover(t *testing.T) {
 		t.Fatalf("Failed to marshal manifest1: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(plugin1Dir, "manifest.yaml"), manifest1Data, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(plugin1Dir, "manifest.yaml"), manifest1Data, 0o644); err != nil {
 		t.Fatalf("Failed to write manifest1: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestDiscover(t *testing.T) {
 		t.Fatalf("Failed to marshal invalid manifest: %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(plugin2Dir, "manifest.yaml"), invalidData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(plugin2Dir, "manifest.yaml"), invalidData, 0o644); err != nil {
 		t.Fatalf("Failed to write invalid manifest: %v", err)
 	}
 
@@ -133,13 +133,13 @@ func TestLoad(t *testing.T) {
 
 	// Test 1: Load from manifest file
 	manifestPath := filepath.Join(tmpDir, "manifest.yaml")
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
 		t.Fatalf("Failed to write manifest: %v", err)
 	}
 
 	// Create dummy WASM file
 	wasmPath := filepath.Join(tmpDir, "test.wasm")
-	if err := os.WriteFile(wasmPath, []byte{0x00, 0x61, 0x73, 0x6d}, 0644); err != nil {
+	if err := os.WriteFile(wasmPath, []byte{0x00, 0x61, 0x73, 0x6d}, 0o644); err != nil {
 		t.Fatalf("Failed to write WASM file: %v", err)
 	}
 
@@ -154,17 +154,17 @@ func TestLoad(t *testing.T) {
 
 	// Test 2: Load from directory
 	pluginDir := filepath.Join(tmpDir, "plugin-dir")
-	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("Failed to create plugin dir: %v", err)
 	}
 
 	manifestPath2 := filepath.Join(pluginDir, "manifest.yaml")
-	if err := os.WriteFile(manifestPath2, manifestData, 0644); err != nil {
+	if err := os.WriteFile(manifestPath2, manifestData, 0o644); err != nil {
 		t.Fatalf("Failed to write manifest: %v", err)
 	}
 
 	wasmPath2 := filepath.Join(pluginDir, "test.wasm")
-	if err := os.WriteFile(wasmPath2, []byte{0x00, 0x61, 0x73, 0x6d}, 0644); err != nil {
+	if err := os.WriteFile(wasmPath2, []byte{0x00, 0x61, 0x73, 0x6d}, 0o644); err != nil {
 		t.Fatalf("Failed to write WASM file: %v", err)
 	}
 
@@ -379,7 +379,7 @@ func TestLoadManifest(t *testing.T) {
 	}
 
 	yamlPath := filepath.Join(tmpDir, "manifest.yaml")
-	if err := os.WriteFile(yamlPath, yamlData, 0644); err != nil {
+	if err := os.WriteFile(yamlPath, yamlData, 0o644); err != nil {
 		t.Fatalf("Failed to write YAML manifest: %v", err)
 	}
 

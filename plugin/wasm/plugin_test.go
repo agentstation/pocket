@@ -39,7 +39,7 @@ func TestNewPlugin(t *testing.T) {
 
 	// This test will fail with our mock WASM bytes
 	// In a real implementation, we would need proper WASM bytes
-	_, err := NewPlugin(ctx, testWASM, metadata)
+	_, err := NewPlugin(ctx, testWASM, &metadata)
 	if err == nil {
 		t.Error("Expected error with mock WASM bytes, got nil")
 	}
@@ -104,13 +104,13 @@ func TestLoadPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal manifest: %v", err)
 	}
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
 		t.Fatalf("Failed to write manifest: %v", err)
 	}
 
 	// Write mock WASM file
 	wasmPath := filepath.Join(tmpDir, "test.wasm")
-	if err := os.WriteFile(wasmPath, testWASM, 0644); err != nil {
+	if err := os.WriteFile(wasmPath, testWASM, 0o644); err != nil {
 		t.Fatalf("Failed to write WASM file: %v", err)
 	}
 

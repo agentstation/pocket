@@ -18,10 +18,10 @@ type PluginNodeBuilder struct {
 }
 
 // NewPluginNodeBuilder creates a new builder for a specific node type in a plugin.
-func NewPluginNodeBuilder(p plugin.Plugin, nodeType plugin.NodeDefinition) *PluginNodeBuilder {
+func NewPluginNodeBuilder(p plugin.Plugin, nodeType *plugin.NodeDefinition) *PluginNodeBuilder {
 	return &PluginNodeBuilder{
 		plugin:   p,
-		nodeType: nodeType,
+		nodeType: *nodeType,
 	}
 }
 

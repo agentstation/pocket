@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -30,7 +31,7 @@ type wasmPlugin struct {
 }
 
 // NewPlugin creates a new WebAssembly plugin from bytes.
-func NewPlugin(ctx context.Context, wasmBytes []byte, metadata plugin.Metadata) (plugin.Plugin, error) {
+func NewPlugin(ctx context.Context, wasmBytes []byte, metadata *plugin.Metadata) (plugin.Plugin, error) {
 	// Create runtime with configuration
 	runtimeConfig := wazero.NewRuntimeConfig()
 
@@ -40,7 +41,11 @@ func NewPlugin(ctx context.Context, wasmBytes []byte, metadata plugin.Metadata) 
 		if err != nil {
 			return nil, fmt.Errorf("invalid memory limit: %w", err)
 		}
-		runtimeConfig = runtimeConfig.WithMemoryLimitPages(uint32(limit / 65536)) // 64KB pages
+		pages := limit / 65536 // 64KB pages
+		if pages > math.MaxUint32 {
+			pages = math.MaxUint32
+		}
+		runtimeConfig = runtimeConfig.WithMemoryLimitPages(uint32(pages)) //nolint:gosec // pages is bounded
 	}
 
 	// Create runtime
@@ -52,7 +57,7 @@ func NewPlugin(ctx context.Context, wasmBytes []byte, metadata plugin.Metadata) 
 	// Compile the module
 	compiled, err := r.CompileModule(ctx, wasmBytes)
 	if err != nil {
-		r.Close(ctx)
+		_ = r.Close(ctx)
 		return nil, fmt.Errorf("failed to compile WASM module: %w", err)
 	}
 
@@ -83,36 +88,36 @@ func NewPlugin(ctx context.Context, wasmBytes []byte, metadata plugin.Metadata) 
 	// Instantiate the module
 	module, err := r.InstantiateModule(ctx, compiled, moduleConfig)
 	if err != nil {
-		r.Close(ctx)
+		_ = r.Close(ctx)
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
 	}
 
 	// Get the main call function
 	callFunc := module.ExportedFunction("__pocket_call")
 	if callFunc == nil {
-		module.Close(ctx)
-		r.Close(ctx)
+		_ = module.Close(ctx)
+		_ = r.Close(ctx)
 		return nil, fmt.Errorf("plugin does not export required function: __pocket_call")
 	}
 
 	// Get memory exports for passing data
 	memory := module.ExportedMemory("memory")
 	if memory == nil {
-		module.Close(ctx)
-		r.Close(ctx)
+		_ = module.Close(ctx)
+		_ = r.Close(ctx)
 		return nil, fmt.Errorf("plugin does not export memory")
 	}
 
 	// Get allocation functions
 	allocFunc := module.ExportedFunction("__pocket_alloc")
 	if allocFunc == nil {
-		module.Close(ctx)
-		r.Close(ctx)
+		_ = module.Close(ctx)
+		_ = r.Close(ctx)
 		return nil, fmt.Errorf("plugin does not export required function: __pocket_alloc")
 	}
 
 	return &wasmPlugin{
-		metadata: metadata,
+		metadata: *metadata,
 		runtime:  r,
 		module:   module,
 		callFunc: callFunc,
@@ -142,13 +147,19 @@ func (p *wasmPlugin) Call(ctx context.Context, function string, input []byte) ([
 	freeFunc := p.module.ExportedFunction("__pocket_free")
 
 	// Allocate memory for input
-	inputLen := uint32(len(input))
+	if len(input) > math.MaxUint32 {
+		return nil, fmt.Errorf("input too large: %d bytes", len(input))
+	}
+	inputLen := uint32(len(input)) //nolint:gosec // length is checked above
 	results, err := allocFunc.Call(ctx, uint64(inputLen))
 	if err != nil {
 		return nil, fmt.Errorf("failed to allocate memory: %w", err)
 	}
 
-	inputPtr := uint32(results[0])
+	if results[0] > math.MaxUint32 {
+		return nil, fmt.Errorf("input pointer overflow")
+	}
+	inputPtr := uint32(results[0]) //nolint:gosec // pointer is checked above
 
 	// Write input to WASM memory
 	if !memory.Write(inputPtr, input) {
@@ -163,12 +174,15 @@ func (p *wasmPlugin) Call(ctx context.Context, function string, input []byte) ([
 
 	// Free input memory
 	if freeFunc != nil {
-		freeFunc.Call(ctx, uint64(inputPtr), uint64(inputLen))
+		_, _ = freeFunc.Call(ctx, uint64(inputPtr), uint64(inputLen))
 	}
 
 	// Read the result
-	resultPtr := uint32(results[0])
-	resultLen := uint32(results[1])
+	if results[0] > math.MaxUint32 || results[1] > math.MaxUint32 {
+		return nil, fmt.Errorf("result pointer/length overflow")
+	}
+	resultPtr := uint32(results[0]) //nolint:gosec // pointers are checked above
+	resultLen := uint32(results[1]) //nolint:gosec // pointers are checked above
 
 	if resultLen == 0 {
 		return nil, nil
@@ -181,7 +195,7 @@ func (p *wasmPlugin) Call(ctx context.Context, function string, input []byte) ([
 
 	// Free output memory
 	if freeFunc != nil {
-		freeFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
+		_, _ = freeFunc.Call(ctx, uint64(resultPtr), uint64(resultLen))
 	}
 
 	return output, nil
@@ -193,7 +207,7 @@ func (p *wasmPlugin) Close(ctx context.Context) error {
 	defer p.mu.Unlock()
 
 	if p.module != nil {
-		p.module.Close(ctx)
+		_ = p.module.Close(ctx)
 	}
 	if p.runtime != nil {
 		return p.runtime.Close(ctx)
@@ -205,11 +219,11 @@ func (p *wasmPlugin) Close(ctx context.Context) error {
 func LoadPlugin(ctx context.Context, path string) (plugin.Plugin, error) {
 	// Read manifest
 	manifestPath := filepath.Join(filepath.Dir(path), "manifest.yaml")
-	manifestData, err := os.ReadFile(manifestPath)
+	manifestData, err := os.ReadFile(manifestPath) // nolint:gosec // Path is constructed
 	if err != nil {
 		// Try JSON format
 		manifestPath = filepath.Join(filepath.Dir(path), "manifest.json")
-		manifestData, err = os.ReadFile(manifestPath)
+		manifestData, err = os.ReadFile(manifestPath) // nolint:gosec // Path is constructed
 		if err != nil {
 			return nil, fmt.Errorf("failed to read manifest: %w", err)
 		}
@@ -231,12 +245,12 @@ func LoadPlugin(ctx context.Context, path string) (plugin.Plugin, error) {
 
 	// Read WASM binary
 	wasmPath := filepath.Join(filepath.Dir(path), metadata.Binary)
-	wasmBytes, err := os.ReadFile(wasmPath)
+	wasmBytes, err := os.ReadFile(wasmPath) // nolint:gosec // Path is validated
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM binary: %w", err)
 	}
 
-	return NewPlugin(ctx, wasmBytes, metadata)
+	return NewPlugin(ctx, wasmBytes, &metadata)
 }
 
 // parseMemoryLimit parses a memory limit string (e.g., "100MB", "1GB").
