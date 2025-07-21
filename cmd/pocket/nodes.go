@@ -6,9 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	goyaml "github.com/goccy/go-yaml"
+
 	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
-	goyaml "github.com/goccy/go-yaml"
 )
 
 // NodesConfig holds configuration for the nodes command.
@@ -128,6 +129,7 @@ func getBuiltinNodes() []builtin.NodeMetadata {
 		(&builtin.FileNodeBuilder{}).Metadata(),
 		(&builtin.ExecNodeBuilder{}).Metadata(),
 		(&builtin.ParallelNodeBuilder{}).Metadata(),
+		(&builtin.LuaNodeBuilder{}).Metadata(),
 	}
 }
 

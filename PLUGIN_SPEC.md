@@ -649,12 +649,101 @@ return result
 
 ### WebAssembly Plugins
 
+WebAssembly plugins allow developers to write custom nodes in languages like TypeScript, JavaScript, Rust, or Go, compile them to WASM, and run them securely within Pocket.
+
+#### Development Workflow
+
+```mermaid
+graph LR
+    A[TypeScript/JS Code] --> B[Bundle with esbuild]
+    B --> C[Compile to WASM]
+    C --> D[Package with manifest]
+    D --> E[Deploy to ~/.pocket/plugins]
+```
+
+#### TypeScript Plugin Example
+
+```typescript
+// src/sentiment-analyzer.ts
+import { PluginNode, NodeConfig } from '@pocket/plugin-sdk';
+
+export class SentimentAnalyzer extends PluginNode {
+  async exec(input: any): Promise<any> {
+    const text = input.text || '';
+    
+    // Simple sentiment analysis
+    const positiveWords = ['good', 'great', 'excellent', 'amazing'];
+    const negativeWords = ['bad', 'terrible', 'awful', 'horrible'];
+    
+    let score = 0;
+    const words = text.toLowerCase().split(/\s+/);
+    
+    for (const word of words) {
+      if (positiveWords.includes(word)) score++;
+      if (negativeWords.includes(word)) score--;
+    }
+    
+    return {
+      text,
+      sentiment: score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral',
+      score
+    };
+  }
+  
+  getMetadata() {
+    return {
+      type: 'sentiment',
+      category: 'ai',
+      description: 'Simple sentiment analysis',
+      configSchema: {
+        type: 'object',
+        properties: {
+          threshold: { type: 'number', default: 0 }
+        }
+      }
+    };
+  }
+}
+```
+
+#### Build Process
+
+```bash
+# 1. Bundle TypeScript to JavaScript
+esbuild src/sentiment-analyzer.ts --bundle --format=esm --outfile=dist/plugin.js
+
+# 2. Compile to WebAssembly (using Javy or similar)
+javy compile dist/plugin.js -o dist/plugin.wasm
+
+# 3. Create manifest
+cat > manifest.yaml << EOF
+name: sentiment-analyzer
+version: 1.0.0
+description: Simple sentiment analysis plugin
+binary: plugin.wasm
+nodes:
+  - type: sentiment
+    category: ai
+    description: Analyze text sentiment
+EOF
+
+# 4. Package plugin
+tar -czf sentiment-analyzer.tar.gz manifest.yaml dist/plugin.wasm
+```
+
+#### Plugin Manifest
+
 ```yaml
 # Plugin manifest: ~/.pocket/plugins/custom-llm/manifest.yaml
 name: custom-llm
 version: 1.0.0
 description: Custom LLM integration
+author: Your Name
+license: MIT
 binary: custom-llm.wasm
+runtime: wasm  # or 'rpc' for RPC plugins
+
+# Node definitions
 nodes:
   - type: custom-llm
     category: ai
@@ -664,11 +753,27 @@ nodes:
       properties:
         model:
           type: string
+          default: gpt-3.5-turbo
         temperature:
           type: number
+          default: 0.7
+          minimum: 0
+          maximum: 2
+
+# Plugin requirements
+requirements:
+  pocket: ">=0.5.0"
+  memory: 100MB
+  
+# Security permissions
+permissions:
+  - network: ["api.openai.com"]
+  - env: ["OPENAI_API_KEY"]
 ```
 
 ### RPC Plugins
+
+RPC plugins run as separate processes and communicate via gRPC, suitable for plugins that need full system access or are written in languages without WASM support.
 
 ```yaml
 # RPC plugin configuration
@@ -677,6 +782,7 @@ plugins:
     - name: enterprise-db
       path: /usr/local/bin/pocket-enterprise-db
       checksum: sha256:abc123...
+      protocol: grpc
       nodes:
         - type: enterprise-query
           category: database
@@ -728,34 +834,49 @@ plugins:
 ### Phase 2 Tasks (Near-term)
 
 1. **Lua Integration**
-   - [ ] Add Shopify/go-lua dependency
-   - [ ] Implement Lua script node
-   - [ ] Create sandboxed Lua environment
-   - [ ] Add JSON support to Lua
-   - [ ] Add string utilities to Lua
-   - [ ] Implement script file loading
-   - [ ] Add Lua script examples
+   - [x] Add Shopify/go-lua dependency
+   - [x] Implement Lua script node
+   - [x] Create sandboxed Lua environment
+   - [x] Add JSON support to Lua (json_encode, json_decode)
+   - [x] Add string utilities to Lua (str_trim, str_split, str_contains, str_replace)
+   - [x] Implement script file loading
+   - [x] Add Lua script examples
+   - [x] Add timeout support for scripts
+   - [x] Add type_of function for type checking
 
 2. **Script Management**
    - [ ] Add script discovery from ~/.pocket/scripts
-   - [ ] Implement script validation
+   - [ ] Implement script validation command
    - [ ] Add script debugging support
 
 ### Phase 3 Tasks (Future)
 
 1. **WASM Plugin Support**
-   - [ ] Integrate knqyf263/go-plugin
-   - [ ] Define protobuf interfaces
-   - [ ] Implement WASM loader
-   - [ ] Add plugin discovery
-   - [ ] Create example WASM plugin
+   - [ ] Integrate knqyf263/go-plugin or wapc/wapc-go
+   - [ ] Define plugin SDK interfaces
+   - [ ] Implement WASM runtime and loader
+   - [ ] Add plugin discovery from ~/.pocket/plugins
+   - [ ] Create TypeScript/JavaScript SDK (@pocket/plugin-sdk)
+   - [ ] Add support for Javy (JS to WASM compiler)
+   - [ ] Implement security sandboxing and permissions
+   - [ ] Create example plugins (TypeScript, Rust, Go)
+   - [ ] Add plugin packaging and distribution tools
 
 2. **RPC Plugin Support**
    - [ ] Integrate hashicorp/go-plugin
-   - [ ] Define RPC interfaces
-   - [ ] Implement plugin lifecycle
+   - [ ] Define gRPC interfaces and protobuf schemas
+   - [ ] Implement plugin lifecycle management
    - [ ] Add security/checksum validation
-   - [ ] Create example RPC plugin
+   - [ ] Support for plugin hot-reloading
+   - [ ] Create example RPC plugins
+   - [ ] Add plugin health checks and monitoring
+
+3. **Plugin CLI Commands**
+   - [ ] `pocket plugins list` - List installed plugins
+   - [ ] `pocket plugins install <url>` - Install plugin from URL
+   - [ ] `pocket plugins remove <name>` - Remove installed plugin
+   - [ ] `pocket plugins info <name>` - Show plugin details
+   - [ ] `pocket plugins validate <path>` - Validate plugin manifest
 
 ## Testing Strategy
 

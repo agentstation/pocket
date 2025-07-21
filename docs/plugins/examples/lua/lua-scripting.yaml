@@ -1,0 +1,101 @@
+name: lua-scripting-example
+description: Example workflow demonstrating Lua scripting capabilities
+
+store:
+  max_entries: 100
+  ttl: 300
+
+nodes:
+  - name: start
+    type: echo
+    config:
+      message: "Starting Lua scripting demo"
+    successors:
+      - action: default
+        target: transform-data
+
+  - name: transform-data
+    type: lua
+    config:
+      script: |
+        -- Transform input data using Lua
+        local result = {
+          timestamp = os.time(),
+          processed = true,
+          items = {}
+        }
+        
+        -- Process some sample data
+        local data = {
+          {name = "apple", price = 1.50},
+          {name = "banana", price = 0.75},
+          {name = "orange", price = 2.00}
+        }
+        
+        -- Calculate total and apply discount
+        local total = 0
+        for i, item in ipairs(data) do
+          local discounted = item.price * 0.9  -- 10% discount
+          table.insert(result.items, {
+            name = str_trim(item.name),
+            original_price = item.price,
+            discounted_price = discounted
+          })
+          total = total + discounted
+        end
+        
+        result.total = total
+        result.summary = string.format("Processed %d items, total: $%.2f", #data, total)
+        
+        return result
+    successors:
+      - action: default
+        target: format-json
+
+  - name: format-json
+    type: lua
+    config:
+      script: |
+        -- Format the result as pretty JSON
+        local json_str = json_encode(input)
+        
+        -- Parse it back to demonstrate json_decode
+        local parsed = json_decode(json_str)
+        
+        return {
+          json_output = json_str,
+          item_count = #parsed.items,
+          contains_apple = str_contains(json_str, "apple")
+        }
+    successors:
+      - action: default
+        target: validate-result
+
+  - name: validate-result
+    type: lua
+    config:
+      script: |
+        -- Validate the results
+        if input.item_count ~= 3 then
+          error("Expected 3 items, got " .. input.item_count)
+        end
+        
+        if not input.contains_apple then
+          error("Expected to find 'apple' in the output")
+        end
+        
+        return {
+          status = "success",
+          message = "All validations passed!",
+          final_output = input.json_output
+        }
+    successors:
+      - action: default
+        target: end
+
+  - name: end
+    type: echo
+    config:
+      message: "Lua scripting demo completed successfully!"
+
+start: start

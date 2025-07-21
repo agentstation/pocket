@@ -179,6 +179,38 @@ result, err := pocket.Pipeline(ctx, nodes, store, input)
 - **Timeouts**: Prevent hanging operations
 
 [Error handling guide →](docs/guides/ERROR_HANDLING.md)
+## 🧪 Plugin System (Experimental)
+
+Pocket includes a powerful plugin system that enables extending the framework with custom nodes:
+
+### Built-in Nodes
+14 production-ready nodes included:
+- **Core**: echo, delay, router, conditional
+- **Data**: transform, template, jsonpath, validate, aggregate  
+- **I/O**: http, file, exec
+- **Flow**: parallel, lua
+
+### Lua Scripting
+Write custom logic in sandboxed Lua scripts:
+
+```yaml
+nodes:
+  - name: process
+    type: lua
+    config:
+      script: |
+        local result = {
+          status = input.value > 0.5 and "high" or "low",
+          processed = true
+        }
+        return result
+```
+
+### Future: WebAssembly Plugins
+Coming soon - write plugins in TypeScript, Rust, or any language that compiles to WASM.
+
+[Plugin documentation →](docs/plugins/)
+
 ## Examples
 
 ### Basic Workflow

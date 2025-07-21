@@ -17,10 +17,12 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/yaml"
+	"github.com/Shopify/go-lua"
 	"github.com/ohler55/ojg/jp"
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/agentstation/pocket"
+	"github.com/agentstation/pocket/yaml"
 )
 
 // EchoNodeBuilder builds echo nodes.
@@ -2387,5 +2389,391 @@ func executeTask(_ context.Context, task struct {
 			"operation": task.Operation,
 			"input":     input,
 		}, nil
+	}
+}
+
+// LuaNodeBuilder builds Lua script nodes.
+type LuaNodeBuilder struct {
+	Verbose bool
+}
+
+// Metadata returns metadata for the Lua node.
+func (b *LuaNodeBuilder) Metadata() NodeMetadata {
+	return NodeMetadata{
+		Type:        "lua",
+		Category:    "script",
+		Description: "Execute Lua scripts for custom logic",
+		ConfigSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"script": map[string]interface{}{
+					"type":        "string",
+					"description": "Lua script to execute",
+				},
+				"file": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to Lua script file",
+				},
+				"sandbox": map[string]interface{}{
+					"type":        "boolean",
+					"description": "Enable sandboxing (removes io, os, debug, etc)",
+					"default":     true,
+				},
+				"timeout": map[string]interface{}{
+					"type":        "string",
+					"description": "Script execution timeout",
+					"default":     "5s",
+				},
+			},
+			"oneOf": []map[string]interface{}{
+				{"required": []string{"script"}},
+				{"required": []string{"file"}},
+			},
+		},
+		Examples: []Example{
+			{
+				Name:        "Filter high scores",
+				Description: "Filter items based on score threshold",
+				Config: map[string]interface{}{
+					"script": `
+if input.score > 0.8 then
+    return {status = "high", data = input}
+else
+    return {status = "low", data = input}
+end`,
+				},
+			},
+			{
+				Name:        "Transform data",
+				Description: "Transform input data with custom logic",
+				Config: map[string]interface{}{
+					"script": `
+-- Double all numeric values
+local result = {}
+for k, v in pairs(input) do
+    if type(v) == "number" then
+        result[k] = v * 2
+    else
+        result[k] = v
+    end
+end
+return result`,
+				},
+			},
+		},
+	}
+}
+
+// Build creates a new Lua script node.
+func (b *LuaNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
+	script, hasScript := def.Config["script"].(string)
+	file, hasFile := def.Config["file"].(string)
+
+	if !hasScript && !hasFile {
+		return nil, fmt.Errorf("either 'script' or 'file' must be specified")
+	}
+
+	if hasScript && hasFile {
+		return nil, fmt.Errorf("only one of 'script' or 'file' can be specified")
+	}
+
+	sandbox := true
+	if s, ok := def.Config["sandbox"].(bool); ok {
+		sandbox = s
+	}
+
+	timeoutStr, _ := def.Config["timeout"].(string)
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil || timeout == 0 {
+		timeout = 5 * time.Second
+	}
+
+	return pocket.NewNode[any, any](def.Name,
+		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			// Create execution context with timeout
+			execCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+
+			// Channel for result
+			type result struct {
+				value any
+				err   error
+			}
+			resultChan := make(chan result, 1)
+
+			// Execute in goroutine to handle timeout
+			go func() {
+				l := lua.NewState()
+
+				// Setup sandbox
+				if sandbox {
+					setupSandbox(l)
+				} else {
+					lua.OpenLibraries(l)
+				}
+
+				// Add custom functions
+				addCustomFunctions(l)
+
+				// Convert input to Lua
+				pushValue(l, input)
+				l.SetGlobal("input")
+
+				// Load and execute script
+				var err error
+				if hasScript {
+					err = lua.DoString(l, script)
+				} else {
+					scriptContent, readErr := os.ReadFile(file) // #nosec G304 - Script files are user-configured
+					if readErr != nil {
+						resultChan <- result{nil, fmt.Errorf("failed to read script file: %w", readErr)}
+						return
+					}
+					err = lua.DoString(l, string(scriptContent))
+				}
+
+				if err != nil {
+					resultChan <- result{nil, fmt.Errorf("lua error: %w", err)}
+					return
+				}
+
+				// Get return value
+				if l.Top() > 0 {
+					// Check if the script returned a value
+					val := pullValue(l, -1)
+					l.Pop(1)
+					resultChan <- result{val, nil}
+				} else {
+					// No return value, return input unchanged
+					resultChan <- result{input, nil}
+				}
+			}()
+
+			// Wait for result or timeout
+			select {
+			case res := <-resultChan:
+				return res.value, res.err
+			case <-execCtx.Done():
+				return nil, fmt.Errorf("script execution timed out after %v", timeout)
+			}
+		}),
+		pocket.WithTimeout(timeout+time.Second), // Add buffer for goroutine cleanup
+	), nil
+}
+
+// setupSandbox configures a sandboxed Lua environment.
+func setupSandbox(l *lua.State) {
+	// Load only safe libraries using the proper Require method
+	lua.Require(l, "_G", lua.BaseOpen, true)
+	l.Pop(1)
+	lua.Require(l, "string", lua.StringOpen, true)
+	l.Pop(1)
+	lua.Require(l, "table", lua.TableOpen, true)
+	l.Pop(1)
+	lua.Require(l, "math", lua.MathOpen, true)
+	l.Pop(1)
+
+	// Remove dangerous functions
+	l.PushNil()
+	l.SetGlobal("dofile")
+	l.PushNil()
+	l.SetGlobal("loadfile")
+	l.PushNil()
+	l.SetGlobal("load")
+	l.PushNil()
+	l.SetGlobal("loadstring")
+	l.PushNil()
+	l.SetGlobal("require")
+}
+
+// addCustomFunctions adds utility functions to the Lua environment.
+func addCustomFunctions(l *lua.State) {
+	// Add JSON encode function
+	l.Register("json_encode", func(l *lua.State) int {
+		value := pullValue(l, 1)
+		jsonBytes, err := json.Marshal(value)
+		if err != nil {
+			l.PushNil()
+			l.PushString(err.Error())
+			return 2
+		}
+		l.PushString(string(jsonBytes))
+		return 1
+	})
+
+	// Add JSON decode function
+	l.Register("json_decode", func(l *lua.State) int {
+		jsonStr, _ := l.ToString(1)
+		var value interface{}
+		err := json.Unmarshal([]byte(jsonStr), &value)
+		if err != nil {
+			l.PushNil()
+			l.PushString(err.Error())
+			return 2
+		}
+		pushValue(l, value)
+		return 1
+	})
+
+	// Add type checking function
+	l.Register("type_of", func(l *lua.State) int {
+		switch {
+		case l.IsNil(1):
+			l.PushString("nil")
+		case l.IsBoolean(1):
+			l.PushString("boolean")
+		case l.IsNumber(1):
+			l.PushString("number")
+		case l.IsString(1):
+			l.PushString("string")
+		case l.IsTable(1):
+			l.PushString("table")
+		case l.IsFunction(1):
+			l.PushString("function")
+		default:
+			l.PushString("unknown")
+		}
+		return 1
+	})
+
+	// Add string utilities
+	l.Register("str_split", func(l *lua.State) int {
+		str, _ := l.ToString(1)
+		sep, _ := l.ToString(2)
+		if sep == "" {
+			sep = " "
+		}
+
+		parts := strings.Split(str, sep)
+		l.NewTable()
+		for i, part := range parts {
+			l.PushInteger(i + 1)
+			l.PushString(part)
+			l.SetTable(-3)
+		}
+		return 1
+	})
+
+	l.Register("str_trim", func(l *lua.State) int {
+		str, _ := l.ToString(1)
+		l.PushString(strings.TrimSpace(str))
+		return 1
+	})
+
+	l.Register("str_contains", func(l *lua.State) int {
+		str, _ := l.ToString(1)
+		substr, _ := l.ToString(2)
+		l.PushBoolean(strings.Contains(str, substr))
+		return 1
+	})
+
+	l.Register("str_replace", func(l *lua.State) int {
+		str, _ := l.ToString(1)
+		old, _ := l.ToString(2)
+		newStr, _ := l.ToString(3)
+		count := -1
+		if l.Top() >= 4 {
+			n, _ := l.ToInteger(4)
+			count = n
+		}
+		l.PushString(strings.Replace(str, old, newStr, count))
+		return 1
+	})
+}
+
+// pushValue converts a Go value to a Lua value and pushes it onto the stack.
+func pushValue(l *lua.State, v interface{}) {
+	switch val := v.(type) {
+	case nil:
+		l.PushNil()
+	case bool:
+		l.PushBoolean(val)
+	case int:
+		l.PushInteger(val)
+	case int64:
+		l.PushInteger(int(val))
+	case float64:
+		l.PushNumber(val)
+	case string:
+		l.PushString(val)
+	case map[string]interface{}:
+		l.NewTable()
+		for k, v := range val {
+			l.PushString(k)
+			pushValue(l, v)
+			l.SetTable(-3)
+		}
+	case []interface{}:
+		l.NewTable()
+		for i, v := range val {
+			l.PushInteger(i + 1) // Lua arrays are 1-indexed
+			pushValue(l, v)
+			l.SetTable(-3)
+		}
+	default:
+		// For unknown types, convert to string
+		l.PushString(fmt.Sprintf("%v", val))
+	}
+}
+
+// pullValue converts a Lua value to a Go value.
+func pullValue(l *lua.State, idx int) interface{} {
+	switch l.TypeOf(idx) {
+	case lua.TypeNil:
+		return nil
+	case lua.TypeBoolean:
+		return l.ToBoolean(idx)
+	case lua.TypeNumber:
+		n, _ := l.ToNumber(idx)
+		// Check if it's an integer
+		if n == float64(int(n)) {
+			return int(n)
+		}
+		return n
+	case lua.TypeString:
+		s, _ := l.ToString(idx)
+		return s
+	case lua.TypeTable:
+		// Build a simple map
+		m := make(map[string]interface{})
+
+		// Push a copy of the table to avoid modifying the original
+		l.PushValue(idx)
+
+		// Push nil to start iteration
+		l.PushNil()
+
+		// Iterate through the table (now at -2)
+		for l.Next(-2) {
+			// Stack now has: -1 = value, -2 = key, -3 = table
+			// Copy key since Next will consume it
+			l.PushValue(-2)
+			// Stack: -1 = key (copy), -2 = value, -3 = key (original), -4 = table
+
+			var key string
+			if l.IsNumber(-1) {
+				n, _ := l.ToNumber(-1)
+				key = fmt.Sprintf("%g", n)
+			} else {
+				key, _ = l.ToString(-1)
+			}
+			l.Pop(1) // Pop the key copy
+			// Stack: -1 = value, -2 = key (original), -3 = table
+
+			// Get the value recursively
+			value := pullValue(l, -1)
+			m[key] = value
+
+			// Pop value, keep key for next iteration
+			l.Pop(1)
+			// Stack: -1 = key, -2 = table
+		}
+
+		// Pop the table copy
+		l.Pop(1)
+
+		return m
+	default:
+		return nil
 	}
 }

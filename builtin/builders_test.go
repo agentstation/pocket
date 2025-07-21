@@ -175,7 +175,7 @@ func TestRouterNode(t *testing.T) {
 
 	ctx := context.Background()
 	store := pocket.NewStore()
-	input := "test"
+	input := "test" //nolint:goconst // test string literal is fine
 
 	_, next, err := node.Post(ctx, store, input, input, input)
 	if err != nil {
@@ -1857,6 +1857,444 @@ func TestParallelNode(t *testing.T) {
 		}
 		if len(meta.Examples) == 0 {
 			t.Error("Expected at least one example")
+		}
+	})
+}
+
+func TestLuaNode(t *testing.T) {
+	ctx := context.Background()
+	store := pocket.NewStore()
+
+	t.Run("simple script", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua",
+			Config: map[string]interface{}{
+				"script": `return {result = "hello from lua"}`,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, nil)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["result"] != "hello from lua" {
+				t.Errorf("Expected result to be 'hello from lua', got %v", resultMap["result"])
+			}
+		} else {
+			t.Errorf("Expected result to be a map, got %T", result)
+		}
+	})
+
+	t.Run("transform input", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-transform",
+			Config: map[string]interface{}{
+				"script": `
+					local result = {}
+					for k, v in pairs(input) do
+						if type(v) == "number" then
+							result[k] = v * 2
+						else
+							result[k] = v
+						end
+					end
+					return result
+				`,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		input := map[string]interface{}{
+			"value": 21,
+			"name":  "test",
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, input)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["value"] != 42 {
+				t.Errorf("Expected value to be 42, got %v", resultMap["value"])
+			}
+			if resultMap["name"] != "test" {
+				t.Errorf("Expected name to be 'test', got %v", resultMap["name"])
+			}
+		} else {
+			t.Errorf("Expected result to be a map, got %T", result)
+		}
+	})
+
+	t.Run("json functions", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-json",
+			Config: map[string]interface{}{
+				"script": `
+					-- Test JSON encoding
+					local data = {name = "test", value = 42}
+					local json_str = json_encode(data)
+					
+					-- Test JSON decoding
+					local decoded = json_decode(json_str)
+					
+					return {
+						encoded = json_str,
+						decoded = decoded
+					}
+				`,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, nil)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			// Check encoded JSON
+			if encoded, ok := resultMap["encoded"].(string); ok {
+				if !strings.Contains(encoded, "test") || !strings.Contains(encoded, "42") {
+					t.Errorf("JSON encoding failed: %s", encoded)
+				}
+			}
+
+			// Check decoded data
+			if decoded, ok := resultMap["decoded"].(map[string]interface{}); ok {
+				if decoded["name"] != "test" {
+					t.Errorf("JSON decoding failed for name: %v", decoded["name"])
+				}
+				// JSON numbers could be int or float64 depending on how Lua returns them
+				switch v := decoded["value"].(type) {
+				case float64:
+					if v != 42 {
+						t.Errorf("JSON decoding failed for value: %v", v)
+					}
+				case int:
+					if v != 42 {
+						t.Errorf("JSON decoding failed for value: %v", v)
+					}
+				default:
+					t.Errorf("JSON decoding failed for value: unexpected type %T", v)
+				}
+			}
+		}
+	})
+
+	t.Run("string utilities", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-strings",
+			Config: map[string]interface{}{
+				"script": `
+					local text = "  hello world  "
+					return {
+						trimmed = str_trim(text),
+						split = str_split("one,two,three", ","),
+						contains = str_contains("hello world", "world"),
+						replaced = str_replace("hello world", "world", "lua")
+					}
+				`,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, nil)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["trimmed"] != "hello world" {
+				t.Errorf("str_trim failed: %v", resultMap["trimmed"])
+			}
+			if resultMap["contains"] != true {
+				t.Errorf("str_contains failed: %v", resultMap["contains"])
+			}
+			if resultMap["replaced"] != "hello lua" {
+				t.Errorf("str_replace failed: %v", resultMap["replaced"])
+			}
+			if split, ok := resultMap["split"].([]interface{}); ok {
+				if len(split) != 3 || split[0] != "one" {
+					t.Errorf("str_split failed: %v", split)
+				}
+			}
+		}
+	})
+
+	t.Run("sandboxing", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-sandbox",
+			Config: map[string]interface{}{
+				"script": `
+					-- These should all be nil in sandbox mode
+					local dangerous = {
+						io = io,
+						os = os,
+						debug = debug,
+						package = package,
+						require = require,
+						dofile = dofile,
+						loadfile = loadfile
+					}
+					
+					local all_nil = true
+					for name, func in pairs(dangerous) do
+						if func ~= nil then
+							all_nil = false
+						end
+					end
+					
+					return {sandboxed = all_nil}
+				`,
+				"sandbox": true,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, nil)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["sandboxed"] != true {
+				t.Error("Sandboxing failed - dangerous functions are available")
+			}
+		}
+	})
+
+	t.Run("no sandbox mode", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-no-sandbox",
+			Config: map[string]interface{}{
+				"script": `
+					-- os should be available when sandbox is disabled
+					return {has_os = os ~= nil}
+				`,
+				"sandbox": false,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, nil)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["has_os"] != true {
+				t.Error("No sandbox mode failed - os should be available")
+			}
+		}
+	})
+
+	t.Run("script timeout", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-timeout",
+			Config: map[string]interface{}{
+				"script": `
+					-- Infinite loop
+					while true do
+					end
+				`,
+				"timeout": "100ms",
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		_, err = graph.Run(ctx, nil)
+		if err == nil {
+			t.Error("Expected timeout error")
+		}
+		if !strings.Contains(err.Error(), "timeout") {
+			t.Errorf("Expected timeout error, got: %v", err)
+		}
+	})
+
+	t.Run("script file", func(t *testing.T) {
+		// Create a temporary script file
+		scriptContent := `
+			-- Test script from file
+			return {
+				message = "loaded from file",
+				input_type = type_of(input)
+			}
+		`
+		tmpFile, err := os.CreateTemp("", "test-lua-*.lua")
+		if err != nil {
+			t.Fatalf("Failed to create temp file: %v", err)
+		}
+		defer os.Remove(tmpFile.Name())
+
+		if _, err := tmpFile.WriteString(scriptContent); err != nil {
+			t.Fatalf("Failed to write script: %v", err)
+		}
+		_ = tmpFile.Close()
+
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-file",
+			Config: map[string]interface{}{
+				"file": tmpFile.Name(),
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, "test input")
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["message"] != "loaded from file" {
+				t.Errorf("Expected message 'loaded from file', got %v", resultMap["message"])
+			}
+			if resultMap["input_type"] != "string" {
+				t.Errorf("Expected input_type 'string', got %v", resultMap["input_type"])
+			}
+		}
+	})
+
+	t.Run("validation", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+
+		// No script or file
+		def := &yaml.NodeDefinition{
+			Name:   "test-lua-invalid",
+			Config: map[string]interface{}{},
+		}
+
+		_, err := builder.Build(def)
+		if err == nil {
+			t.Error("Expected validation error for missing script/file")
+		}
+
+		// Both script and file
+		def.Config = map[string]interface{}{
+			"script": "return 1",
+			"file":   "test.lua",
+		}
+
+		_, err = builder.Build(def)
+		if err == nil {
+			t.Error("Expected validation error for both script and file")
+		}
+	})
+
+	t.Run("complex data structures", func(t *testing.T) {
+		builder := &LuaNodeBuilder{}
+		def := &yaml.NodeDefinition{
+			Name: "test-lua-complex",
+			Config: map[string]interface{}{
+				"script": `
+					-- Work with nested data
+					local result = {
+						users = {},
+						total = 0
+					}
+					
+					for i, user in ipairs(input.users) do
+						table.insert(result.users, {
+							id = user.id,
+							name = string.upper(user.name),
+							score = user.score * 2
+						})
+						result.total = result.total + user.score
+					end
+					
+					return result
+				`,
+			},
+		}
+
+		node, err := builder.Build(def)
+		if err != nil {
+			t.Fatalf("Failed to build node: %v", err)
+		}
+
+		input := map[string]interface{}{
+			"users": []interface{}{
+				map[string]interface{}{"id": 1, "name": "alice", "score": 10},
+				map[string]interface{}{"id": 2, "name": "bob", "score": 20},
+			},
+		}
+
+		graph := pocket.NewGraph(node, store)
+		result, err := graph.Run(ctx, input)
+		if err != nil {
+			t.Fatalf("Failed to run graph: %v", err)
+		}
+
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["total"] != 30 {
+				t.Errorf("Expected total 30, got %v", resultMap["total"])
+			}
+
+			if users, ok := resultMap["users"].([]interface{}); ok {
+				if len(users) != 2 {
+					t.Errorf("Expected 2 users, got %d", len(users))
+				}
+
+				if user0, ok := users[0].(map[string]interface{}); ok {
+					if user0["name"] != "ALICE" {
+						t.Errorf("Expected name ALICE, got %v", user0["name"])
+					}
+					if user0["score"] != 20 {
+						t.Errorf("Expected score 20, got %v", user0["score"])
+					}
+				}
+			}
 		}
 	})
 }

@@ -19,6 +19,10 @@ This document provides a comprehensive reference for all built-in nodes in the P
   - [exec](#exec)
   - [file](#file)
   - [http](#http)
+- [Flow Nodes](#flow-nodes)
+  - [parallel](#parallel)
+- [Script Nodes](#script-nodes)
+  - [lua](#lua)
 
 ---
 
@@ -803,7 +807,7 @@ Output:
 
 ### validate
 
-Validates data against JSON Schema
+Validates data against schema
 
 **Since:** 1.0.0
 
@@ -811,69 +815,41 @@ Validates data against JSON Schema
 
 ```json
 {
-  "oneOf": [
-    {
-      "required": [
-        "schema"
-      ]
-    },
-    {
-      "required": [
-        "schema_file"
-      ]
-    }
-  ],
   "properties": {
     "fail_on_error": {
       "default": true,
-      "description": "Return error on validation failure (true) or continue with validation result (false)",
+      "description": "Whether to fail the node on validation error",
       "type": "boolean"
     },
     "schema": {
       "description": "JSON Schema to validate against",
       "type": "object"
-    },
-    "schema_file": {
-      "description": "Path to JSON Schema file (alternative to inline schema)",
-      "type": "string"
     }
   },
+  "required": [
+    "schema"
+  ],
   "type": "object"
 }
 ```
 
 **Properties:**
 
-- **fail_on_error**: Return error on validation failure (true) or continue with validation result (false)
+- **fail_on_error**: Whether to fail the node on validation error
   - Type: `boolean`
   - Default: `true`
-- **schema**: JSON Schema to validate against
+- **schema** *(required)*: JSON Schema to validate against
   - Type: `object`
-- **schema_file**: Path to JSON Schema file (alternative to inline schema)
-  - Type: `string`
 
 #### Output Schema
 
 ```json
 {
   "properties": {
-    "data": {
-      "description": "The original input data"
-    },
+    "data": {},
     "errors": {
       "items": {
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "field": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "type": "object"
+        "type": "string"
       },
       "type": "array"
     },
@@ -887,32 +863,26 @@ Validates data against JSON Schema
 
 #### Examples
 
-**Example 1: Validate user object**
-
-Ensure user data matches expected schema
+**Example 1: Validate user data**
 
 ```yaml
 type: validate
 config:
   schema:
+    type: object
     properties:
       name:
         type: string
-      email:
-        type: string
-        format: email
       age:
         type: integer
         minimum: 0
-    required: [name email]
-    type: object
+    required: [name, age]
 ```
 
 Input:
 ```json
 {
   "age": 30,
-  "email": "alice@example.com",
   "name": "Alice"
 }
 ```
@@ -922,7 +892,6 @@ Output:
 {
   "data": {
     "age": 30,
-    "email": "alice@example.com",
     "name": "Alice"
   },
   "errors": [],
@@ -930,9 +899,7 @@ Output:
 }
 ```
 
-**Example 2: Validation failure**
-
-Handle invalid data gracefully
+**Example 2: Handle validation errors**
 
 ```yaml
 type: validate
@@ -940,18 +907,16 @@ config:
   schema:
     type: object
     properties:
-      score:
-        type: number
-        minimum: 0
-        maximum: 100
-    required: [score]
+      email:
+        type: string
+        format: email
   fail_on_error: false
 ```
 
 Input:
 ```json
 {
-  "score": 150
+  "email": "not-an-email"
 }
 ```
 
@@ -959,14 +924,10 @@ Output:
 ```json
 {
   "data": {
-    "score": 150
+    "email": "not-an-email"
   },
   "errors": [
-    {
-      "description": "Must be less than or equal to 100",
-      "field": "score",
-      "type": "number_gte"
-    }
+    "email: Does not match format 'email'"
   ],
   "valid": false
 }
@@ -978,7 +939,7 @@ Output:
 
 ### exec
 
-Executes shell commands with restrictions
+Executes external commands
 
 **Since:** 1.0.0
 
@@ -987,13 +948,6 @@ Executes shell commands with restrictions
 ```json
 {
   "properties": {
-    "allowed_commands": {
-      "description": "List of allowed commands (whitelist)",
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
-    },
     "args": {
       "description": "Command arguments",
       "items": {
@@ -1001,29 +955,24 @@ Executes shell commands with restrictions
       },
       "type": "array"
     },
-    "capture_output": {
-      "default": true,
-      "description": "Whether to capture command output",
-      "type": "boolean"
-    },
     "command": {
       "description": "Command to execute",
+      "type": "string"
+    },
+    "dir": {
+      "description": "Working directory",
       "type": "string"
     },
     "env": {
       "additionalProperties": {
         "type": "string"
       },
-      "description": "Environment variables to set",
+      "description": "Environment variables",
       "type": "object"
     },
     "timeout": {
       "default": "30s",
-      "description": "Execution timeout",
-      "type": "string"
-    },
-    "working_dir": {
-      "description": "Working directory for command",
+      "description": "Command timeout",
       "type": "string"
     }
   },
@@ -1036,38 +985,33 @@ Executes shell commands with restrictions
 
 **Properties:**
 
-- **allowed_commands**: List of allowed commands (whitelist)
-  - Type: `array`
 - **args**: Command arguments
   - Type: `array`
-- **capture_output**: Whether to capture command output
-  - Type: `boolean`
-  - Default: `true`
 - **command** *(required)*: Command to execute
   - Type: `string`
-- **env**: Environment variables to set
+- **dir**: Working directory
+  - Type: `string`
+- **env**: Environment variables
   - Type: `object`
-- **timeout**: Execution timeout
+- **timeout**: Command timeout
   - Type: `string`
   - Default: `30s`
-- **working_dir**: Working directory for command
-  - Type: `string`
 
 #### Output Schema
 
 ```json
 {
   "properties": {
-    "duration": {
-      "type": "string"
-    },
-    "exit_code": {
+    "code": {
+      "description": "Exit code",
       "type": "integer"
     },
     "stderr": {
+      "description": "Standard error output",
       "type": "string"
     },
     "stdout": {
+      "description": "Standard output",
       "type": "string"
     }
   },
@@ -1077,49 +1021,49 @@ Executes shell commands with restrictions
 
 #### Examples
 
-**Example 1: List files**
-
-List files in current directory
-
-```yaml
-type: exec
-config:
-  command: ls
-  args:
-    - -la
-```
-
-**Example 2: Run with timeout**
-
-Execute command with timeout
-
-```yaml
-type: exec
-config:
-  command: sleep
-  args:
-    - 5
-  timeout: 2s
-```
-
-**Example 3: Restricted commands**
-
-Only allow specific commands
+**Example 1: Run simple command**
 
 ```yaml
 type: exec
 config:
   command: echo
-  args:
-    - Hello, World!
-  allowed_commands: [echo ls cat]
+  args: ["Hello, World!"]
+```
+
+Output:
+```json
+{
+  "code": 0,
+  "stderr": "",
+  "stdout": "Hello, World!\n"
+}
+```
+
+**Example 2: Run with environment**
+
+```yaml
+type: exec
+config:
+  command: sh
+  args: ["-c", "echo $MESSAGE"]
+  env:
+    MESSAGE: "Hello from env"
+```
+
+Output:
+```json
+{
+  "code": 0,
+  "stderr": "",
+  "stdout": "Hello from env\n"
+}
 ```
 
 ---
 
 ### file
 
-Reads or writes files with path restrictions
+File operations (read, write, append)
 
 **Since:** 1.0.0
 
@@ -1128,23 +1072,9 @@ Reads or writes files with path restrictions
 ```json
 {
   "properties": {
-    "allow_absolute": {
-      "default": false,
-      "description": "Allow absolute paths outside base directory",
-      "type": "boolean"
-    },
-    "base_dir": {
-      "description": "Base directory for sandboxing (defaults to current working directory)",
-      "type": "string"
-    },
     "content": {
       "description": "Content to write (for write/append operations)",
       "type": "string"
-    },
-    "create_dirs": {
-      "default": false,
-      "description": "Create parent directories if they don't exist",
-      "type": "boolean"
     },
     "encoding": {
       "default": "utf-8",
@@ -1153,23 +1083,22 @@ Reads or writes files with path restrictions
     },
     "operation": {
       "default": "read",
-      "description": "File operation to perform",
+      "description": "Operation to perform",
       "enum": [
         "read",
         "write",
         "append",
-        "exists",
-        "list"
+        "delete",
+        "exists"
       ],
       "type": "string"
     },
     "path": {
-      "description": "File path (relative to working directory or absolute if allowed)",
+      "description": "File path",
       "type": "string"
     }
   },
   "required": [
-    "operation",
     "path"
   ],
   "type": "object"
@@ -1178,78 +1107,35 @@ Reads or writes files with path restrictions
 
 **Properties:**
 
-- **allow_absolute**: Allow absolute paths outside base directory
-  - Type: `boolean`
-  - Default: `false`
-- **base_dir**: Base directory for sandboxing (defaults to current working directory)
-  - Type: `string`
 - **content**: Content to write (for write/append operations)
   - Type: `string`
-- **create_dirs**: Create parent directories if they don't exist
-  - Type: `boolean`
-  - Default: `false`
 - **encoding**: File encoding
   - Type: `string`
   - Default: `utf-8`
-- **operation** *(required)*: File operation to perform
+- **operation**: Operation to perform
   - Type: `string`
   - Default: `read`
-- **path** *(required)*: File path (relative to working directory or absolute if allowed)
+- **path** *(required)*: File path
   - Type: `string`
 
 #### Output Schema
 
 ```json
 {
-  "properties": {
-    "content": {
-      "description": "File content (for read operations)",
+  "oneOf": [
+    {
+      "description": "File content (for read)",
       "type": "string"
     },
-    "exists": {
-      "description": "Whether the file exists",
+    {
+      "description": "Success status (for write/append/delete)",
       "type": "boolean"
     },
-    "files": {
-      "description": "List of files (for list operation)",
-      "items": {
-        "properties": {
-          "isDir": {
-            "type": "boolean"
-          },
-          "modified": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          }
-        },
-        "type": "object"
-      },
-      "type": "array"
-    },
-    "modified": {
-      "description": "Last modification time",
-      "format": "date-time",
-      "type": "string"
-    },
-    "path": {
-      "description": "Resolved file path",
-      "type": "string"
-    },
-    "size": {
-      "description": "File size in bytes",
-      "type": "integer"
+    {
+      "description": "Existence status (for exists)",
+      "type": "boolean"
     }
-  },
-  "type": "object"
+  ]
 }
 ```
 
@@ -1257,82 +1143,52 @@ Reads or writes files with path restrictions
 
 **Example 1: Read file**
 
-Read contents of a text file
-
 ```yaml
 type: file
 config:
+  path: /tmp/data.txt
   operation: read
-  path: config.json
 ```
 
 Output:
 ```json
-{
-  "content": "{\"version\": \"1.0.0\"}",
-  "exists": true,
-  "modified": "2024-01-15T10:30:00Z",
-  "path": "/app/config.json",
-  "size": 20
-}
+"File contents here..."
 ```
 
 **Example 2: Write file**
 
-Write content to a file
-
 ```yaml
 type: file
 config:
+  path: /tmp/output.txt
   operation: write
-  path: output/result.txt
-  content: Processing complete
-  create_dirs: true
+  content: "Hello, World!"
 ```
 
 Output:
 ```json
-{
-  "exists": true,
-  "modified": "2024-01-15T10:35:00Z",
-  "path": "/app/output/result.txt",
-  "size": 19
-}
+true
 ```
 
-**Example 3: List directory**
-
-List files in a directory
+**Example 3: Check existence**
 
 ```yaml
 type: file
 config:
-  operation: list
-  path: data/
+  path: /tmp/check.txt
+  operation: exists
 ```
 
 Output:
 ```json
-{
-  "exists": true,
-  "files": [
-    {
-      "isDir": false,
-      "modified": "2024-01-14T09:00:00Z",
-      "name": "file1.txt",
-      "path": "/app/data/file1.txt",
-      "size": 1024
-    }
-  ],
-  "path": "/app/data"
-}
+false
 ```
 
 ---
 
 ### http
 
-Makes HTTP requests with retry and timeout support
+Makes HTTP requests
 
 **Since:** 1.0.0
 
@@ -1342,38 +1198,34 @@ Makes HTTP requests with retry and timeout support
 {
   "properties": {
     "body": {
-      "description": "Request body (for POST/PUT/PATCH)",
-      "type": [
-        "string",
-        "object"
-      ]
+      "description": "Request body"
     },
     "headers": {
-      "description": "HTTP headers",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Request headers",
       "type": "object"
     },
     "method": {
       "default": "GET",
+      "description": "HTTP method",
       "enum": [
         "GET",
         "POST",
         "PUT",
         "DELETE",
-        "PATCH"
+        "PATCH",
+        "HEAD",
+        "OPTIONS"
       ],
       "type": "string"
     },
-    "retry": {
-      "properties": {
-        "delay": {
-          "default": "1s",
-          "type": "string"
-        },
-        "max_attempts": {
-          "default": 3,
-          "type": "integer"
-        }
+    "params": {
+      "additionalProperties": {
+        "type": "string"
       },
+      "description": "Query parameters",
       "type": "object"
     },
     "timeout": {
@@ -1382,7 +1234,7 @@ Makes HTTP requests with retry and timeout support
       "type": "string"
     },
     "url": {
-      "description": "URL to request (supports templating)",
+      "description": "Request URL",
       "type": "string"
     }
   },
@@ -1395,18 +1247,18 @@ Makes HTTP requests with retry and timeout support
 
 **Properties:**
 
-- **body**: Request body (for POST/PUT/PATCH)
-- **headers**: HTTP headers
+- **body**: Request body
+- **headers**: Request headers
   - Type: `object`
-- **method**: 
+- **method**: HTTP method
   - Type: `string`
   - Default: `GET`
-- **retry**: 
+- **params**: Query parameters
   - Type: `object`
 - **timeout**: Request timeout
   - Type: `string`
   - Default: `30s`
-- **url** *(required)*: URL to request (supports templating)
+- **url** *(required)*: Request URL
   - Type: `string`
 
 #### Output Schema
@@ -1415,15 +1267,17 @@ Makes HTTP requests with retry and timeout support
 {
   "properties": {
     "body": {
-      "type": [
-        "object",
-        "string"
-      ]
+      "description": "Response body"
     },
     "headers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Response headers",
       "type": "object"
     },
     "status": {
+      "description": "HTTP status code",
       "type": "integer"
     }
   },
@@ -1433,30 +1287,272 @@ Makes HTTP requests with retry and timeout support
 
 #### Examples
 
-**Example 1: GET request**
+**Example 1: Simple GET request**
 
 ```yaml
 type: http
 config:
-  url: https://api.example.com/data
-  method: GET
+  url: https://api.example.com/users
 ```
 
-**Example 2: POST with retry**
+Output:
+```json
+{
+  "body": [
+    {
+      "id": 1,
+      "name": "Alice"
+    }
+  ],
+  "headers": {
+    "content-type": "application/json"
+  },
+  "status": 200
+}
+```
+
+**Example 2: POST with data**
 
 ```yaml
 type: http
 config:
-  url: https://api.example.com/submit
+  url: https://api.example.com/users
   method: POST
   headers:
     Content-Type: application/json
   body:
-    key: value
-  retry:
-    max_attempts: 5
-    delay: 2s
+    name: Bob
+    email: bob@example.com
+```
+
+Output:
+```json
+{
+  "body": {
+    "email": "bob@example.com",
+    "id": 2,
+    "name": "Bob"
+  },
+  "headers": {
+    "content-type": "application/json"
+  },
+  "status": 201
+}
 ```
 
 ---
 
+## Flow Nodes
+
+### parallel
+
+Execute multiple tasks concurrently
+
+**Since:** 1.0.0
+
+#### Configuration
+
+```json
+{
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "config": {
+            "type": "object"
+          },
+          "input": {}
+        },
+        "required": ["name", "node"]
+      }
+    },
+    "max_concurrency": {
+      "type": "integer",
+      "description": "Maximum concurrent tasks"
+    },
+    "fail_fast": {
+      "type": "boolean",
+      "default": true,
+      "description": "Stop on first error"
+    },
+    "timeout": {
+      "type": "string",
+      "description": "Overall timeout"
+    }
+  },
+  "required": ["tasks"],
+  "type": "object"
+}
+```
+
+#### Examples
+
+**Example 1: Fetch data in parallel**
+
+```yaml
+type: parallel
+config:
+  max_concurrency: 3
+  tasks:
+    - name: fetch-users
+      node: http
+      config:
+        url: https://api.example.com/users
+    - name: fetch-orders
+      node: http
+      config:
+        url: https://api.example.com/orders
+```
+
+**Example 2: Process files concurrently**
+
+```yaml
+type: parallel
+config:
+  fail_fast: false
+  tasks:
+    - name: process-csv
+      node: file
+      config:
+        path: data.csv
+        operation: read
+    - name: process-json
+      node: file
+      config:
+        path: data.json
+        operation: read
+    - name: process-xml
+      node: file
+      config:
+        path: data.xml
+        operation: read
+```
+
+---
+
+## Script Nodes
+
+### lua
+
+Execute Lua scripts for custom logic
+
+**Since:** 1.0.0
+
+#### Configuration
+
+```json
+{
+  "oneOf": [
+    {
+      "required": ["script"]
+    },
+    {
+      "required": ["file"]
+    }
+  ],
+  "properties": {
+    "file": {
+      "description": "Path to Lua script file",
+      "type": "string"
+    },
+    "sandbox": {
+      "default": true,
+      "description": "Enable sandboxing",
+      "type": "boolean"
+    },
+    "script": {
+      "description": "Inline Lua script",
+      "type": "string"
+    },
+    "timeout": {
+      "default": "30s",
+      "description": "Script execution timeout",
+      "type": "string"
+    }
+  },
+  "type": "object"
+}
+```
+
+#### Examples
+
+**Example 1: Filter high scores**
+
+```yaml
+type: lua
+config:
+  script: |
+    if input.score > 0.8 then
+      return {status = "high", data = input}
+    else
+      return {status = "low", data = input}
+    end
+```
+
+**Example 2: Transform data with utilities**
+
+```yaml
+type: lua
+config:
+  script: |
+    local result = {
+      name = str_trim(input.name),
+      data = json_decode(input.json_string),
+      timestamp = os.time()
+    }
+    return result
+```
+
+**Example 3: Complex data processing**
+
+```yaml
+type: lua
+config:
+  script: |
+    -- Calculate statistics
+    local items = input.items or {}
+    local total = 0
+    local count = #items
+    
+    for _, item in ipairs(items) do
+      total = total + (item.value or 0)
+    end
+    
+    local avg = count > 0 and (total / count) or 0
+    
+    -- Filter and transform
+    local processed = {}
+    for _, item in ipairs(items) do
+      if item.value > avg then
+        table.insert(processed, {
+          id = item.id,
+          value = item.value,
+          above_average = true
+        })
+      end
+    end
+    
+    return {
+      total = total,
+      count = count,
+      average = avg,
+      above_average_items = processed
+    }
+```
+
+**Example 4: Use external script file**
+
+```yaml
+type: lua
+config:
+  file: scripts/process_order.lua
+  timeout: 45s
+```

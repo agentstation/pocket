@@ -1,0 +1,68 @@
+name: lua-file-script-example
+description: Example workflow using external Lua script files
+
+store:
+  max_entries: 100
+  ttl: 300
+
+nodes:
+  - name: start
+    type: echo
+    config:
+      message: "Starting Lua file script demo"
+    successors:
+      - action: default
+        target: prepare-data
+
+  - name: prepare-data
+    type: transform
+    config:
+      jq: |
+        {
+          "data": {
+            "numbers": [10, 25, 30, 15, 40],
+            "text": "  hello world from Lua  ",
+            "json_string": "{\"name\": \"test\", \"value\": 42, \"active\": true}"
+          }
+        }
+    successors:
+      - action: default
+        target: process-with-script
+
+  - name: process-with-script
+    type: lua
+    config:
+      file: "examples/scripts/data_processor.lua"
+    successors:
+      - action: default
+        target: display-results
+
+  - name: display-results
+    type: template
+    config:
+      template: |
+        Data Processing Results:
+        
+        Number Statistics:
+        - Sum: {{.number_stats.sum}}
+        - Average: {{.number_stats.average}}
+        - Min: {{.number_stats.min}}
+        - Max: {{.number_stats.max}}
+        
+        Text Analysis:
+        - Original: "{{.text_analysis.original}}"
+        - Trimmed: "{{.text_analysis.trimmed}}"
+        - Word Count: {{.text_analysis.word_count}}
+        - Contains "hello": {{.text_analysis.contains_hello}}
+        
+        Processed at: {{.processed_at}}
+    successors:
+      - action: default
+        target: end
+
+  - name: end
+    type: echo
+    config:
+      message: "File-based Lua script demo completed!"
+
+start: start
