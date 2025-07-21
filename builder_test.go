@@ -19,11 +19,13 @@ func TestRunConcurrent(t *testing.T) {
 	for i := range nodes {
 		i := i
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				atomic.AddInt32(&counter, 1)
-				time.Sleep(10 * time.Millisecond) // Simulate work
-				return fmt.Sprintf("result%d", i), nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					atomic.AddInt32(&counter, 1)
+					time.Sleep(10 * time.Millisecond) // Simulate work
+					return fmt.Sprintf("result%d", i), nil
+				},
+			},
 		)
 	}
 
@@ -63,21 +65,27 @@ func TestPipeline(t *testing.T) {
 
 	// Create pipeline stages
 	double := pocket.NewNode[any, any]("double",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) * 2, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) * 2, nil
+			},
+		},
 	)
 
 	addTen := pocket.NewNode[any, any]("addTen",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) + 10, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) + 10, nil
+			},
+		},
 	)
 
 	toString := pocket.NewNode[any, any]("toString",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Result: %d", input.(int)), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Result: %d", input.(int)), nil
+			},
+		},
 	)
 
 	nodes := []pocket.Node{double, addTen, toString}
@@ -122,10 +130,12 @@ func TestFanOut(t *testing.T) {
 
 	// Create a processor that squares numbers
 	square := pocket.NewNode[any, any]("square",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			n := input.(int)
-			return n * n, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				n := input.(int)
+				return n * n, nil
+			},
+		},
 	)
 
 	items := []int{1, 2, 3, 4, 5}
@@ -153,21 +163,27 @@ func TestFanIn(t *testing.T) {
 
 	// Create source nodes that produce values
 	source1 := pocket.NewNode[any, any]("source1",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return 10, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return 10, nil
+			},
+		},
 	)
 
 	source2 := pocket.NewNode[any, any]("source2",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return 20, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return 20, nil
+			},
+		},
 	)
 
 	source3 := pocket.NewNode[any, any]("source3",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return 30, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return 30, nil
+			},
+		},
 	)
 
 	// Create fan-in that sums the results
@@ -195,40 +211,46 @@ func TestBuilderFluent(t *testing.T) {
 
 	// Create nodes
 	input := pocket.NewNode[any, any]("input",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Validate input
-			n, ok := input.(int)
-			if !ok {
-				return nil, fmt.Errorf("expected int input")
-			}
-			if n < 0 {
-				return nil, fmt.Errorf("negative input not allowed")
-			}
-			return n, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, n any) (any, error) {
-			return n, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Validate input
+				n, ok := input.(int)
+				if !ok {
+					return nil, fmt.Errorf("expected int input")
+				}
+				if n < 0 {
+					return nil, fmt.Errorf("negative input not allowed")
+				}
+				return n, nil
+			},
+			Exec: func(ctx context.Context, n any) (any, error) {
+				return n, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	process := pocket.NewNode[any, any]("process",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Process the number
-			return input.(int) * 10, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Process the number
+				return input.(int) * 10, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	format := pocket.NewNode[any, any]("format",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Format output
-			return fmt.Sprintf("Processed: %d", input.(int)), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Format output
+				return fmt.Sprintf("Processed: %d", input.(int)), nil
+			},
+		},
 	)
 
 	// Create a complex graph using builder
@@ -270,9 +292,11 @@ func BenchmarkPipeline(b *testing.B) {
 	nodes := make([]pocket.Node, 3)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input.(int) + 1, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input.(int) + 1, nil
+				},
+			},
 		)
 	}
 
@@ -294,14 +318,16 @@ func BenchmarkRunConcurrent(b *testing.B) {
 	nodes := make([]pocket.Node, 10)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any](fmt.Sprintf("node%d", i),
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				// Simulate some work
-				sum := 0
-				for j := 0; j < 100; j++ {
-					sum += j
-				}
-				return sum, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					// Simulate some work
+					sum := 0
+					for j := 0; j < 100; j++ {
+						sum += j
+					}
+					return sum, nil
+				},
+			},
 		)
 	}
 

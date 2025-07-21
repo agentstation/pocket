@@ -94,8 +94,8 @@ func (b *EchoNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 		}
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			if b.Verbose {
 				log.Printf("[%s] Echo: %s", def.Name, message)
 			}
@@ -104,8 +104,8 @@ func (b *EchoNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 				"input":   input,
 				"node":    def.Name,
 			}, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // DelayNodeBuilder builds delay nodes.
@@ -161,8 +161,8 @@ func (b *DelayNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) 
 		}
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			if b.Verbose {
 				log.Printf("[%s] Delaying for %v", def.Name, duration)
 			}
@@ -172,8 +172,8 @@ func (b *DelayNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) 
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // RouterNodeBuilder builds router nodes.
@@ -224,14 +224,14 @@ func (b *RouterNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error)
 		}
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			if b.Verbose {
 				log.Printf("[%s] Routing to: %s", def.Name, route)
 			}
 			return exec, route, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // TransformNodeBuilder builds transform nodes.
@@ -280,8 +280,8 @@ func (b *TransformNodeBuilder) Metadata() Metadata {
 
 // Build creates a transform node from a definition.
 func (b *TransformNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			if b.Verbose {
 				log.Printf("[%s] Transforming input", def.Name)
 			}
@@ -305,8 +305,8 @@ func (b *TransformNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, err
 			}
 
 			return result, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // ConditionalNodeBuilder builds conditional routing nodes.
@@ -410,8 +410,8 @@ func (b *ConditionalNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, e
 
 	defaultRoute, _ := def.Config["else"].(string)
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			// Evaluate conditions in order
 			for _, cond := range conditions {
 				var buf bytes.Buffer
@@ -437,8 +437,8 @@ func (b *ConditionalNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, e
 				log.Printf("[%s] No conditions matched, routing to: %s", def.Name, defaultRoute)
 			}
 			return exec, defaultRoute, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // TemplateNodeBuilder builds template rendering nodes.
@@ -539,8 +539,8 @@ func (b *TemplateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 		tmpl = nil
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			var execTemplate *template.Template
 
 			// Use pre-parsed template or load from file
@@ -591,8 +591,8 @@ func (b *TemplateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 			default: // "string"
 				return result, nil
 			}
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // HTTPNodeBuilder builds HTTP client nodes.
@@ -722,8 +722,8 @@ func (b *HTTPNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 		}
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Support URL templating with input data
 			finalURL := url
 			if strings.Contains(url, "{{") {
@@ -826,8 +826,8 @@ func (b *HTTPNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 			}
 
 			return nil, fmt.Errorf("all attempts failed: %w", lastErr)
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // JSONPathNodeBuilder builds JSONPath extraction nodes.
@@ -932,8 +932,8 @@ func (b *JSONPathNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 		unwrap = u
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Find matches using JSONPath
 			results := expr.Get(input)
 
@@ -972,8 +972,8 @@ func (b *JSONPathNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 			}
 
 			return result, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // ValidateNodeBuilder builds JSON Schema validation nodes.
@@ -1119,8 +1119,8 @@ func (b *ValidateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 		schemaLoader = gojsonschema.NewGoLoader(schema)
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Load schema from file if needed
 			var loader gojsonschema.JSONLoader
 			if schemaLoader != nil {
@@ -1175,8 +1175,8 @@ func (b *ValidateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 			}
 
 			return response, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // AggregateNodeBuilder builds data aggregation nodes.
@@ -1298,8 +1298,8 @@ func (b *AggregateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, err
 
 	keyTemplate, _ := def.Config["key"].(string)
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// For single-pass aggregation, the input should already be
 			// an array or a structured object we can aggregate
 
@@ -1380,8 +1380,8 @@ func (b *AggregateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, err
 			}
 
 			return response, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // deepMerge recursively merges two maps.
@@ -1579,8 +1579,8 @@ func (b *FileNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 	allowAbsolute, _ := def.Config["allow_absolute"].(bool)
 	createDirs, _ := def.Config["create_dirs"].(bool)
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Resolve path with sandboxing
 			resolvedPath, err := resolvePath(pathStr, baseDir, allowAbsolute)
 			if err != nil {
@@ -1747,8 +1747,8 @@ func (b *FileNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 			default:
 				return nil, fmt.Errorf("unknown operation: %s", operation)
 			}
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // resolvePath resolves a file path with sandboxing.
@@ -1950,8 +1950,8 @@ func (b *ExecNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 		captureOutput = capture
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 
 			// Check if command is in whitelist
 			if len(allowedCommands) > 0 {
@@ -2035,8 +2035,8 @@ func (b *ExecNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 			}
 
 			return result, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // ParallelNodeBuilder builds parallel execution nodes.
@@ -2217,8 +2217,8 @@ func (b *ParallelNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 		timeout = 5 * time.Minute
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Create timeout context
 			execCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -2349,8 +2349,8 @@ func (b *ParallelNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 					"failed":     len(errors),
 				},
 			}, nil
-		}),
-	), nil
+		},
+	}), nil
 }
 
 // executeTask simulates task execution - in a real implementation,
@@ -2488,8 +2488,8 @@ func (b *LuaNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 		timeout = 5 * time.Second
 	}
 
-	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	return pocket.NewNode[any, any](def.Name, pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Create execution context with timeout
 			execCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -2556,9 +2556,8 @@ func (b *LuaNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 			case <-execCtx.Done():
 				return nil, fmt.Errorf("script execution timed out after %v", timeout)
 			}
-		}),
-		pocket.WithTimeout(timeout+time.Second), // Add buffer for goroutine cleanup
-	), nil
+		},
+	}, pocket.WithTimeout(timeout+time.Second)), nil
 }
 
 // setupSandbox configures a sandboxed Lua environment.

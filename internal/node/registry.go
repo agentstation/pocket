@@ -259,11 +259,11 @@ func RegisterCommonTypes(registry *Registry) {
 				return nil, fmt.Errorf("transform function required")
 			}
 
-			return pocket.NewNode[any, any]("transform",
-				pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			return pocket.NewNode[any, any]("transform", pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
 					return transformFn(input)
-				}),
-			), nil
+				},
+			}), nil
 		},
 		&Metadata{
 			Description: "Transforms input data",
@@ -287,14 +287,14 @@ func RegisterCommonTypes(registry *Registry) {
 				return nil, fmt.Errorf("predicate function required")
 			}
 
-			return pocket.NewNode[any, any]("filter",
-				pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+			return pocket.NewNode[any, any]("filter", pocket.Steps{
+				Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 					if predicateFn(exec) {
 						return exec, "pass", nil
 					}
 					return nil, "fail", nil
-				}),
-			), nil
+				},
+			}), nil
 		},
 		&Metadata{
 			Description: "Filters data based on predicate",
@@ -318,16 +318,16 @@ func RegisterCommonTypes(registry *Registry) {
 				return nil, fmt.Errorf("duration required")
 			}
 
-			return pocket.NewNode[any, any]("delay",
-				pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			return pocket.NewNode[any, any]("delay", pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
 					select {
 					case <-time.After(duration):
 						return input, nil
 					case <-ctx.Done():
 						return nil, ctx.Err()
 					}
-				}),
-			), nil
+				},
+			}), nil
 		},
 		&Metadata{
 			Description: "Delays execution",
@@ -351,13 +351,13 @@ func RegisterCommonTypes(registry *Registry) {
 				level = "info"
 			}
 
-			return pocket.NewNode[any, any]("logger",
-				pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			return pocket.NewNode[any, any]("logger", pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
 					// This would use actual logger
 					fmt.Printf("[%s] %v\n", level, input)
 					return input, nil
-				}),
-			), nil
+				},
+			}), nil
 		},
 		&Metadata{
 			Description: "Logs data",

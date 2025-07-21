@@ -42,8 +42,8 @@ func main() {
 	ctx := context.Background()
 
 	// Create order validator node with lifecycle
-	validator := pocket.NewNode[any, any]("validate",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	validator := pocket.NewNode[any, any]("validate", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Ensure we have WorkflowData
 			data, ok := input.(WorkflowData)
 			if !ok {
@@ -55,8 +55,8 @@ func main() {
 			data.Timestamp = time.Now()
 
 			return data, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Perform validation
 			order := data.(WorkflowData)
 			var errs []string
@@ -87,8 +87,8 @@ func main() {
 				Valid:  len(errs) == 0,
 				Errors: errs,
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Route based on validation result
 			valResult := result.(ValidationResult)
 
@@ -102,12 +102,12 @@ func main() {
 				return valResult, "inventory", nil
 			}
 			return valResult, "error", nil
-		}),
-	)
+		},
+	})
 
 	// Create inventory checker node
-	inventoryCheck := pocket.NewNode[any, any]("inventory",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	inventoryCheck := pocket.NewNode[any, any]("inventory", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Load inventory data from store
 			result := input.(ValidationResult)
 
@@ -128,8 +128,8 @@ func main() {
 				"inventory": inventory,
 				"needsInit": !exists,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			// Check inventory availability
 			data := prepData.(map[string]interface{})
 			result := data["result"].(ValidationResult)
@@ -150,8 +150,8 @@ func main() {
 				"inventory": data["inventory"],
 				"needsInit": data["needsInit"],
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			valResult := execResult["result"].(ValidationResult)
@@ -180,12 +180,12 @@ func main() {
 			}
 
 			return valResult, "payment", nil
-		}),
-	)
+		},
+	})
 
 	// Create payment processor node
-	payment := pocket.NewNode[any, any]("payment",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	payment := pocket.NewNode[any, any]("payment", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Calculate order total
 			result := input.(ValidationResult)
 			total := 0.0
@@ -198,8 +198,8 @@ func main() {
 				"result": result,
 				"total":  total,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Process payment
 			d := data.(map[string]interface{})
 			result := d["result"].(ValidationResult)
@@ -214,8 +214,8 @@ func main() {
 			result.Data.Status = "payment_processed"
 
 			return result, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Record payment
 			valResult := result.(ValidationResult)
 			d := data.(map[string]interface{})
@@ -229,12 +229,12 @@ func main() {
 			}
 
 			return valResult, "fulfillment", nil
-		}),
-	)
+		},
+	})
 
 	// Create fulfillment service node
-	fulfillment := pocket.NewNode[any, any]("fulfillment",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	fulfillment := pocket.NewNode[any, any]("fulfillment", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Check shipping address (simulate)
 			result := input.(ValidationResult)
 
@@ -256,8 +256,8 @@ func main() {
 				"result":        result,
 				"shipping":      shipInfo,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Create fulfillment order
 			d := data.(map[string]interface{})
 			result := d["result"].(ValidationResult)
@@ -272,8 +272,8 @@ func main() {
 				"result":   result,
 				"tracking": trackingNum,
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, output any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, output any) (any, string, error) {
 			// Store fulfillment info
 			out := output.(map[string]interface{})
 			result := out["result"].(ValidationResult)
@@ -295,12 +295,12 @@ func main() {
 			}
 
 			return result, "notify", nil
-		}),
-	)
+		},
+	})
 
 	// Create notification service node
-	notification := pocket.NewNode[any, any]("notify",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	notification := pocket.NewNode[any, any]("notify", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Load customer preferences
 			var result ValidationResult
 			switch v := input.(type) {
@@ -322,8 +322,8 @@ func main() {
 				"result": result,
 				"prefs":  prefs,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Send notifications
 			d := data.(map[string]interface{})
 			result := d["result"].(ValidationResult)
@@ -339,8 +339,8 @@ func main() {
 			}
 
 			return result, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Log notification sent
 			valResult := result.(ValidationResult)
 			notificationLog, _ := store.Get(ctx, fmt.Sprintf("customer:%s:notifications", valResult.Data.CustomerID))
@@ -354,16 +354,16 @@ func main() {
 			}
 
 			return valResult, "done", nil
-		}),
-	)
+		},
+	})
 
 	// Create error handler node
-	errorHandler := pocket.NewNode[any, any]("error",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	errorHandler := pocket.NewNode[any, any]("error", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare error context
 			return input, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+		},
+		Exec: func(ctx context.Context, input any) (any, error) {
 			// Handle various error types
 			switch v := input.(type) {
 			case ValidationResult:
@@ -376,8 +376,8 @@ func main() {
 				fmt.Printf("[Error] Processing failed: %v\n", input)
 				return input, nil
 			}
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Log error and send notification
 			if valResult, ok := result.(ValidationResult); ok {
 				if err := store.Set(ctx, fmt.Sprintf("order:%s:error", valResult.Data.OrderID), valResult.Errors); err != nil {
@@ -386,8 +386,8 @@ func main() {
 				return valResult, "notify", nil
 			}
 			return result, "done", nil
-		}),
-	)
+		},
+	})
 
 	// Connect workflow nodes
 	validator.Connect("inventory", inventoryCheck)
@@ -498,22 +498,22 @@ func main() {
 
 	// Create a monitoring wrapper node
 	monitor := func(name string, node pocket.Node) pocket.Node {
-		return pocket.NewNode[any, any](name+"-monitor",
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+		return pocket.NewNode[any, any](name+"-monitor", pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				fmt.Printf("[Monitor] Entering stage: %s\n", name)
 				return input, nil
-			}),
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+			},
+			Exec: func(ctx context.Context, input any) (any, error) {
 				// Pass through to wrapped node
 				graph := pocket.NewGraph(node, store)
 				return graph.Run(ctx, input)
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 				fmt.Printf("[Monitor] Completed stage: %s\n", name)
 				// Forward to same route as wrapped node would
 				return result, "next", nil
-			}),
-		)
+			},
+		})
 	}
 
 	// Build workflow with monitoring

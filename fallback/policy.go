@@ -351,21 +351,21 @@ func (b *PolicyBuilder) Build() Policy {
 
 // ToNode converts a fallback policy to a pocket Node.
 func ToNode(policy Policy) pocket.Node {
-	return pocket.NewNode[any, any](policy.Name(),
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	return pocket.NewNode[any, any](policy.Name(), pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Pass input and store to exec step
 			return map[string]interface{}{
 				"input": input,
 				"store": store,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			// Extract store and input
 			data := prepData.(map[string]interface{})
 			store := data["store"].(pocket.Store)
 			input := data["input"]
 
 			return policy.Execute(ctx, store, input)
-		}),
-	)
+		},
+	})
 }

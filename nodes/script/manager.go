@@ -186,9 +186,11 @@ func (m *Manager) ValidateScript(path string) error {
 // CreateNode creates a Pocket node from a script.
 func (m *Manager) CreateNode(script *Script) (pocket.Node, error) {
 	return pocket.NewNode[any, any](script.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return ExecuteLuaScript(ctx, script.Content, input, m.verbose)
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return ExecuteLuaScript(ctx, script.Content, input, m.verbose)
+			},
+		},
 	), nil
 }
 

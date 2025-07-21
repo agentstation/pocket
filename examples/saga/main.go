@@ -40,8 +40,8 @@ func main() {
 	ctx := context.Background()
 
 	// Create inventory reservation node with lifecycle
-	reserveInventory := pocket.NewNode[any, any]("reserve_inventory",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	reserveInventory := pocket.NewNode[any, any]("reserve_inventory", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate order
 			order, ok := input.(*Order)
 			if !ok {
@@ -70,8 +70,8 @@ func main() {
 				"inventory": inventory,
 				"needsInit": !exists,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			data := prepData.(map[string]interface{})
 			o := data["order"].(*Order)
 			fmt.Printf("Reserving inventory for order %s...\n", o.ID)
@@ -89,8 +89,8 @@ func main() {
 				"inventory":      data["inventory"],
 				"needsInit":      data["needsInit"],
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
@@ -119,12 +119,12 @@ func main() {
 			}
 
 			return o, "charge_payment", nil
-		}),
-	)
+		},
+	})
 
 	// Create payment processing node
-	chargePayment := pocket.NewNode[any, any]("charge_payment",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	chargePayment := pocket.NewNode[any, any]("charge_payment", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate payment details
 			order := input.(*Order)
 			if order.Amount <= 0 {
@@ -138,8 +138,8 @@ func main() {
 				"order":     order,
 				"needsInit": !exists,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			data := prepData.(map[string]interface{})
 			o := data["order"].(*Order)
 			fmt.Printf("Charging payment of $%.2f for order %s...\n", o.Amount, o.ID)
@@ -156,8 +156,8 @@ func main() {
 				"amount":     o.Amount,
 				"needsInit":  data["needsInit"],
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
@@ -183,12 +183,12 @@ func main() {
 			}
 
 			return o, "create_shipment", nil
-		}),
-	)
+		},
+	})
 
 	// Create shipment node
-	createShipment := pocket.NewNode[any, any]("create_shipment",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	createShipment := pocket.NewNode[any, any]("create_shipment", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate shipping address
 			order := input.(*Order)
 
@@ -199,8 +199,8 @@ func main() {
 			}
 
 			return order, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, order any) (any, error) {
+		},
+		Exec: func(ctx context.Context, order any) (any, error) {
 			o := order.(*Order)
 			fmt.Printf("Creating shipment for order %s...\n", o.ID)
 
@@ -217,8 +217,8 @@ func main() {
 				"shipmentKey": fmt.Sprintf("shipment:%s", o.ID),
 				"shipmentID":  shipmentID,
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, order, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, order, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
@@ -237,12 +237,12 @@ func main() {
 			}
 
 			return o, "send_confirmation", nil
-		}),
-	)
+		},
+	})
 
 	// Create confirmation node
-	sendConfirmation := pocket.NewNode[any, any]("send_confirmation",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	sendConfirmation := pocket.NewNode[any, any]("send_confirmation", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare email context
 			order := input.(*Order)
 			shipmentID, _ := store.Get(ctx, fmt.Sprintf("shipment:%s", order.ID))
@@ -251,8 +251,8 @@ func main() {
 				"order":      order,
 				"shipmentID": shipmentID,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			d := data.(map[string]interface{})
 			order := d["order"].(*Order)
 
@@ -264,8 +264,8 @@ func main() {
 				"confirmationKey":  fmt.Sprintf("confirmation:%s", order.ID),
 				"confirmationTime": time.Now(),
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 			o := execResult["order"].(*Order)
@@ -285,20 +285,20 @@ func main() {
 			}
 
 			return o, "success", nil
-		}),
-	)
+		},
+	})
 
 	// Create success node
-	success := pocket.NewNode[any, any]("success",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	success := pocket.NewNode[any, any]("success", pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			order := input.(*Order)
 			return fmt.Sprintf("Order %s completed successfully!", order.ID), nil
-		}),
-	)
+		},
+	})
 
 	// Create compensation node with lifecycle
-	compensate := pocket.NewNode[any, any]("compensate",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	compensate := pocket.NewNode[any, any]("compensate", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Get transaction state to know what to compensate
 			state, _ := store.Get(ctx, "transaction_state")
 			if state == nil {
@@ -312,8 +312,8 @@ func main() {
 				"order":   order,
 				"txState": txState,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			d := data.(map[string]interface{})
 			order := d["order"].(*Order)
 			txState := d["txState"].(*TransactionState)
@@ -351,8 +351,8 @@ func main() {
 				"message":      "Saga rolled back successfully",
 				"keysToDelete": keysToDelete,
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
 			// Extract exec result
 			execResult := result.(map[string]interface{})
 
@@ -365,8 +365,8 @@ func main() {
 			_ = store.Delete(ctx, "transaction_state")
 
 			return execResult["message"], "done", nil
-		}),
-	)
+		},
+	})
 
 	// Connect nodes
 	reserveInventory.Connect("charge_payment", chargePayment)
@@ -375,13 +375,13 @@ func main() {
 	sendConfirmation.Connect("success", success)
 
 	// Create error handler that triggers compensation
-	errorHandler := pocket.NewNode[any, any]("error_handler",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	errorHandler := pocket.NewNode[any, any]("error_handler", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Extract error and order from input
 			errData := input.(map[string]interface{})
 			return errData, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, errData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, errData any) (any, error) {
 			data := errData.(map[string]interface{})
 			err := data["error"].(error)
 			order := data["order"].(*Order)
@@ -397,8 +397,8 @@ func main() {
 			}
 
 			return result, nil
-		}),
-	)
+		},
+	})
 
 	// Demo the saga pattern
 	fmt.Println("=== Saga Pattern Demo with Prep/Exec/Post ===")

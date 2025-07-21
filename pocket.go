@@ -48,6 +48,19 @@ type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err err
 // PostFunc processes results and determines routing with full store access.
 type PostFunc func(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
 
+// Steps groups the three lifecycle functions for a node.
+// All fields are optional - if not provided, default implementations will be used.
+type Steps struct {
+	// Prep prepares data before execution with read-only store access.
+	Prep PrepFunc
+
+	// Exec performs the main processing logic without store access.
+	Exec ExecFunc
+
+	// Post processes results and determines routing with full store access.
+	Post PostFunc
+}
+
 // StoreReader provides read-only access to the store.
 // Used in the Prep step to enforce read-only semantics.
 type StoreReader interface {
@@ -450,6 +463,11 @@ func newNodeBase(name string, opts ...Option) *node {
 //   - In: The expected input type for this node (use 'any' for dynamic typing)
 //   - Out: The output type this node produces (use 'any' for dynamic typing)
 //
+// Parameters:
+//   - name: The node's identifier
+//   - steps: The lifecycle functions (Prep, Exec, Post) - all fields are optional
+//   - opts: Additional options like retry, timeout, error handlers, etc.
+//
 // Type safety mechanism:
 //
 //  1. Compile-time: When In/Out are not 'any', the node stores type information
@@ -466,21 +484,49 @@ func newNodeBase(name string, opts ...Option) *node {
 //
 //	// Typed node - enables full type checking across the workflow
 //	validator := NewNode[User, ValidationResult]("validator",
-//	    WithExec(func(ctx context.Context, store Store, user User) (ValidationResult, error) {
-//	        // Compile-time type safety - no casting needed
-//	        return ValidationResult{Valid: true}, nil
-//	    }),
+//	    Steps{
+//	        Exec: func(ctx context.Context, user any) (any, error) {
+//	            // Type assertions handled by the framework
+//	            return ValidationResult{Valid: true}, nil
+//	        },
+//	    },
+//	    WithRetry(3, time.Second),
 //	)
 //
 //	// Untyped node - no compile-time checks (explicit [any, any] encourages adding types)
 //	processor := NewNode[any, any]("processor",
-//	    WithExec(func(ctx context.Context, store Store, input any) (any, error) {
-//	        return processData(input), nil
-//	    }),
+//	    Steps{
+//	        Prep: prepFunc,
+//	        Exec: execFunc,
+//	        Post: postFunc,
+//	    },
 //	)
-func NewNode[In, Out any](name string, opts ...Option) Node {
+func NewNode[In, Out any](name string, steps Steps, opts ...Option) Node {
+	// Apply lifecycle functions from Steps as options first
+	allOpts := make([]Option, 0, len(opts)+3)
+
+	// Add Steps functions as options if they're provided
+	if steps.Prep != nil {
+		allOpts = append(allOpts, func(o *nodeOptions) {
+			o.prep = steps.Prep
+		})
+	}
+	if steps.Exec != nil {
+		allOpts = append(allOpts, func(o *nodeOptions) {
+			o.exec = steps.Exec
+		})
+	}
+	if steps.Post != nil {
+		allOpts = append(allOpts, func(o *nodeOptions) {
+			o.post = steps.Post
+		})
+	}
+
+	// Add any additional options
+	allOpts = append(allOpts, opts...)
+
 	// Create base node using existing logic
-	n := newNodeBase(name, opts...)
+	n := newNodeBase(name, allOpts...)
 
 	// Determine if types are specified (not 'any')
 	inType := reflect.TypeOf((*In)(nil)).Elem()

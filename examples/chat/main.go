@@ -16,6 +16,17 @@ const (
 	doneRoute = "done"
 )
 
+// containsCreativeKeyword checks if the message contains creative-related keywords
+func containsCreativeKeyword(msg string) bool {
+	keywords := []string{"story", "poem", "joke", "creative"}
+	for _, keyword := range keywords {
+		if strings.Contains(msg, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	// Create shared store
 	store := pocket.NewStore()
@@ -25,8 +36,8 @@ func main() {
 	_ = store.Set(ctx, "history", []string{})
 
 	// Create router node that analyzes messages and routes to appropriate bot
-	router := pocket.NewNode[any, any]("router",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	router := pocket.NewNode[any, any]("router", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate input is a string message
 			message, ok := input.(string)
 			if !ok {
@@ -36,8 +47,8 @@ func main() {
 				return nil, fmt.Errorf("empty message")
 			}
 			return message, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, message any) (any, error) {
+		},
+		Exec: func(ctx context.Context, message any) (any, error) {
 			// Analyze message (in real world, this could use LLM)
 			msg := message.(string)
 
@@ -47,12 +58,12 @@ func main() {
 				"length":        len(msg),
 				"hasQuestion":   strings.Contains(msg, "?"),
 				"isComplex":     len(msg) > 50 || strings.Contains(strings.ToLower(msg), "explain"),
-				"needsCreative": strings.ContainsAny(strings.ToLower(msg), "story poem joke creative"),
+				"needsCreative": containsCreativeKeyword(strings.ToLower(msg)),
 			}
 
 			return analysis, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, message, analysis any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, message, analysis any) (any, string, error) {
 			// Route based on analysis
 			a := analysis.(map[string]interface{})
 
@@ -62,12 +73,12 @@ func main() {
 				return input, "expert", nil
 			}
 			return input, "simple", nil
-		}),
-	)
+		},
+	})
 
 	// Create simple bot for basic responses
-	simpleBot := pocket.NewNode[any, any]("simple",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	simpleBot := pocket.NewNode[any, any]("simple", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Load chat context
 			history, _ := store.Get(ctx, "history")
 			return map[string]interface{}{
@@ -75,8 +86,8 @@ func main() {
 				"history": history,
 				"bot":     "SimpleBot",
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Generate response
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
@@ -89,8 +100,8 @@ func main() {
 			}
 
 			return response, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
 			// Update history
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
@@ -102,12 +113,12 @@ func main() {
 			_ = store.Set(ctx, "history", history)
 
 			return response, doneRoute, nil
-		}),
-	)
+		},
+	})
 
 	// Create expert bot for complex queries
-	expertBot := pocket.NewNode[any, any]("expert",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	expertBot := pocket.NewNode[any, any]("expert", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Load chat context and prepare analysis
 			history, _ := store.Get(ctx, "history")
 			return map[string]interface{}{
@@ -115,8 +126,8 @@ func main() {
 				"history": history,
 				"bot":     "ExpertBot",
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Generate expert response
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
@@ -129,8 +140,8 @@ func main() {
 			response += "\n  • Finally, I'll offer actionable recommendations"
 
 			return response, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
 			// Update history with expert response
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
@@ -142,12 +153,12 @@ func main() {
 			_ = store.Set(ctx, "history", history)
 
 			return response, doneRoute, nil
-		}),
-	)
+		},
+	})
 
 	// Create creative bot for creative requests
-	creativeBot := pocket.NewNode[any, any]("creative",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	creativeBot := pocket.NewNode[any, any]("creative", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Prepare creative context
 			history, _ := store.Get(ctx, "history")
 			return map[string]interface{}{
@@ -155,8 +166,8 @@ func main() {
 				"history": history,
 				"bot":     "CreativeBot",
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Generate creative response
 			d := data.(map[string]interface{})
 			message := d["message"].(string)
@@ -178,8 +189,8 @@ func main() {
 			}
 
 			return response, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, response any) (any, string, error) {
 			// Update history
 			d := data.(map[string]interface{})
 			history := d["history"].([]string)
@@ -191,8 +202,8 @@ func main() {
 			_ = store.Set(ctx, "history", history)
 
 			return response, doneRoute, nil
-		}),
-	)
+		},
+	})
 
 	// Connect nodes
 	router.Connect("simple", simpleBot)
@@ -241,8 +252,8 @@ func main() {
 	_ = store.Set(ctx, "history", []string{})
 
 	// Build a more complex graph with input validation
-	inputValidator := pocket.NewNode[any, any]("input",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	inputValidator := pocket.NewNode[any, any]("input", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate and normalize input
 			msg, ok := input.(string)
 			if !ok {
@@ -256,21 +267,21 @@ func main() {
 				return nil, fmt.Errorf("message too long (max 1000 chars)")
 			}
 			return msg, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, msg any) (any, error) {
+		},
+		Exec: func(ctx context.Context, msg any) (any, error) {
 			// Add metadata
 			return map[string]interface{}{
 				"message":   msg,
 				"timestamp": "2024-01-01T12:00:00Z", // In real app, use time.Now()
 				"validated": true,
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, msg, data any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, msg, data any) (any, string, error) {
 			// Extract message for routing
 			d := data.(map[string]interface{})
 			return d["message"], "route", nil
-		}),
-	)
+		},
+	})
 
 	graph2, err := pocket.NewBuilder(store).
 		Add(inputValidator).

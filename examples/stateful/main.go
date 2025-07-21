@@ -31,245 +31,259 @@ func main() {
 
 	// Create processor node that maintains state
 	processor := pocket.NewNode[any, any]("processor",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Load previous processing state
-			count, _ := store.Get(ctx, "process:count")
-			processCount := count.(int)
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Load previous processing state
+				count, _ := store.Get(ctx, "process:count")
+				processCount := count.(int)
 
-			// Validate input
-			data, ok := input.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string input")
-			}
+				// Validate input
+				data, ok := input.(string)
+				if !ok {
+					return nil, fmt.Errorf("expected string input")
+				}
 
-			return map[string]interface{}{
-				"data":         data,
-				"processCount": processCount,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Process the data
-			data := prepData.(map[string]interface{})
-			text := data["data"].(string)
-			count := data["processCount"].(int)
+				return map[string]interface{}{
+					"data":         data,
+					"processCount": processCount,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Process the data
+				data := prepData.(map[string]interface{})
+				text := data["data"].(string)
+				count := data["processCount"].(int)
 
-			// Transform data (uppercase and add count)
-			processed := fmt.Sprintf("%s_%d", strings.ToUpper(text), count+1)
+				// Transform data (uppercase and add count)
+				processed := fmt.Sprintf("%s_%d", strings.ToUpper(text), count+1)
 
-			// Return both the result and the history data to store in post
-			return map[string]interface{}{
-				"processed": processed,
-				"history": map[string]interface{}{
-					"input":  text,
-					"output": processed,
-					"index":  count,
-				},
-				"historyKey": fmt.Sprintf("history:%d", count),
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			// Extract exec result
-			execResult := result.(map[string]interface{})
-			processed := execResult["processed"].(string)
-			history := execResult["history"]
-			historyKey := execResult["historyKey"].(string)
+				// Return both the result and the history data to store in post
+				return map[string]interface{}{
+					"processed": processed,
+					"history": map[string]interface{}{
+						"input":  text,
+						"output": processed,
+						"index":  count,
+					},
+					"historyKey": fmt.Sprintf("history:%d", count),
+				}, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				// Extract exec result
+				execResult := result.(map[string]interface{})
+				processed := execResult["processed"].(string)
+				history := execResult["history"]
+				historyKey := execResult["historyKey"].(string)
 
-			// Store processing history
-			if err := store.Set(ctx, historyKey, history); err != nil {
-				return nil, "", fmt.Errorf("failed to store history: %w", err)
-			}
+				// Store processing history
+				if err := store.Set(ctx, historyKey, history); err != nil {
+					return nil, "", fmt.Errorf("failed to store history: %w", err)
+				}
 
-			// Update process count
-			data := prepData.(map[string]interface{})
-			newCount := data["processCount"].(int) + 1
-			if err := store.Set(ctx, "process:count", newCount); err != nil {
-				return nil, "", fmt.Errorf("failed to update process count: %w", err)
-			}
+				// Update process count
+				data := prepData.(map[string]interface{})
+				newCount := data["processCount"].(int) + 1
+				if err := store.Set(ctx, "process:count", newCount); err != nil {
+					return nil, "", fmt.Errorf("failed to update process count: %w", err)
+				}
 
-			// Store last processed item
-			if err := store.Set(ctx, "processor:last", processed); err != nil {
-				return nil, "", fmt.Errorf("failed to store last processed item: %w", err)
-			}
+				// Store last processed item
+				if err := store.Set(ctx, "processor:last", processed); err != nil {
+					return nil, "", fmt.Errorf("failed to store last processed item: %w", err)
+				}
 
-			return processed, "accumulate", nil
-		}),
+				return processed, "accumulate", nil
+			},
+		},
 	)
 
 	// Create accumulator node that builds up results
 	accumulator := pocket.NewNode[any, any]("accumulator",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Load accumulated data
-			accumulated, _ := store.Get(ctx, "accumulator:data")
-			results := accumulated.([]string)
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Load accumulated data
+				accumulated, _ := store.Get(ctx, "accumulator:data")
+				results := accumulated.([]string)
 
-			return map[string]interface{}{
-				"newItem":     input,
-				"accumulated": results,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Add new item to accumulation
-			data := prepData.(map[string]interface{})
-			newItem := data["newItem"].(string)
-			accumulated := data["accumulated"].([]string)
+				return map[string]interface{}{
+					"newItem":     input,
+					"accumulated": results,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Add new item to accumulation
+				data := prepData.(map[string]interface{})
+				newItem := data["newItem"].(string)
+				accumulated := data["accumulated"].([]string)
 
-			// Append new item
-			accumulated = append(accumulated, newItem)
+				// Append new item
+				accumulated = append(accumulated, newItem)
 
-			// Create summary
-			summary := strings.Join(accumulated, ", ")
+				// Create summary
+				summary := strings.Join(accumulated, ", ")
 
-			return map[string]interface{}{
-				"summary":     summary,
-				"accumulated": accumulated,
-				"count":       len(accumulated),
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			// Save accumulated state
-			r := result.(map[string]interface{})
-			if err := store.Set(ctx, "accumulator:data", r["accumulated"]); err != nil {
-				return nil, "", fmt.Errorf("failed to save accumulated data: %w", err)
-			}
-			if err := store.Set(ctx, "accumulator:count", r["count"]); err != nil {
-				return nil, "", fmt.Errorf("failed to save accumulator count: %w", err)
-			}
+				return map[string]interface{}{
+					"summary":     summary,
+					"accumulated": accumulated,
+					"count":       len(accumulated),
+				}, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				// Save accumulated state
+				r := result.(map[string]interface{})
+				if err := store.Set(ctx, "accumulator:data", r["accumulated"]); err != nil {
+					return nil, "", fmt.Errorf("failed to save accumulated data: %w", err)
+				}
+				if err := store.Set(ctx, "accumulator:count", r["count"]); err != nil {
+					return nil, "", fmt.Errorf("failed to save accumulator count: %w", err)
+				}
 
-			// Route based on accumulated count
-			count := r["count"].(int)
-			if count == 1 {
-				return r["summary"], "single", nil
-			} else if count < 5 {
-				return r["summary"], "multiple", nil
-			}
-			return r["summary"], "many", nil
-		}),
+				// Route based on accumulated count
+				count := r["count"].(int)
+				if count == 1 {
+					return r["summary"], "single", nil
+				} else if count < 5 {
+					return r["summary"], "multiple", nil
+				}
+				return r["summary"], "many", nil
+			},
+		},
 	)
 
 	// Create validator node that checks accumulated state
 	validator := pocket.NewNode[any, any]("validator",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Load validation rules from store
-			maxLength, exists := store.Get(ctx, "validator:maxLength")
-			if !exists {
-				maxLength = 50
-				// Note: Cannot set in prep step - will set default in post if needed
-			}
-
-			return map[string]interface{}{
-				"data":      input,
-				"maxLength": maxLength,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Validate accumulated data
-			data := prepData.(map[string]interface{})
-			summary := data["data"].(string)
-			maxLen := data["maxLength"].(int)
-
-			validation := map[string]interface{}{
-				"data":        summary,
-				"length":      len(summary),
-				"isValid":     len(summary) <= maxLen,
-				"hasMultiple": strings.Contains(summary, ","),
-			}
-
-			// Validation results will be stored in post step
-
-			return validation, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			v := result.(map[string]interface{})
-
-			// Store validation results
-			if err := store.Set(ctx, "validator:lastResult", v); err != nil {
-				return nil, "", fmt.Errorf("failed to store validation result: %w", err)
-			}
-
-			// Set default maxLength if it wasn't already set
-			if _, exists := store.Get(ctx, "validator:maxLength"); !exists {
-				if err := store.Set(ctx, "validator:maxLength", 50); err != nil {
-					return nil, "", fmt.Errorf("failed to set default maxLength: %w", err)
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Load validation rules from store
+				maxLength, exists := store.Get(ctx, "validator:maxLength")
+				if !exists {
+					maxLength = 50
+					// Note: Cannot set in prep step - will set default in post if needed
 				}
-			}
 
-			// Update validation statistics
-			stats, exists := store.Get(ctx, "validator:stats")
-			if !exists {
-				stats = map[string]int{"valid": 0, "invalid": 0}
-			}
+				return map[string]interface{}{
+					"data":      input,
+					"maxLength": maxLength,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Validate accumulated data
+				data := prepData.(map[string]interface{})
+				summary := data["data"].(string)
+				maxLen := data["maxLength"].(int)
 
-			s := stats.(map[string]int)
-			if v["isValid"].(bool) {
-				s["valid"]++
-			} else {
-				s["invalid"]++
-			}
-			if err := store.Set(ctx, "validator:stats", s); err != nil {
-				return nil, "", fmt.Errorf("failed to update validator stats: %w", err)
-			}
+				validation := map[string]interface{}{
+					"data":        summary,
+					"length":      len(summary),
+					"isValid":     len(summary) <= maxLen,
+					"hasMultiple": strings.Contains(summary, ","),
+				}
 
-			return v["data"], "report", nil
-		}),
+				// Validation results will be stored in post step
+
+				return validation, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				v := result.(map[string]interface{})
+
+				// Store validation results
+				if err := store.Set(ctx, "validator:lastResult", v); err != nil {
+					return nil, "", fmt.Errorf("failed to store validation result: %w", err)
+				}
+
+				// Set default maxLength if it wasn't already set
+				if _, exists := store.Get(ctx, "validator:maxLength"); !exists {
+					if err := store.Set(ctx, "validator:maxLength", 50); err != nil {
+						return nil, "", fmt.Errorf("failed to set default maxLength: %w", err)
+					}
+				}
+
+				// Update validation statistics
+				stats, exists := store.Get(ctx, "validator:stats")
+				if !exists {
+					stats = map[string]int{"valid": 0, "invalid": 0}
+				}
+
+				s := stats.(map[string]int)
+				if v["isValid"].(bool) {
+					s["valid"]++
+				} else {
+					s["invalid"]++
+				}
+				if err := store.Set(ctx, "validator:stats", s); err != nil {
+					return nil, "", fmt.Errorf("failed to update validator stats: %w", err)
+				}
+
+				return v["data"], "report", nil
+			},
+		},
 	)
 
 	// Create output handlers
 	singleHandler := pocket.NewNode[any, any]("single",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Single item processed: %s", input), nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, validateRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Single item processed: %s", input), nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, validateRoute, nil
+			},
+		},
 	)
 
 	multipleHandler := pocket.NewNode[any, any]("multiple",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Multiple items (%d) accumulated: %s", strings.Count(input.(string), ",")+1, input), nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, validateRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Multiple items (%d) accumulated: %s", strings.Count(input.(string), ",")+1, input), nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, validateRoute, nil
+			},
+		},
 	)
 
 	manyHandler := pocket.NewNode[any, any]("many",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Many items accumulated! Summary: %s", input), nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, validateRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Many items accumulated! Summary: %s", input), nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, validateRoute, nil
+			},
+		},
 	)
 
 	// Create final report node
 	reporter := pocket.NewNode[any, any]("report",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Gather all state for final report
-			processCount, _ := store.Get(ctx, "process:count")
-			accumulatorData, _ := store.Get(ctx, "accumulator:data")
-			validatorStats, _ := store.Get(ctx, "validator:stats")
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Gather all state for final report
+				processCount, _ := store.Get(ctx, "process:count")
+				accumulatorData, _ := store.Get(ctx, "accumulator:data")
+				validatorStats, _ := store.Get(ctx, "validator:stats")
 
-			return map[string]interface{}{
-				"finalData":      input,
-				"processCount":   processCount,
-				"accumulated":    accumulatorData,
-				"validatorStats": validatorStats,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Generate final report
-			data := prepData.(map[string]interface{})
+				return map[string]interface{}{
+					"finalData":      input,
+					"processCount":   processCount,
+					"accumulated":    accumulatorData,
+					"validatorStats": validatorStats,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Generate final report
+				data := prepData.(map[string]interface{})
 
-			report := "=== Processing Report ===\n"
-			report += fmt.Sprintf("Final Data: %s\n", data["finalData"])
-			report += fmt.Sprintf("Total Items Processed: %d\n", data["processCount"])
+				report := "=== Processing Report ===\n"
+				report += fmt.Sprintf("Final Data: %s\n", data["finalData"])
+				report += fmt.Sprintf("Total Items Processed: %d\n", data["processCount"])
 
-			if stats, ok := data["validatorStats"].(map[string]int); ok {
-				report += fmt.Sprintf("Validation Stats - Valid: %d, Invalid: %d\n", stats["valid"], stats["invalid"])
-			}
+				if stats, ok := data["validatorStats"].(map[string]int); ok {
+					report += fmt.Sprintf("Validation Stats - Valid: %d, Invalid: %d\n", stats["valid"], stats["invalid"])
+				}
 
-			return report, nil
-		}),
+				return report, nil
+			},
+		},
 	)
 
 	// Connect nodes

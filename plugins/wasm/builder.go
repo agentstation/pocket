@@ -41,9 +41,11 @@ func (b *PluginNodeBuilder) Metadata() nodes.Metadata {
 // Build creates a new node instance.
 func (b *PluginNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 	return pocket.NewNode[any, any](def.Name,
-		pocket.WithPrep(b.prepFunc(def)),
-		pocket.WithExec(b.execFunc(def)),
-		pocket.WithPost(b.postFunc(def)),
+		pocket.Steps{
+			Prep: b.prepFunc(def),
+			Exec: b.execFunc(def),
+			Post: b.postFunc(def),
+		},
 	), nil
 }
 

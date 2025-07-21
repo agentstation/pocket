@@ -13,33 +13,35 @@ import (
 // input and output, enabling proper state isolation between composed graphs.
 func AsNodeWithStore(graph *pocket.Graph, name, inputKey, outputKey string) pocket.Node {
 	return pocket.NewNode[any, any](name,
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// If inputKey is specified, read from store instead of using passed input
-			if inputKey != "" {
-				if val, exists := store.Get(ctx, inputKey); exists {
-					return val, nil
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// If inputKey is specified, read from store instead of using passed input
+				if inputKey != "" {
+					if val, exists := store.Get(ctx, inputKey); exists {
+						return val, nil
+					}
+					return nil, fmt.Errorf("input key %q not found in store", inputKey)
 				}
-				return nil, fmt.Errorf("input key %q not found in store", inputKey)
-			}
-			return input, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-			// Run the graph with the prepared input
-			result, err := graph.Run(ctx, prepResult)
-			if err != nil {
-				return nil, fmt.Errorf("graph %q failed: %w", name, err)
-			}
-			return result, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			// If outputKey is specified, write to store
-			if outputKey != "" {
-				if err := store.Set(ctx, outputKey, result); err != nil {
-					return nil, "", fmt.Errorf("failed to store output: %w", err)
+				return input, nil
+			},
+			Exec: func(ctx context.Context, prepResult any) (any, error) {
+				// Run the graph with the prepared input
+				result, err := graph.Run(ctx, prepResult)
+				if err != nil {
+					return nil, fmt.Errorf("graph %q failed: %w", name, err)
 				}
-			}
-			return result, "default", nil
-		}),
+				return result, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				// If outputKey is specified, write to store
+				if outputKey != "" {
+					if err := store.Set(ctx, outputKey, result); err != nil {
+						return nil, "", fmt.Errorf("failed to store output: %w", err)
+					}
+				}
+				return result, "default", nil
+			},
+		},
 	)
 }
 

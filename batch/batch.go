@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/agentstation/pocket"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/agentstation/pocket"
 )
 
 // Processor processes a batch of items of type T.
@@ -81,33 +82,35 @@ func NewProcessor[T, R any](
 // ToNode converts the batch processor into a pocket Node.
 func (p *Processor[T, R]) ToNode(name string) pocket.Node {
 	return pocket.NewNode[any, any](name,
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// The store is passed as prep result for exec step
-			return store, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-			// Get store from prep result
-			store := prepResult.(pocket.StoreReader)
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// The store is passed as prep result for exec step
+				return store, nil
+			},
+			Exec: func(ctx context.Context, prepResult any) (any, error) {
+				// Get store from prep result
+				store := prepResult.(pocket.StoreReader)
 
-			// Extract items
-			items, err := p.Extract(ctx, store)
-			if err != nil {
-				return nil, fmt.Errorf("extract: %w", err)
-			}
+				// Extract items
+				items, err := p.Extract(ctx, store)
+				if err != nil {
+					return nil, fmt.Errorf("extract: %w", err)
+				}
 
-			if len(items) == 0 {
-				return p.Reduce(ctx, []R{})
-			}
+				if len(items) == 0 {
+					return p.Reduce(ctx, []R{})
+				}
 
-			// Process items
-			results, err := p.processItems(ctx, items)
-			if err != nil {
-				return nil, err
-			}
+				// Process items
+				results, err := p.processItems(ctx, items)
+				if err != nil {
+					return nil, err
+				}
 
-			// Reduce results
-			return p.Reduce(ctx, results)
-		}),
+				// Reduce results
+				return p.Reduce(ctx, results)
+			},
+		},
 	)
 }
 

@@ -57,21 +57,23 @@ func main() {
 	// Simulate an unreliable LLM service
 	callCount := 0
 	unreliableLLM := pocket.NewNode[any, any]("unreliable-llm",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			callCount++
-			// Fail the first 3 calls to trigger circuit breaker
-			if callCount <= 3 {
-				return nil, errors.New("LLM service unavailable")
-			}
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				callCount++
+				// Fail the first 3 calls to trigger circuit breaker
+				if callCount <= 3 {
+					return nil, errors.New("LLM service unavailable")
+				}
 
-			req := input.(LLMRequest)
-			return LLMResponse{
-				Text:       fmt.Sprintf("Generated response for: %s", req.Prompt),
-				Model:      req.Model,
-				TokensUsed: 150,
-				Timestamp:  time.Now(),
-			}, nil
-		}),
+				req := input.(LLMRequest)
+				return LLMResponse{
+					Text:       fmt.Sprintf("Generated response for: %s", req.Prompt),
+					Model:      req.Model,
+					TokensUsed: 150,
+					Timestamp:  time.Now(),
+				}, nil
+			},
+		},
 	)
 
 	// Create a fallback handler
@@ -89,16 +91,18 @@ func main() {
 
 	// Create a circuit breaker policy
 	circuitBreaker := pocket.NewNode[any, any]("protected-llm",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Use a simple circuit breaker pattern inline
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Use a simple circuit breaker pattern inline
 
-			result, err := unreliableLLM.Exec(ctx, input)
-			if err != nil {
-				// Use the fallback handler
-				return fallbackHandler(ctx, boundedStore, input, err)
-			}
-			return result, nil
-		}),
+				result, err := unreliableLLM.Exec(ctx, input)
+				if err != nil {
+					// Use the fallback handler
+					return fallbackHandler(ctx, boundedStore, input, err)
+				}
+				return result, nil
+			},
+		},
 	)
 
 	// Test the circuit breaker
@@ -132,25 +136,27 @@ func main() {
 
 	// Create a main graph that uses the extraction subgraph
 	mainGraph := pocket.NewNode[any, any]("main-pipeline",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Prepare the input for extraction
-			text := input.(string)
-			return map[string]interface{}{
-				"original_text": text,
-				"text":          text,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			data := prepData.(map[string]interface{})
-			return data["text"], nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			data := prepData.(map[string]interface{})
-			if err := store.Set(ctx, "original_text", data["original_text"]); err != nil {
-				return nil, "", fmt.Errorf("failed to store original text: %w", err)
-			}
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare the input for extraction
+				text := input.(string)
+				return map[string]interface{}{
+					"original_text": text,
+					"text":          text,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				data := prepData.(map[string]interface{})
+				return data["text"], nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				data := prepData.(map[string]interface{})
+				if err := store.Set(ctx, "original_text", data["original_text"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store original text: %w", err)
+				}
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	// Connect to extraction node
@@ -158,14 +164,16 @@ func main() {
 
 	// Add YAML formatting node
 	yamlFormatter := pocket.NewNode[any, any]("yaml-formatter",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Format the extraction result as YAML
-			yamlBytes, err := yaml.Marshal(input)
-			if err != nil {
-				return nil, err
-			}
-			return string(yamlBytes), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Format the extraction result as YAML
+				yamlBytes, err := yaml.Marshal(input)
+				if err != nil {
+					return nil, err
+				}
+				return string(yamlBytes), nil
+			},
+		},
 	)
 
 	extractionNode.Connect("default", yamlFormatter)
@@ -225,21 +233,23 @@ func main() {
 
 	// Create a node with the fallback chain
 	chainNode := pocket.NewNode[any, any]("llm-chain-node",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Pass input and store to exec step
-			return map[string]interface{}{
-				"input": input,
-				"store": store,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Extract store and input
-			data := prepData.(map[string]interface{})
-			store := data["store"].(pocket.Store)
-			input := data["input"]
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Pass input and store to exec step
+				return map[string]interface{}{
+					"input": input,
+					"store": store,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Extract store and input
+				data := prepData.(map[string]interface{})
+				store := data["store"].(pocket.Store)
+				input := data["input"]
 
-			return chain.Execute(ctx, store, input)
-		}),
+				return chain.Execute(ctx, store, input)
+			},
+		},
 	)
 
 	// Test the chain
@@ -268,28 +278,42 @@ func main() {
 
 	// Create a node with cleanup hooks
 	resourceNode := pocket.NewNode[any, any]("resource-manager",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Prepare resource allocation data
-			return map[string]interface{}{
-				"resource_id":  "res-12345",
-				"allocated_at": time.Now(),
-				"input":        input,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Use resources
-			data := prepData.(map[string]interface{})
-			resourceID := data["resource_id"]
-			fmt.Printf("Using resource: %v\n", resourceID)
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare resource allocation data
+				return map[string]interface{}{
+					"resource_id":  "res-12345",
+					"allocated_at": time.Now(),
+					"input":        input,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Use resources
+				data := prepData.(map[string]interface{})
+				resourceID := data["resource_id"]
+				fmt.Printf("Using resource: %v\n", resourceID)
 
-			// Simulate work
-			time.Sleep(100 * time.Millisecond)
+				// Simulate work
+				time.Sleep(100 * time.Millisecond)
 
-			return map[string]any{
-				"result":      "processed",
-				"resource_id": resourceID,
-			}, nil
-		}),
+				return map[string]any{
+					"result":      "processed",
+					"resource_id": resourceID,
+				}, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
+				// Store resource info and mark as allocated
+				data := prepData.(map[string]interface{})
+				if err := store.Set(ctx, "resource_id", data["resource_id"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store resource_id: %w", err)
+				}
+				if err := store.Set(ctx, "allocated_at", data["allocated_at"]); err != nil {
+					return nil, "", fmt.Errorf("failed to store allocated_at: %w", err)
+				}
+				fmt.Println("Resources allocated")
+				return execResult, "done", nil
+			},
+		},
 		pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 			fmt.Println("Success hook: Marking resources as successfully used")
 			if err := store.Set(ctx, "cleanup_status", "success"); err != nil {
@@ -301,18 +325,6 @@ func main() {
 			if setErr := store.Set(ctx, "cleanup_status", "failed"); setErr != nil {
 				log.Printf("Failed to set cleanup status: %v", setErr)
 			}
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
-			// Store resource info and mark as allocated
-			data := prepData.(map[string]interface{})
-			if err := store.Set(ctx, "resource_id", data["resource_id"]); err != nil {
-				return nil, "", fmt.Errorf("failed to store resource_id: %w", err)
-			}
-			if err := store.Set(ctx, "allocated_at", data["allocated_at"]); err != nil {
-				return nil, "", fmt.Errorf("failed to store allocated_at: %w", err)
-			}
-			fmt.Println("Resources allocated")
-			return execResult, "done", nil
 		}),
 		pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
 			// Always runs - cleanup
@@ -349,49 +361,55 @@ func createExtractionGraph() *pocket.Graph {
 
 	// Entity extraction node
 	entityExtractor := pocket.NewNode[any, any]("entity-extractor",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Simulate entity extraction
-			entities := []string{"sentiment", "entities", "text"}
-			return map[string]any{
-				"entities": entities,
-				"count":    len(entities),
-			}, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Simulate entity extraction
+				entities := []string{"sentiment", "entities", "text"}
+				return map[string]any{
+					"entities": entities,
+					"count":    len(entities),
+				}, nil
+			},
+		},
 	)
 
 	// Sentiment analysis node
 	sentimentAnalyzer := pocket.NewNode[any, any]("sentiment-analyzer",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// Simulate sentiment analysis
-			return map[string]any{
-				"sentiment": "positive",
-				"score":     0.85,
-			}, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// Simulate sentiment analysis
+				return map[string]any{
+					"sentiment": "positive",
+					"score":     0.85,
+				}, nil
+			},
+		},
 	)
 
 	// Combine results
 	combiner := pocket.NewNode[any, any]("result-combiner",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Get results from store in prep step
-			entities, _ := store.Get(ctx, "entities")
-			sentiment, _ := store.Get(ctx, "sentiment")
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Get results from store in prep step
+				entities, _ := store.Get(ctx, "entities")
+				sentiment, _ := store.Get(ctx, "sentiment")
 
-			return map[string]interface{}{
-				"entities":  entities,
-				"sentiment": sentiment,
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			data := prepData.(map[string]interface{})
-			return map[string]any{
-				"extraction_results": map[string]any{
-					"entities":  data["entities"],
-					"sentiment": data["sentiment"],
-					"timestamp": time.Now(),
-				},
-			}, nil
-		}),
+				return map[string]interface{}{
+					"entities":  entities,
+					"sentiment": sentiment,
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				data := prepData.(map[string]interface{})
+				return map[string]any{
+					"extraction_results": map[string]any{
+						"entities":  data["entities"],
+						"sentiment": data["sentiment"],
+						"timestamp": time.Now(),
+					},
+				}, nil
+			},
+		},
 	)
 
 	// Connect nodes
@@ -400,29 +418,33 @@ func createExtractionGraph() *pocket.Graph {
 
 	// Store intermediate results
 	wrappedEntityExtractor := pocket.NewNode[any, any]("wrapped-entity",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			result, err := entityExtractor.Exec(ctx, input)
-			return result, err
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			if err := store.Set(ctx, "entities", result); err != nil {
-				return nil, "", fmt.Errorf("failed to store entities: %w", err)
-			}
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				result, err := entityExtractor.Exec(ctx, input)
+				return result, err
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				if err := store.Set(ctx, "entities", result); err != nil {
+					return nil, "", fmt.Errorf("failed to store entities: %w", err)
+				}
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	wrappedSentimentAnalyzer := pocket.NewNode[any, any]("wrapped-sentiment",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			result, err := sentimentAnalyzer.Exec(ctx, input)
-			return result, err
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			if err := store.Set(ctx, "sentiment", result); err != nil {
-				return nil, "", fmt.Errorf("failed to store sentiment: %w", err)
-			}
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				result, err := sentimentAnalyzer.Exec(ctx, input)
+				return result, err
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				if err := store.Set(ctx, "sentiment", result); err != nil {
+					return nil, "", fmt.Errorf("failed to store sentiment: %w", err)
+				}
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	// Connect wrapped nodes

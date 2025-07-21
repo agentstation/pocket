@@ -17,33 +17,37 @@ import (
 func createTextProcessorGraph(store pocket.Store) *pocket.Graph {
 	// Node 1: Clean text
 	cleaner := pocket.NewNode[any, any]("clean",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			text, ok := input.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string input")
-			}
-			return text, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, text any) (any, error) {
-			// Remove extra spaces and trim
-			cleaned := strings.TrimSpace(text.(string))
-			cleaned = strings.Join(strings.Fields(cleaned), " ")
-			return cleaned, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				text, ok := input.(string)
+				if !ok {
+					return nil, fmt.Errorf("expected string input")
+				}
+				return text, nil
+			},
+			Exec: func(ctx context.Context, text any) (any, error) {
+				// Remove extra spaces and trim
+				cleaned := strings.TrimSpace(text.(string))
+				cleaned = strings.Join(strings.Fields(cleaned), " ")
+				return cleaned, nil
+			},
+		},
 	)
 
 	// Node 2: Analyze text
 	analyzer := pocket.NewNode[any, any]("analyze",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			text := input.(string)
-			analysis := map[string]interface{}{
-				"text":      text,
-				"length":    len(text),
-				"wordCount": len(strings.Fields(text)),
-				"hasDigits": strings.ContainsAny(text, "0123456789"),
-			}
-			return analysis, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				text := input.(string)
+				analysis := map[string]interface{}{
+					"text":      text,
+					"length":    len(text),
+					"wordCount": len(strings.Fields(text)),
+					"hasDigits": strings.ContainsAny(text, "0123456789"),
+				}
+				return analysis, nil
+			},
+		},
 	)
 
 	// Connect nodes
@@ -55,33 +59,35 @@ func createTextProcessorGraph(store pocket.Store) *pocket.Graph {
 // TranslationGraph simulates a translation workflow.
 func createTranslationGraph(store pocket.Store) *pocket.Graph {
 	translator := pocket.NewNode[any, any]("translate",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Extract text from analysis if provided
-			switch v := input.(type) {
-			case string:
-				return v, nil
-			case map[string]interface{}:
-				if text, ok := v["text"].(string); ok {
-					return text, nil
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Extract text from analysis if provided
+				switch v := input.(type) {
+				case string:
+					return v, nil
+				case map[string]interface{}:
+					if text, ok := v["text"].(string); ok {
+						return text, nil
+					}
 				}
-			}
-			return nil, fmt.Errorf("cannot extract text from input")
-		}),
-		pocket.WithExec(func(ctx context.Context, text any) (any, error) {
-			// Simulate translation
-			original := text.(string)
-			// Simple mock translation: reverse words
-			words := strings.Fields(original)
-			for i := 0; i < len(words)/2; i++ {
-				words[i], words[len(words)-1-i] = words[len(words)-1-i], words[i]
-			}
+				return nil, fmt.Errorf("cannot extract text from input")
+			},
+			Exec: func(ctx context.Context, text any) (any, error) {
+				// Simulate translation
+				original := text.(string)
+				// Simple mock translation: reverse words
+				words := strings.Fields(original)
+				for i := 0; i < len(words)/2; i++ {
+					words[i], words[len(words)-1-i] = words[len(words)-1-i], words[i]
+				}
 
-			return map[string]interface{}{
-				"original":   original,
-				"translated": strings.Join(words, " "),
-				"language":   "mock-lang",
-			}, nil
-		}),
+				return map[string]interface{}{
+					"original":   original,
+					"translated": strings.Join(words, " "),
+					"language":   "mock-lang",
+				}, nil
+			},
+		},
 	)
 
 	return pocket.NewGraph(translator, store)
@@ -90,57 +96,59 @@ func createTranslationGraph(store pocket.Store) *pocket.Graph {
 // QualityCheckGraph performs quality checks on translations.
 func createQualityCheckGraph(store pocket.Store) *pocket.Graph {
 	checker := pocket.NewNode[any, any]("quality-check",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			data, ok := input.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("expected map input")
-			}
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				data, ok := input.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("expected map input")
+				}
 
-			original, _ := data["original"].(string)
-			translated, _ := data["translated"].(string)
+				original, _ := data["original"].(string)
+				translated, _ := data["translated"].(string)
 
-			// Simple quality metrics
-			quality := map[string]interface{}{
-				"original":       original,
-				"translated":     translated,
-				"lengthRatio":    float64(len(translated)) / float64(len(original)),
-				"preservedWords": 0,
-				"qualityScore":   0.0,
-			}
+				// Simple quality metrics
+				quality := map[string]interface{}{
+					"original":       original,
+					"translated":     translated,
+					"lengthRatio":    float64(len(translated)) / float64(len(original)),
+					"preservedWords": 0,
+					"qualityScore":   0.0,
+				}
 
-			// Count preserved words
-			origWords := strings.Fields(strings.ToLower(original))
-			transWords := strings.Fields(strings.ToLower(translated))
-			preserved := 0
-			for _, word := range origWords {
-				for _, tword := range transWords {
-					if word == tword {
-						preserved++
-						break
+				// Count preserved words
+				origWords := strings.Fields(strings.ToLower(original))
+				transWords := strings.Fields(strings.ToLower(translated))
+				preserved := 0
+				for _, word := range origWords {
+					for _, tword := range transWords {
+						if word == tword {
+							preserved++
+							break
+						}
 					}
 				}
-			}
-			quality["preservedWords"] = preserved
+				quality["preservedWords"] = preserved
 
-			// Calculate quality score
-			lengthScore := 1.0 - abs(1.0-quality["lengthRatio"].(float64))
-			preserveScore := float64(preserved) / float64(len(origWords))
-			quality["qualityScore"] = (lengthScore + preserveScore) / 2.0
+				// Calculate quality score
+				lengthScore := 1.0 - abs(1.0-quality["lengthRatio"].(float64))
+				preserveScore := float64(preserved) / float64(len(origWords))
+				quality["qualityScore"] = (lengthScore + preserveScore) / 2.0
 
-			return quality, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			quality := result.(map[string]interface{})
-			score := quality["qualityScore"].(float64)
+				return quality, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				quality := result.(map[string]interface{})
+				score := quality["qualityScore"].(float64)
 
-			// Route based on quality
-			if score > 0.7 {
-				return quality, "approved", nil
-			} else if score > 0.4 {
-				return quality, "review", nil
-			}
-			return quality, "rejected", nil
-		}),
+				// Route based on quality
+				if score > 0.7 {
+					return quality, "approved", nil
+				} else if score > 0.4 {
+					return quality, "review", nil
+				}
+				return quality, "rejected", nil
+			},
+		},
 	)
 
 	return pocket.NewGraph(checker, store)
@@ -176,27 +184,33 @@ func main() {
 
 	// Create approval/rejection handlers
 	approveHandler := pocket.NewNode[any, any]("approve",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			quality := input.(map[string]interface{})
-			fmt.Printf("✅ Translation APPROVED (score: %.2f)\n", quality["qualityScore"])
-			return quality, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				quality := input.(map[string]interface{})
+				fmt.Printf("✅ Translation APPROVED (score: %.2f)\n", quality["qualityScore"])
+				return quality, nil
+			},
+		},
 	)
 
 	reviewHandler := pocket.NewNode[any, any]("review",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			quality := input.(map[string]interface{})
-			fmt.Printf("🔍 Translation needs REVIEW (score: %.2f)\n", quality["qualityScore"])
-			return quality, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				quality := input.(map[string]interface{})
+				fmt.Printf("🔍 Translation needs REVIEW (score: %.2f)\n", quality["qualityScore"])
+				return quality, nil
+			},
+		},
 	)
 
 	rejectHandler := pocket.NewNode[any, any]("reject",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			quality := input.(map[string]interface{})
-			fmt.Printf("❌ Translation REJECTED (score: %.2f)\n", quality["qualityScore"])
-			return quality, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				quality := input.(map[string]interface{})
+				fmt.Printf("❌ Translation REJECTED (score: %.2f)\n", quality["qualityScore"])
+				return quality, nil
+			},
+		},
 	)
 
 	// Connect the graph nodes
@@ -298,27 +312,29 @@ func main() {
 	// Create a graph that uses shared configuration
 	configAwareGraph := pocket.NewGraph(
 		pocket.NewNode[any, any]("config-processor",
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-				maxLen, _ := store.Get(ctx, "config:maxLength")
-				targetLang, _ := store.Get(ctx, "config:targetLanguage")
+			pocket.Steps{
+				Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+					maxLen, _ := store.Get(ctx, "config:maxLength")
+					targetLang, _ := store.Get(ctx, "config:targetLanguage")
 
-				return map[string]interface{}{
-					"text":       input,
-					"maxLength":  maxLen,
-					"targetLang": targetLang,
-				}, nil
-			}),
-			pocket.WithExec(func(ctx context.Context, config any) (any, error) {
-				cfg := config.(map[string]interface{})
-				text := cfg["text"].(string)
-				maxLen := cfg["maxLength"].(int)
+					return map[string]interface{}{
+						"text":       input,
+						"maxLength":  maxLen,
+						"targetLang": targetLang,
+					}, nil
+				},
+				Exec: func(ctx context.Context, config any) (any, error) {
+					cfg := config.(map[string]interface{})
+					text := cfg["text"].(string)
+					maxLen := cfg["maxLength"].(int)
 
-				if len(text) > maxLen {
-					text = text[:maxLen] + "..."
-				}
+					if len(text) > maxLen {
+						text = text[:maxLen] + "..."
+					}
 
-				return fmt.Sprintf("Processed for %s: %s", cfg["targetLang"], text), nil
-			}),
+					return fmt.Sprintf("Processed for %s: %s", cfg["targetLang"], text), nil
+				},
+			},
 		),
 		store,
 	)

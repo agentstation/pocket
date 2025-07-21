@@ -46,46 +46,52 @@ func TestNodeLifecycle(t *testing.T) {
 			switch tt.name {
 			case "string transformation":
 				node = pocket.NewNode[any, any]("transform",
-					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-						s, ok := input.(string)
-						if !ok {
-							return nil, fmt.Errorf("expected string")
-						}
-						return s, nil
-					}),
-					pocket.WithExec(func(ctx context.Context, s any) (any, error) {
-						return strings.ToUpper(s.(string)), nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						return result, doneRoute, nil
-					}),
+					pocket.Steps{
+						Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+							s, ok := input.(string)
+							if !ok {
+								return nil, fmt.Errorf("expected string")
+							}
+							return s, nil
+						},
+						Exec: func(ctx context.Context, s any) (any, error) {
+							return strings.ToUpper(s.(string)), nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							return result, doneRoute, nil
+						},
+					},
 				)
 
 			case "number doubling":
 				node = pocket.NewNode[any, any]("double",
-					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-						n, ok := input.(int)
-						if !ok {
-							return nil, fmt.Errorf("expected int")
-						}
-						return n, nil
-					}),
-					pocket.WithExec(func(ctx context.Context, n any) (any, error) {
-						return n.(int) * 2, nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						return result, doneRoute, nil
-					}),
+					pocket.Steps{
+						Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+							n, ok := input.(int)
+							if !ok {
+								return nil, fmt.Errorf("expected int")
+							}
+							return n, nil
+						},
+						Exec: func(ctx context.Context, n any) (any, error) {
+							return n.(int) * 2, nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							return result, doneRoute, nil
+						},
+					},
 				)
 
 			case "nil input":
 				node = pocket.NewNode[any, any]("nilcheck",
-					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-						if input == nil {
-							return nil, errors.New("nil input")
-						}
-						return input, nil
-					}),
+					pocket.Steps{
+						Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+							if input == nil {
+								return nil, errors.New("nil input")
+							}
+							return input, nil
+						},
+					},
 				)
 			}
 
@@ -107,27 +113,33 @@ func TestNodeLifecycle(t *testing.T) {
 func TestNodeConnections(t *testing.T) {
 	// Create test nodes using lifecycle
 	start := pocket.NewNode[any, any]("start",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return "processed", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "next", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return "processed", nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, "next", nil
+			},
+		},
 	)
 
 	middle := pocket.NewNode[any, any]("middle",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(string) + "-middle", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "default", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(string) + "-middle", nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, "default", nil
+			},
+		},
 	)
 
 	end := pocket.NewNode[any, any]("end",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(string) + "-end", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(string) + "-end", nil
+			},
+		},
 	)
 
 	// Test connections
@@ -160,9 +172,11 @@ func TestGraphExecution(t *testing.T) {
 			name: "simple graph",
 			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("simple",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return testResult, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return testResult, nil
+						},
+					},
 				)
 				store := pocket.NewStore()
 				return pocket.NewGraph(node, store), store
@@ -174,27 +188,33 @@ func TestGraphExecution(t *testing.T) {
 			name: "graph with routing",
 			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				router := pocket.NewNode[any, any]("router",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return input, nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						if result.(int) > 10 {
-							return result, "big", nil
-						}
-						return result, "small", nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return input, nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							if result.(int) > 10 {
+								return result, "big", nil
+							}
+							return result, "small", nil
+						},
+					},
 				)
 
 				big := pocket.NewNode[any, any]("big",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return "big number", nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return "big number", nil
+						},
+					},
 				)
 
 				small := pocket.NewNode[any, any]("small",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return "small number", nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return "small number", nil
+						},
+					},
 				)
 
 				router.Connect("big", big)
@@ -210,9 +230,11 @@ func TestGraphExecution(t *testing.T) {
 			name: "graph with error",
 			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("error",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return nil, errors.New("process error")
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return nil, errors.New("process error")
+						},
+					},
 				)
 				store := pocket.NewStore()
 				return pocket.NewGraph(node, store), store
@@ -233,9 +255,11 @@ func TestGraphExecution(t *testing.T) {
 			name: "prep step error",
 			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("prep-error",
-					pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-						return nil, errors.New("prep failed")
-					}),
+					pocket.Steps{
+						Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+							return nil, errors.New("prep failed")
+						},
+					},
 				)
 				store := pocket.NewStore()
 				return pocket.NewGraph(node, store), store
@@ -247,12 +271,14 @@ func TestGraphExecution(t *testing.T) {
 			name: "post step error",
 			setupGraph: func() (*pocket.Graph, pocket.Store) {
 				node := pocket.NewNode[any, any]("post-error",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return "result", nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-						return nil, "", errors.New("post failed")
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return "result", nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							return nil, "", errors.New("post failed")
+						},
+					},
 				)
 				store := pocket.NewStore()
 				return pocket.NewGraph(node, store), store
@@ -374,13 +400,15 @@ func TestWithRetry(t *testing.T) {
 	ctx := context.Background()
 
 	node := pocket.NewNode[any, any]("retry",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			attempts++
-			if attempts < 3 {
-				return nil, errors.New("temporary error")
-			}
-			return successResult, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				attempts++
+				if attempts < 3 {
+					return nil, errors.New("temporary error")
+				}
+				return successResult, nil
+			},
+		},
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
 
@@ -411,14 +439,16 @@ func TestWithRetry(t *testing.T) {
 
 func TestWithTimeout(t *testing.T) {
 	node := pocket.NewNode[any, any]("slow",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			select {
-			case <-time.After(100 * time.Millisecond):
-				return "completed", nil
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				select {
+				case <-time.After(100 * time.Millisecond):
+					return "completed", nil
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			},
+		},
 		pocket.WithTimeout(10*time.Millisecond),
 	)
 
@@ -441,18 +471,22 @@ func TestBuilder(t *testing.T) {
 	store := pocket.NewStore()
 
 	node1 := pocket.NewNode[any, any]("node1",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return "from-node1", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, "default", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return "from-node1", nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, "default", nil
+			},
+		},
 	)
 
 	node2 := pocket.NewNode[any, any]("node2",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(string) + "-node2", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(string) + "-node2", nil
+			},
+		},
 	)
 
 	tests := []struct {
@@ -507,19 +541,25 @@ func TestTypedNode(t *testing.T) {
 
 	// Create a typed node with lifecycle
 	node := pocket.NewNode[User, Greeting]("greet",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, user User) (any, error) {
-			if user.Name == "" {
-				return nil, fmt.Errorf("name required")
-			}
-			return user, nil
-		}),
-		pocket.WithExec[any, Greeting](func(ctx context.Context, input any) (Greeting, error) {
-			user := input.(User)
-			return Greeting{Message: fmt.Sprintf("Hello, %s!", user.Name)}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, user User, prep any, greeting Greeting) (Greeting, string, error) {
-			return greeting, doneRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				user, ok := input.(User)
+				if !ok {
+					return nil, fmt.Errorf("expected User type")
+				}
+				if user.Name == "" {
+					return nil, fmt.Errorf("name required")
+				}
+				return user, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				user := prepData.(User)
+				return Greeting{Message: fmt.Sprintf("Hello, %s!", user.Name)}, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, doneRoute, nil
+			},
+		},
 	)
 
 	// Verify types are set
@@ -565,15 +605,19 @@ func TestValidateGraph(t *testing.T) {
 			setupGraph: func() pocket.Node {
 				// Create nodes with matching input/output types
 				node1 := pocket.NewNode[Input, Output]("node1",
-					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
-						return Output{Result: "processed"}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Output{Result: "processed"}, nil
+						},
+					},
 				)
 
 				node2 := pocket.NewNode[Output, Different]("node2",
-					pocket.WithExec(func(ctx context.Context, input Output) (Different, error) {
-						return Different{Data: 3.14}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Different{Data: 3.14}, nil
+						},
+					},
 				)
 
 				node1.Connect("default", node2)
@@ -586,16 +630,20 @@ func TestValidateGraph(t *testing.T) {
 			setupGraph: func() pocket.Node {
 				// Create nodes with mismatched types
 				node1 := pocket.NewNode[Input, Output]("node1",
-					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
-						return Output{Result: "processed"}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Output{Result: "processed"}, nil
+						},
+					},
 				)
 
 				// node2 expects Different but node1 outputs Output
 				node2 := pocket.NewNode[Different, Input]("node2",
-					pocket.WithExec(func(ctx context.Context, input Different) (Input, error) {
-						return Input{Value: 42}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Input{Value: 42}, nil
+						},
+					},
 				)
 
 				node1.Connect("default", node2)
@@ -609,16 +657,20 @@ func TestValidateGraph(t *testing.T) {
 			setupGraph: func() pocket.Node {
 				// Mix of typed and untyped nodes
 				typedNode := pocket.NewNode[Input, Output]("typed",
-					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
-						return Output{Result: "processed"}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Output{Result: "processed"}, nil
+						},
+					},
 				)
 
 				// Untyped node - no validation performed
 				untypedNode := pocket.NewNode[any, any]("untyped",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return testResult, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return testResult, nil
+						},
+					},
 				)
 
 				typedNode.Connect("default", untypedNode)
@@ -630,21 +682,25 @@ func TestValidateGraph(t *testing.T) {
 			name: "cyclic graph validation",
 			setupGraph: func() pocket.Node {
 				node1 := pocket.NewNode[Input, Output]("node1",
-					pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
-						return Output{Result: "processed"}, nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input Input, prep any, result Output) (Output, string, error) {
-						return result, defaultRoute, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Output{Result: "processed"}, nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							return result, defaultRoute, nil
+						},
+					},
 				)
 
 				node2 := pocket.NewNode[Output, Input]("node2",
-					pocket.WithExec(func(ctx context.Context, input Output) (Input, error) {
-						return Input{Value: 42}, nil
-					}),
-					pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input Output, prep any, result Input) (Input, string, error) {
-						return result, defaultRoute, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return Input{Value: 42}, nil
+						},
+						Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+							return result, defaultRoute, nil
+						},
+					},
 				)
 
 				// Create a cycle
@@ -661,15 +717,19 @@ func TestValidateGraph(t *testing.T) {
 				// With any,any nodes, type checking is not enforced
 				// This test validates that nodes can be connected regardless of type
 				node1 := pocket.NewNode[any, any]("producer",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return struct{ Value string }{Value: "test"}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return struct{ Value string }{Value: "test"}, nil
+						},
+					},
 				)
 
 				node2 := pocket.NewNode[any, any]("consumer",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return testResult, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return testResult, nil
+						},
+					},
 				)
 
 				node1.Connect("default", node2)
@@ -703,28 +763,30 @@ func TestLifecycleSteps(t *testing.T) {
 	var executionOrder []string
 
 	node := pocket.NewNode[any, any]("lifecycle",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			executionOrder = append(executionOrder, "prep")
-			return input.(string) + "-prepped", nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-			executionOrder = append(executionOrder, "exec")
-			return prepResult.(string) + "-executed", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepResult, execResult any) (any, string, error) {
-			executionOrder = append(executionOrder, "post")
-			// Verify all values are available
-			if input.(string) != "input" {
-				t.Errorf("Post got wrong input: %v", input)
-			}
-			if prepResult.(string) != "input-prepped" {
-				t.Errorf("Post got wrong prepResult: %v", prepResult)
-			}
-			if execResult.(string) != "input-prepped-executed" {
-				t.Errorf("Post got wrong execResult: %v", execResult)
-			}
-			return execResult.(string) + "-posted", doneRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				executionOrder = append(executionOrder, "prep")
+				return input.(string) + "-prepped", nil
+			},
+			Exec: func(ctx context.Context, prepResult any) (any, error) {
+				executionOrder = append(executionOrder, "exec")
+				return prepResult.(string) + "-executed", nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepResult, execResult any) (any, string, error) {
+				executionOrder = append(executionOrder, "post")
+				// Verify all values are available
+				if input.(string) != "input" {
+					t.Errorf("Post got wrong input: %v", input)
+				}
+				if prepResult.(string) != "input-prepped" {
+					t.Errorf("Post got wrong prepResult: %v", prepResult)
+				}
+				if execResult.(string) != "input-prepped-executed" {
+					t.Errorf("Post got wrong execResult: %v", execResult)
+				}
+				return execResult.(string) + "-posted", doneRoute, nil
+			},
+		},
 	)
 
 	graph := pocket.NewGraph(node, store)
@@ -759,20 +821,22 @@ func TestRetryPerStep(t *testing.T) {
 	execAttempts := 0
 
 	node := pocket.NewNode[any, any]("retry-steps",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			prepAttempts++
-			if prepAttempts < 2 {
-				return nil, errors.New("prep retry")
-			}
-			return "prep-success", nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-			execAttempts++
-			if execAttempts < 2 {
-				return nil, errors.New("exec retry")
-			}
-			return "exec-success", nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				prepAttempts++
+				if prepAttempts < 2 {
+					return nil, errors.New("prep retry")
+				}
+				return "prep-success", nil
+			},
+			Exec: func(ctx context.Context, prepResult any) (any, error) {
+				execAttempts++
+				if execAttempts < 2 {
+					return nil, errors.New("exec retry")
+				}
+				return "exec-success", nil
+			},
+		},
 		pocket.WithRetry(3, 10*time.Millisecond),
 	)
 
@@ -801,9 +865,11 @@ func TestErrorHandler(t *testing.T) {
 	var capturedError error
 
 	node := pocket.NewNode[any, any]("error-handler",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return nil, errors.New("test error")
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return nil, errors.New("test error")
+			},
+		},
 		pocket.WithErrorHandler(func(err error) {
 			capturedError = err
 		}),

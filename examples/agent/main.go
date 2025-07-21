@@ -37,16 +37,16 @@ func main() {
 	}
 
 	// Create think node that analyzes the task and decides next action
-	think := pocket.NewNode[any, any]("think",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	think := pocket.NewNode[any, any]("think", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Load current task state
 			taskData, exists := store.Get(ctx, "task")
 			if !exists {
 				return nil, fmt.Errorf("no task found")
 			}
 			return taskData, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, task any) (any, error) {
+		},
+		Exec: func(ctx context.Context, task any) (any, error) {
 			// Analyze task and decide next action
 			t := task.(*Task)
 
@@ -64,24 +64,24 @@ func main() {
 			default:
 				return completeAction, nil
 			}
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, task, action any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, task, action any) (any, string, error) {
 			// Route to the chosen action
 			actionStr := action.(string)
 			fmt.Printf("[THINK] Next action: %s\n", actionStr)
 			return action, actionStr, nil
-		}),
-	)
+		},
+	})
 
 	// Create action nodes using a helper function
 	createActionNode := func(actionType string) pocket.Node {
-		return pocket.NewNode[any, any](actionType,
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+		return pocket.NewNode[any, any](actionType, pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 				// Prepare: get current task
 				task, _ := store.Get(ctx, "task")
 				return task, nil
-			}),
-			pocket.WithExec(func(ctx context.Context, task any) (any, error) {
+			},
+			Exec: func(ctx context.Context, task any) (any, error) {
 				// Execute: perform the action
 				t := task.(*Task)
 				var result string
@@ -102,8 +102,8 @@ func main() {
 				}
 
 				return result, nil
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, task, result any) (any, string, error) {
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, task, result any) (any, string, error) {
 				// Post: update task steps and decide routing
 				t := task.(*Task)
 				resultStr := result.(string)
@@ -121,8 +121,8 @@ func main() {
 					return resultStr, doneRoute, nil // End the graph (no successor for "done")
 				}
 				return resultStr, "think", nil // Back to thinking
-			}),
-		)
+			},
+		})
 	}
 
 	// Create action nodes
@@ -185,34 +185,33 @@ func main() {
 
 	// Create a flaky action that sometimes fails
 	attempts := 0
-	analyze := pocket.NewNode[any, any]("analyze",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	analyze := pocket.NewNode[any, any]("analyze", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			fmt.Printf("[PREP] Preparing analysis (attempt %d)\n", attempts+1)
 			return input, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+		},
+		Exec: func(ctx context.Context, input any) (any, error) {
 			attempts++
 			if attempts < 2 {
 				return nil, fmt.Errorf("temporary analysis failure")
 			}
 			return "Analysis completed successfully", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
 			fmt.Printf("[POST] Analysis result: %v\n", result)
 			return result, doneRoute, nil
-		}),
-		pocket.WithRetry(3, 0), // Retry up to 3 times
-	)
+		},
+	}, pocket.WithRetry(3, 0)) // Retry up to 3 times
 
 	// Simple graph: think -> analyze
-	think2 := pocket.NewNode[any, any]("think2",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
+	think2 := pocket.NewNode[any, any]("think2", pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			return "Starting analysis", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			return exec, "analyze", nil
-		}),
-	)
+		},
+	})
 
 	think2.Connect("analyze", analyze)
 

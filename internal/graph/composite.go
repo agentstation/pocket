@@ -33,11 +33,11 @@ func NewGraphNode(name string, graph *pocket.Graph, inputKey, outputKey string) 
 
 	// Create a pocket.Node with our lifecycle implementation
 	// Using [any, any] since GraphNode needs to be flexible
-	node := pocket.NewNode[any, any](name,
-		pocket.WithPrep(fn.prep),
-		pocket.WithExec(fn.exec),
-		pocket.WithPost(fn.post),
-	)
+	node := pocket.NewNode[any, any](name, pocket.Steps{
+		Prep: fn.prep,
+		Exec: fn.exec,
+		Post: fn.post,
+	})
 
 	return node
 }

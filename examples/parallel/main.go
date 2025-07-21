@@ -124,8 +124,8 @@ func main() {
 	fmt.Println("=== Parallel Document Processing Demo ===")
 
 	// Create a parallel batch processor using lifecycle pattern
-	parallelProcessor := pocket.NewNode[any, any]("parallel-batch",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	parallelProcessor := pocket.NewNode[any, any]("parallel-batch", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Extract documents in prep step
 			docs, err := extractDocuments(ctx, store)
 			if err != nil {
@@ -138,8 +138,8 @@ func main() {
 				"doc_count":  len(docs),
 				"start_time": time.Now(),
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			// Extract documents from prep result
 			data := prepData.(map[string]interface{})
 			documents := data["docs"].([]Document)
@@ -174,8 +174,8 @@ func main() {
 			}
 
 			return results, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, results any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, results any) (any, string, error) {
 			// Store metadata from prep step
 			data := prepData.(map[string]interface{})
 			if err := store.Set(ctx, "doc_count", data["doc_count"]); err != nil {
@@ -201,8 +201,8 @@ func main() {
 			}
 
 			return report, "done", nil
-		}),
-	)
+		},
+	})
 
 	// Create graph and run
 	graph := pocket.NewGraph(parallelProcessor, store)
@@ -226,8 +226,8 @@ func main() {
 	fmt.Println("\n=== FanOut Pattern with Lifecycle ===")
 
 	// Create a document processor node
-	docProcessor := pocket.NewNode[any, any]("doc-processor",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	docProcessor := pocket.NewNode[any, any]("doc-processor", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate input is a document
 			doc, ok := input.(Document)
 			if !ok {
@@ -239,8 +239,8 @@ func main() {
 				"document":  doc,
 				"startTime": time.Now(),
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Extract and process document
 			d := data.(map[string]interface{})
 			doc := d["document"].(Document)
@@ -257,8 +257,8 @@ func main() {
 				"wordCount": wordCount,
 				"summary":   fmt.Sprintf("Doc %d: %s (%d words)", doc.ID, doc.Title, wordCount),
 			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
 			// Calculate processing time
 			d := prep.(map[string]interface{})
 			startTime := d["startTime"].(time.Time)
@@ -268,8 +268,8 @@ func main() {
 			r["duration"] = duration
 
 			return r["summary"], "done", nil
-		}),
-	)
+		},
+	})
 
 	// Get documents
 	docs, _ := extractDocuments(ctx, store)
@@ -291,27 +291,27 @@ func main() {
 	fmt.Println("\n=== Pipeline Pattern with Lifecycle ===")
 
 	// Create pipeline stages using lifecycle
-	extract := pocket.NewNode[any, any]("extract",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	extract := pocket.NewNode[any, any]("extract", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Validate document
 			doc, ok := input.(Document)
 			if !ok {
 				return nil, fmt.Errorf("expected Document")
 			}
 			return doc, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, doc any) (any, error) {
+		},
+		Exec: func(ctx context.Context, doc any) (any, error) {
 			// Extract content
 			d := doc.(Document)
 			return map[string]string{
 				"title":   d.Title,
 				"content": d.Content,
 			}, nil
-		}),
-	)
+		},
+	})
 
-	analyze := pocket.NewNode[any, any]("analyze",
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
+	analyze := pocket.NewNode[any, any]("analyze", pocket.Steps{
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// Analyze content
 			d := data.(map[string]string)
 			content := d["content"]
@@ -325,17 +325,17 @@ func main() {
 				"sentences": sentences,
 				"avgWords":  float64(len(words)) / float64(sentences),
 			}, nil
-		}),
-	)
+		},
+	})
 
-	format := pocket.NewNode[any, any]("format",
-		pocket.WithExec(func(ctx context.Context, analysis any) (any, error) {
+	format := pocket.NewNode[any, any]("format", pocket.Steps{
+		Exec: func(ctx context.Context, analysis any) (any, error) {
 			// Format results
 			a := analysis.(map[string]interface{})
 			return fmt.Sprintf("%s: %d words, %d sentences, %.1f words/sentence",
 				a["title"], a["wordCount"], a["sentences"], a["avgWords"]), nil
-		}),
-	)
+		},
+	})
 
 	// Run pipeline on first document
 	pipelineResult, err := pocket.Pipeline(ctx, []pocket.Node{extract, analyze, format}, store, docs[0])

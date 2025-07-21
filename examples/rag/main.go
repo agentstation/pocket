@@ -77,8 +77,9 @@ func main() {
 	ctx := context.Background()
 
 	// Create retriever node with lifecycle
-	retriever := pocket.NewNode[Query, RetrievedContext]("retrieve",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, query Query) (any, error) {
+	retriever := pocket.NewNode[Query, RetrievedContext]("retrieve", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			query := input.(Query)
 			// Validate query
 			if query.Text == "" {
 				return nil, fmt.Errorf("query text cannot be empty")
@@ -97,8 +98,8 @@ func main() {
 				"keywords":  strings.Fields(strings.ToLower(query.Text)),
 				"documents": documents,
 			}, nil
-		}),
-		pocket.WithExec[any, RetrievedContext](func(ctx context.Context, data any) (RetrievedContext, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// If we got cached data, return it
 			if retrieved, ok := data.(RetrievedContext); ok {
 				return retrieved, nil
@@ -132,13 +133,16 @@ func main() {
 
 			fmt.Printf("  🔍 Retrieved %d relevant documents\n", len(relevant))
 
-			return RetrievedContext{
+			result := RetrievedContext{
 				Query:     query,
 				Documents: relevant,
 				Relevance: relevance,
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, query Query, data any, retrieved RetrievedContext) (RetrievedContext, string, error) {
+			}
+			return result, nil
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+			query := input.(Query)
+			retrieved := result.(RetrievedContext)
 			// Cache the results
 			cacheKey := fmt.Sprintf("query_cache:%s", query.Text)
 			if err := store.Set(ctx, cacheKey, retrieved); err != nil {
@@ -150,19 +154,20 @@ func main() {
 				return retrieved, "no_results", nil
 			}
 			return retrieved, "augment", nil
-		}),
-	)
+		},
+	})
 
 	// Create augmenter node with lifecycle
-	augmenter := pocket.NewNode[RetrievedContext, AugmentedQuery]("augment",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, retrieved RetrievedContext) (any, error) {
+	augmenter := pocket.NewNode[RetrievedContext, AugmentedQuery]("augment", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			retrieved := input.(RetrievedContext)
 			// Prepare context building
 			return map[string]interface{}{
 				"retrieved":  retrieved,
 				"maxContext": 3, // Limit context size
 			}, nil
-		}),
-		pocket.WithExec[any, AugmentedQuery](func(ctx context.Context, data any) (AugmentedQuery, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			d := data.(map[string]interface{})
 			retrieved := d["retrieved"].(RetrievedContext)
 			maxContext := d["maxContext"].(int)
@@ -187,21 +192,24 @@ func main() {
 
 			fmt.Printf("  📝 Augmented query with %d context documents\n", len(contextParts))
 
-			return AugmentedQuery{
+			result := AugmentedQuery{
 				Original: retrieved.Query,
 				Context:  retrieved,
 				Prompt:   prompt,
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, retrieved RetrievedContext, data any, augmented AugmentedQuery) (AugmentedQuery, string, error) {
+			}
+			return result, nil
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+			augmented := result.(AugmentedQuery)
 			// Always proceed to generation
 			return augmented, "generate", nil
-		}),
-	)
+		},
+	})
 
 	// Create generator node with lifecycle
-	generator := pocket.NewNode[AugmentedQuery, GeneratedResponse]("generate",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, augmented AugmentedQuery) (any, error) {
+	generator := pocket.NewNode[AugmentedQuery, GeneratedResponse]("generate", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			augmented := input.(AugmentedQuery)
 			// Check response cache
 			cacheKey := fmt.Sprintf("response_cache:%s", augmented.Original.Text)
 			if cached, exists := store.Get(ctx, cacheKey); exists {
@@ -211,8 +219,8 @@ func main() {
 
 			// Prepare generation context
 			return augmented, nil
-		}),
-		pocket.WithExec[any, GeneratedResponse](func(ctx context.Context, data any) (GeneratedResponse, error) {
+		},
+		Exec: func(ctx context.Context, data any) (any, error) {
 			// If we got cached response, return it
 			if response, ok := data.(GeneratedResponse); ok {
 				return response, nil
@@ -253,13 +261,16 @@ func main() {
 
 			fmt.Printf("  🤖 Generated response with %.2f confidence\n", confidence)
 
-			return GeneratedResponse{
+			result := GeneratedResponse{
 				Answer:     answer,
 				Sources:    sources,
 				Confidence: confidence,
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, augmented AugmentedQuery, data any, response GeneratedResponse) (GeneratedResponse, string, error) {
+			}
+			return result, nil
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, data, result any) (any, string, error) {
+			augmented := input.(AugmentedQuery)
+			response := result.(GeneratedResponse)
 			// Cache the response
 			cacheKey := fmt.Sprintf("response_cache:%s", augmented.Original.Text)
 			if err := store.Set(ctx, cacheKey, response); err != nil {
@@ -278,20 +289,20 @@ func main() {
 			}
 
 			return response, "done", nil
-		}),
-	)
+		},
+	})
 
 	// Create no results handler
-	noResultsHandler := pocket.NewNode[any, any]("no_results",
-		pocket.WithExec[any, any](func(ctx context.Context, input any) (any, error) {
+	noResultsHandler := pocket.NewNode[any, any]("no_results", pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
 			retrieved := input.(RetrievedContext)
 			return GeneratedResponse{
 				Answer:     fmt.Sprintf("I couldn't find any relevant documents for '%s'. Please try rephrasing your question.", retrieved.Query.Text),
 				Sources:    []string{},
 				Confidence: 0.0,
 			}, nil
-		}),
-	)
+		},
+	})
 
 	// Connect the pipeline
 	retriever.Connect("augment", augmenter)
@@ -363,12 +374,12 @@ func main() {
 	fmt.Println("\n=== RAG Builder Pattern ===")
 
 	// Create a more complex RAG pipeline with quality filter
-	qualityFilter := pocket.NewNode[any, any]("quality_filter",
-		pocket.WithPrep[any](func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	qualityFilter := pocket.NewNode[any, any]("quality_filter", pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			response := input.(GeneratedResponse)
 			return response, nil
-		}),
-		pocket.WithExec[any, any](func(ctx context.Context, response any) (any, error) {
+		},
+		Exec: func(ctx context.Context, response any) (any, error) {
 			resp := response.(GeneratedResponse)
 
 			// Filter based on confidence
@@ -377,8 +388,8 @@ func main() {
 			}
 
 			return resp, nil
-		}),
-	)
+		},
+	})
 
 	_, err = pocket.NewBuilder(store).
 		Add(retriever).

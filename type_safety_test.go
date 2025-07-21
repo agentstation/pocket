@@ -40,9 +40,12 @@ func TestNewNodeGeneric(t *testing.T) {
 			name: "typed node sets InputType and OutputType",
 			setupNode: func() pocket.Node {
 				return pocket.NewNode[TestInput, TestOutput]("typed",
-					pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-						return TestOutput{Result: input.Value}, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							typedInput := input.(TestInput)
+							return TestOutput{Result: typedInput.Value}, nil
+						},
+					},
 				)
 			},
 			checkNode: func(t *testing.T, node pocket.Node) {
@@ -65,9 +68,11 @@ func TestNewNodeGeneric(t *testing.T) {
 			name: "untyped node has nil types",
 			setupNode: func() pocket.Node {
 				return pocket.NewNode[any, any]("untyped",
-					pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-						return input, nil
-					}),
+					pocket.Steps{
+						Exec: func(ctx context.Context, input any) (any, error) {
+							return input, nil
+						},
+					},
 				)
 			},
 			checkNode: func(t *testing.T, node pocket.Node) {
@@ -99,10 +104,13 @@ func TestNodeOptions(t *testing.T) {
 
 	t.Run("WithExec provides compile-time type safety", func(t *testing.T) {
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				// No type assertion needed
-				return TestOutput{Result: "Processed: " + input.Value}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					// Type assertion needed for untyped function
+					typedInput := input.(TestInput)
+					return TestOutput{Result: "Processed: " + typedInput.Value}, nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -123,15 +131,19 @@ func TestNodeOptions(t *testing.T) {
 	t.Run("WithPrep handles prep step with type safety", func(t *testing.T) {
 		var prepCalled bool
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input TestInput) (any, error) {
-				prepCalled = true
-				// Modify input
-				input.Value = strings.ToUpper(input.Value)
-				return input, nil
-			}),
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
+			pocket.Steps{
+				Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+					prepCalled = true
+					// Modify input
+					typedInput := input.(TestInput)
+					typedInput.Value = strings.ToUpper(typedInput.Value)
+					return typedInput, nil
+				},
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -152,15 +164,19 @@ func TestNodeOptions(t *testing.T) {
 
 	t.Run("WithPost handles routing with type safety", func(t *testing.T) {
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input TestInput, prep any, output TestOutput) (TestOutput, string, error) {
-				if strings.HasPrefix(output.Result, "error") {
-					return output, "error", nil
-				}
-				return output, successResult, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+				Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, output any) (any, string, error) {
+					typedOutput := output.(TestOutput)
+					if strings.HasPrefix(typedOutput.Result, "error") {
+						return typedOutput, "error", nil
+					}
+					return typedOutput, successResult, nil
+				},
+			},
 		)
 
 		// Test nodes should still work without full routing setup
@@ -176,9 +192,11 @@ func TestNodeOptions(t *testing.T) {
 		fallbackCalled := false
 
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{}, execError
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return TestOutput{}, execError
+				},
+			},
 			pocket.WithFallback(func(ctx context.Context, input TestInput, err error) (TestOutput, error) {
 				fallbackCalled = true
 				// The error will be wrapped with retry information
@@ -210,9 +228,11 @@ func TestNodeOptions(t *testing.T) {
 		var capturedOutput TestOutput
 
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: "success"}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return TestOutput{Result: "success"}, nil
+				},
+			},
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output TestOutput) {
 				successCalled = true
 				capturedOutput = output
@@ -241,11 +261,13 @@ func TestRuntimeTypeSafety(t *testing.T) {
 
 	t.Run("typed node with untyped WithExec wraps for type safety", func(t *testing.T) {
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				// Even with untyped WithExec, typed nodes ensure type safety
-				typedInput := input.(TestInput) // This cast should be safe
-				return TestOutput{Result: typedInput.Value}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					// Even with untyped WithExec, typed nodes ensure type safety
+					typedInput := input.(TestInput) // This cast should be safe
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -271,9 +293,12 @@ func TestRuntimeTypeSafety(t *testing.T) {
 
 	t.Run("mixed typed and regular options", func(t *testing.T) {
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+			},
 			// Regular options work with typed nodes
 			pocket.WithRetry(3, 10*time.Millisecond),
 			pocket.WithTimeout(100*time.Millisecond),
@@ -290,15 +315,21 @@ func TestRuntimeTypeSafety(t *testing.T) {
 func TestValidateGraphTypeSafety(t *testing.T) {
 	t.Run("validates compatible typed nodes", func(t *testing.T) {
 		node1 := pocket.NewNode[TestInput, TestOutput]("node1",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+			},
 		)
 
 		node2 := pocket.NewNode[TestOutput, DifferentType]("node2",
-			pocket.WithExec(func(ctx context.Context, input TestOutput) (DifferentType, error) {
-				return DifferentType{Data: len(input.Result)}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestOutput)
+					return DifferentType{Data: len(typedInput.Result)}, nil
+				},
+			},
 		)
 
 		// Connect compatible nodes
@@ -312,16 +343,20 @@ func TestValidateGraphTypeSafety(t *testing.T) {
 
 	t.Run("catches type mismatches between nodes", func(t *testing.T) {
 		node1 := pocket.NewNode[TestInput, TestOutput]("node1",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return TestOutput{}, nil
+				},
+			},
 		)
 
 		// node2 expects DifferentType but node1 outputs TestOutput
 		node2 := pocket.NewNode[DifferentType, TestOutput]("node2",
-			pocket.WithExec(func(ctx context.Context, input DifferentType) (TestOutput, error) {
-				return TestOutput{}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return TestOutput{}, nil
+				},
+			},
 		)
 
 		// Connect incompatible nodes
@@ -339,16 +374,21 @@ func TestValidateGraphTypeSafety(t *testing.T) {
 
 	t.Run("allows untyped nodes in typed graph", func(t *testing.T) {
 		typedNode := pocket.NewNode[TestInput, TestOutput]("typed",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+			},
 		)
 
 		// Untyped node can accept any input
 		untypedNode := pocket.NewNode[any, any]("untyped",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 
 		typedNode.Connect("default", untypedNode)
@@ -368,16 +408,21 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 	t.Run("strongly typed nodes with unified API", func(t *testing.T) {
 		// All options work seamlessly with typed nodes
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input TestInput) (TestOutput, error) {
-				return TestOutput{Result: input.Value}, nil
-			}),
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input TestInput) (any, error) {
-				input.Value = strings.ToUpper(input.Value)
-				return input, nil
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input TestInput, prep any, output TestOutput) (TestOutput, string, error) {
-				return output, defaultRoute, nil
-			}),
+			pocket.Steps{
+				Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+					typedInput := input.(TestInput)
+					typedInput.Value = strings.ToUpper(typedInput.Value)
+					return typedInput, nil
+				},
+				Exec: func(ctx context.Context, input any) (any, error) {
+					typedInput := input.(TestInput)
+					return TestOutput{Result: typedInput.Value}, nil
+				},
+				Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, output any) (any, string, error) {
+					typedOutput := output.(TestOutput)
+					return typedOutput, defaultRoute, nil
+				},
+			},
 			pocket.WithFallback(func(ctx context.Context, input TestInput, err error) (TestOutput, error) {
 				return TestOutput{Result: "fallback"}, nil
 			}),
@@ -401,17 +446,19 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 	t.Run("untyped nodes work as before", func(t *testing.T) {
 		// Untyped nodes use any/interface{} types
 		node := pocket.NewNode[any, any]("untyped",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				// Handle any input type
-				switch v := input.(type) {
-				case string:
-					return "String: " + v, nil
-				case int:
-					return v * 2, nil
-				default:
-					return input, nil
-				}
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					// Handle any input type
+					switch v := input.(type) {
+					case string:
+						return "String: " + v, nil
+					case int:
+						return v * 2, nil
+					default:
+						return input, nil
+					}
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -444,15 +491,17 @@ func TestAutoTypeWrapping(t *testing.T) {
 	t.Run("untyped WithExec gets wrapped for typed nodes", func(t *testing.T) {
 		execCalled := false
 		node := pocket.NewNode[TestInput, TestOutput]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				execCalled = true
-				// Should be safe to cast due to wrapping
-				_, ok := input.(TestInput)
-				if !ok {
-					t.Errorf("Expected input to be TestInput, got %T", input)
-				}
-				return TestOutput{Result: "wrapped"}, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					execCalled = true
+					// Should be safe to cast due to wrapping
+					_, ok := input.(TestInput)
+					if !ok {
+						t.Errorf("Expected input to be TestInput, got %T", input)
+					}
+					return TestOutput{Result: "wrapped"}, nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)

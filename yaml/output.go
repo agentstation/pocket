@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/agentstation/pocket"
 	yaml "github.com/goccy/go-yaml"
+
+	"github.com/agentstation/pocket"
 )
 
 // YAMLNode creates a node that marshals its output to YAML format.
@@ -43,7 +44,9 @@ func YAMLNode(name string, execFn pocket.ExecFunc) pocket.Node {
 	}
 
 	return pocket.NewNode[any, any](name,
-		pocket.WithExec(yamlExec),
+		pocket.Steps{
+			Exec: yamlExec,
+		},
 	)
 }
 
@@ -87,23 +90,23 @@ func YAMLNodeWithLifecycle(name string, prep pocket.PrepFunc, exec pocket.ExecFu
 	}
 
 	// Create node with all lifecycle functions
-	opts := []pocket.Option{
-		pocket.WithExec(yamlExec),
+	steps := pocket.Steps{
+		Exec: yamlExec,
 	}
 
 	if prep != nil {
-		opts = append(opts, pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+		steps.Prep = func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			return prep(ctx, store, input)
-		}))
+		}
 	}
 
 	if post != nil {
-		opts = append(opts, pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+		steps.Post = func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
 			return post(ctx, store, input, prep, exec)
-		}))
+		}
 	}
 
-	return pocket.NewNode[any, any](name, opts...)
+	return pocket.NewNode[any, any](name, steps)
 }
 
 // YAMLOutput represents structured output in YAML format.

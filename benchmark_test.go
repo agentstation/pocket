@@ -14,9 +14,11 @@ func BenchmarkNewNode(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = pocket.NewNode[any, any]("bench",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 	}
 }
@@ -24,9 +26,11 @@ func BenchmarkNewNode(b *testing.B) {
 // Benchmark single node execution.
 func BenchmarkSingleNodeExecution(b *testing.B) {
 	node := pocket.NewNode[any, any]("bench",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+		},
 	)
 	store := pocket.NewStore()
 	graph := pocket.NewGraph(node, store)
@@ -41,15 +45,17 @@ func BenchmarkSingleNodeExecution(b *testing.B) {
 // Benchmark lifecycle steps.
 func BenchmarkLifecycleSteps(b *testing.B) {
 	node := pocket.NewNode[any, any]("lifecycle",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			return input, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prep any) (any, error) {
-			return prep, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			return exec, doneRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				return input, nil
+			},
+			Exec: func(ctx context.Context, prep any) (any, error) {
+				return prep, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+				return exec, doneRoute, nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()
@@ -67,9 +73,11 @@ func BenchmarkPipelineMultiNode(b *testing.B) {
 	nodes := make([]pocket.Node, 5)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any]("bench",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 	}
 	store := pocket.NewStore()
@@ -86,9 +94,11 @@ func BenchmarkRunConcurrentManyNodes(b *testing.B) {
 	nodes := make([]pocket.Node, 10)
 	for i := range nodes {
 		nodes[i] = pocket.NewNode[any, any]("bench",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 	}
 	store := pocket.NewStore()
@@ -135,27 +145,33 @@ func BenchmarkStoreOperations(b *testing.B) {
 func BenchmarkGraphWithRouting(b *testing.B) {
 	// Create nodes
 	start := pocket.NewNode[any, any]("start",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			if i := result.(int); i%2 == 0 {
-				return result, "even", nil
-			}
-			return result, "odd", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				if i := result.(int); i%2 == 0 {
+					return result, "even", nil
+				}
+				return result, "odd", nil
+			},
+		},
 	)
 
 	nodeA := pocket.NewNode[any, any]("a",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+		},
 	)
 
 	nodeB := pocket.NewNode[any, any]("b",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+		},
 	)
 
 	start.Connect("even", nodeA)
@@ -177,21 +193,27 @@ func BenchmarkBuilder(b *testing.B) {
 		builder := pocket.NewBuilder(pocket.NewStore())
 
 		nodeA := pocket.NewNode[any, any]("a",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 
 		nodeB := pocket.NewNode[any, any]("b",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 
 		nodeC := pocket.NewNode[any, any]("c",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 
 		builder.
@@ -210,9 +232,11 @@ func BenchmarkNodeCreationAllocs(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = pocket.NewNode[any, any]("bench",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input, nil
+				},
+			},
 		)
 	}
 }

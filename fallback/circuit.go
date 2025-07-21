@@ -333,23 +333,23 @@ func (p *CircuitBreakerPolicy) Execute(ctx context.Context, store pocket.Store, 
 func ToCircuitBreakerNode(name string, primary pocket.ExecFunc, fallback Handler, opts ...CircuitOption) pocket.Node {
 	policy := NewCircuitBreakerPolicy(name, primary, fallback, opts...)
 
-	return pocket.NewNode[any, any](name,
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+	return pocket.NewNode[any, any](name, pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
 			// Pass input and store to exec step
 			return map[string]interface{}{
 				"input": input,
 				"store": store,
 			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
+		},
+		Exec: func(ctx context.Context, prepData any) (any, error) {
 			// Extract store and input
 			data := prepData.(map[string]interface{})
 			store := data["store"].(pocket.Store)
 			input := data["input"]
 
 			return policy.Execute(ctx, store, input)
-		}),
-	)
+		},
+	})
 }
 
 // CircuitBreakerGroup manages multiple circuit breakers.

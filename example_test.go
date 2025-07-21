@@ -16,22 +16,24 @@ import (
 func ExampleNode() {
 	// Create a node with lifecycle steps
 	uppercase := pocket.NewNode[any, any]("uppercase",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Validate input is a string
-			text, ok := input.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string, got %T", input)
-			}
-			return text, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, text any) (any, error) {
-			// Transform to uppercase
-			return strings.ToUpper(text.(string)), nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
-			// Return result and routing
-			return result, doneRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Validate input is a string
+				text, ok := input.(string)
+				if !ok {
+					return nil, fmt.Errorf("expected string, got %T", input)
+				}
+				return text, nil
+			},
+			Exec: func(ctx context.Context, text any) (any, error) {
+				// Transform to uppercase
+				return strings.ToUpper(text.(string)), nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
+				// Return result and routing
+				return result, doneRoute, nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()
@@ -52,29 +54,33 @@ func ExampleBuilder() {
 
 	// Define nodes with lifecycle
 	validate := pocket.NewNode[any, any]("validate",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			email, ok := input.(string)
-			if !ok {
-				return nil, fmt.Errorf("expected string")
-			}
-			return email, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, email any) (any, error) {
-			if !strings.Contains(email.(string), "@") {
-				return nil, fmt.Errorf("invalid email")
-			}
-			return email, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			return result, defaultRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				email, ok := input.(string)
+				if !ok {
+					return nil, fmt.Errorf("expected string")
+				}
+				return email, nil
+			},
+			Exec: func(ctx context.Context, email any) (any, error) {
+				if !strings.Contains(email.(string), "@") {
+					return nil, fmt.Errorf("invalid email")
+				}
+				return email, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				return result, defaultRoute, nil
+			},
+		},
 	)
 
 	normalize := pocket.NewNode[any, any]("normalize",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			email := input.(string)
-			return strings.ToLower(strings.TrimSpace(email)), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				email := input.(string)
+				return strings.ToLower(strings.TrimSpace(email)), nil
+			},
+		},
 	)
 
 	// Build the graph
@@ -104,29 +110,35 @@ func ExampleNode_routing() {
 
 	// Router node that checks input
 	router := pocket.NewNode[any, any]("router",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			value := result.(int)
-			if value > 100 {
-				return result, "large", nil
-			}
-			return result, "small", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				value := result.(int)
+				if value > 100 {
+					return result, "large", nil
+				}
+				return result, "small", nil
+			},
+		},
 	)
 
 	// Handler nodes
 	largeHandler := pocket.NewNode[any, any]("large",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Large number: %v", input), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Large number: %v", input), nil
+			},
+		},
 	)
 
 	smallHandler := pocket.NewNode[any, any]("small",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Small number: %v", input), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Small number: %v", input), nil
+			},
+		},
 	)
 
 	// Connect nodes
@@ -150,10 +162,12 @@ func ExampleNode_routing() {
 func ExampleFanOut() {
 	// Create a processor that simulates work
 	processor := pocket.NewNode[any, any]("process",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			num := input.(int)
-			return num * num, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				num := input.(int)
+				return num * num, nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()
@@ -183,21 +197,27 @@ func ExamplePipeline() {
 
 	// Create a pipeline of transformations
 	double := pocket.NewNode[any, any]("double",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) * 2, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) * 2, nil
+			},
+		},
 	)
 
 	addTen := pocket.NewNode[any, any]("addTen",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) + 10, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) + 10, nil
+			},
+		},
 	)
 
 	toString := pocket.NewNode[any, any]("toString",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Result: %d", input.(int)), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Result: %d", input.(int)), nil
+			},
+		},
 	)
 
 	nodes := []pocket.Node{double, addTen, toString}
@@ -249,13 +269,15 @@ func ExampleWithRetry() {
 
 	// Create a node that fails twice before succeeding
 	flaky := pocket.NewNode[any, any]("flaky",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			attempts++
-			if attempts < 3 {
-				return nil, fmt.Errorf("temporary failure %d", attempts)
-			}
-			return "success", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				attempts++
+				if attempts < 3 {
+					return nil, fmt.Errorf("temporary failure %d", attempts)
+				}
+				return "success", nil
+			},
+		},
 		pocket.WithRetry(2, 10*time.Millisecond), // Retry up to 2 times
 	)
 
@@ -275,31 +297,33 @@ func ExampleWithRetry() {
 func Example_lifecycle() {
 	// Create a node that uses all three steps
 	processor := pocket.NewNode[any, any]("processor",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Prepare: validate and transform input
-			data := input.(map[string]int)
-			if len(data) == 0 {
-				return nil, fmt.Errorf("empty data")
-			}
-			return data, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
-			// Execute: calculate sum
-			m := data.(map[string]int)
-			sum := 0
-			for _, v := range m {
-				sum += v
-			}
-			return sum, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, sum any) (any, string, error) {
-			// Post: decide routing based on result
-			total := sum.(int)
-			if total > 100 {
-				return fmt.Sprintf("High total: %d", total), "high", nil
-			}
-			return fmt.Sprintf("Low total: %d", total), "low", nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare: validate and transform input
+				data := input.(map[string]int)
+				if len(data) == 0 {
+					return nil, fmt.Errorf("empty data")
+				}
+				return data, nil
+			},
+			Exec: func(ctx context.Context, data any) (any, error) {
+				// Execute: calculate sum
+				m := data.(map[string]int)
+				sum := 0
+				for _, v := range m {
+					sum += v
+				}
+				return sum, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, data, sum any) (any, string, error) {
+				// Post: decide routing based on result
+				total := sum.(int)
+				if total > 100 {
+					return fmt.Sprintf("High total: %d", total), "high", nil
+				}
+				return fmt.Sprintf("Low total: %d", total), "low", nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()

@@ -23,9 +23,11 @@ func testSimpleNodeWithExec(t *testing.T) {
 	store := pocket.NewStore()
 
 	node := pocket.NewNode[any, any]("simple",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return "processed: " + input.(string), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return "processed: " + input.(string), nil
+			},
+		},
 	)
 
 	graph := pocket.NewGraph(node, store)
@@ -44,18 +46,20 @@ func testNodeWithAllLifecycle(t *testing.T) {
 	var prepCalled, execCalled, postCalled bool
 
 	node := pocket.NewNode[any, any]("full",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			prepCalled = true
-			return input.(string) + "-prep", nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepResult any) (any, error) {
-			execCalled = true
-			return prepResult.(string) + "-exec", nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			postCalled = true
-			return exec.(string) + "-post", defaultRoute, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				prepCalled = true
+				return input.(string) + "-prep", nil
+			},
+			Exec: func(ctx context.Context, prepResult any) (any, error) {
+				execCalled = true
+				return prepResult.(string) + "-exec", nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+				postCalled = true
+				return exec.(string) + "-post", defaultRoute, nil
+			},
+		},
 	)
 
 	graph := pocket.NewGraph(node, store)
@@ -80,13 +84,15 @@ func testNodeWithErrorHandler(t *testing.T) {
 	t.Run("node with options", func(t *testing.T) {
 		retryCount := 0
 		node := pocket.NewNode[any, any]("retry-test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				retryCount++
-				if retryCount < 3 {
-					return nil, pocket.ErrInvalidInput
-				}
-				return "success after retries", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					retryCount++
+					if retryCount < 3 {
+						return nil, pocket.ErrInvalidInput
+					}
+					return "success after retries", nil
+				},
+			},
 			pocket.WithRetry(3, 10*time.Millisecond),
 		)
 
@@ -109,9 +115,11 @@ func testNodeWithErrorHandler(t *testing.T) {
 		var successCalled, completeCalled bool
 
 		node := pocket.NewNode[any, any]("hooks",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return successResult, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return successResult, nil
+				},
+			},
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				successCalled = true
 				if output != successResult {
@@ -156,9 +164,11 @@ func TestGlobalDefaults(t *testing.T) {
 
 		// Create node without prep - should use global default
 		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return "executed", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return "executed", nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -186,13 +196,15 @@ func TestGlobalDefaults(t *testing.T) {
 
 		// Create node with its own prep
 		node := pocket.NewNode[any, any]("override",
-			pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-				nodeCalled = true
-				return input, nil
-			}),
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return "executed", nil
-			}),
+			pocket.Steps{
+				Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+					nodeCalled = true
+					return input, nil
+				},
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return "executed", nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -227,9 +239,11 @@ func TestGlobalDefaults(t *testing.T) {
 
 		// Create node with just exec
 		node := pocket.NewNode[any, any]("minimal",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input.(string) + "-exec", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input.(string) + "-exec", nil
+				},
+			},
 		)
 
 		graph := pocket.NewGraph(node, store)

@@ -25,7 +25,9 @@ type hookTracker struct {
 // createNodeWithHooks creates a node with hooks and returns the tracker.
 func createNodeWithHooks(t *testing.T, execFunc pocket.ExecFunc, tracker *hookTracker) pocket.Node {
 	return pocket.NewNode[any, any]("test",
-		pocket.WithExec(execFunc),
+		pocket.Steps{
+			Exec: execFunc,
+		},
 		pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 			tracker.successCalled = true
 			if output == successResult && output != successResult {
@@ -79,9 +81,11 @@ func TestCleanupHooks(t *testing.T) {
 		expectedErr := errors.New("test error")
 
 		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return nil, expectedErr
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return nil, expectedErr
+				},
+			},
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				successCalled = true
 			}),
@@ -122,11 +126,13 @@ func TestCleanupHooks(t *testing.T) {
 		completeCalled := false
 
 		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				// This would normally panic, but we'll return an error instead
-				// to simulate the behavior without actually panicking in tests
-				return nil, errors.New("simulated panic")
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					// This would normally panic, but we'll return an error instead
+					// to simulate the behavior without actually panicking in tests
+					return nil, errors.New("simulated panic")
+				},
+			},
 			pocket.WithOnComplete(func(ctx context.Context, store pocket.StoreWriter) {
 				completeCalled = true
 			}),
@@ -145,20 +151,22 @@ func TestCleanupHooks(t *testing.T) {
 		ctx := context.Background()
 
 		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return map[string]interface{}{
-					"exec_data": "important_value",
-					"result":    "result",
-				}, nil
-			}),
-			pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
-				// Store the exec_data in post step
-				data := execResult.(map[string]interface{})
-				if err := store.Set(ctx, "exec_data", data["exec_data"]); err != nil {
-					return nil, "", fmt.Errorf("failed to store exec_data: %w", err)
-				}
-				return data["result"], doneRoute, nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return map[string]interface{}{
+						"exec_data": "important_value",
+						"result":    "result",
+					}, nil
+				},
+				Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, execResult any) (any, string, error) {
+					// Store the exec_data in post step
+					data := execResult.(map[string]interface{})
+					if err := store.Set(ctx, "exec_data", data["exec_data"]); err != nil {
+						return nil, "", fmt.Errorf("failed to store exec_data: %w", err)
+					}
+					return data["result"], doneRoute, nil
+				},
+			},
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				// Should be able to read from store
 				if val, exists := store.Get(ctx, "exec_data"); exists {
@@ -192,10 +200,12 @@ func TestCleanupHooks(t *testing.T) {
 		var executionOrder []string
 
 		node := pocket.NewNode[any, any]("test",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				executionOrder = append(executionOrder, "exec")
-				return nil, errors.New("exec failed")
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					executionOrder = append(executionOrder, "exec")
+					return nil, errors.New("exec failed")
+				},
+			},
 			pocket.WithFallback(func(ctx context.Context, input any, err error) (any, error) {
 				executionOrder = append(executionOrder, "fallback")
 				return "fallback result", nil
@@ -241,15 +251,19 @@ func TestGraphComposition(t *testing.T) {
 
 		// Create a sub-graph
 		subNode1 := pocket.NewNode[any, any]("sub1",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input.(string) + " -> sub1", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input.(string) + " -> sub1", nil
+				},
+			},
 		)
 
 		subNode2 := pocket.NewNode[any, any]("sub2",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input.(string) + " -> sub2", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input.(string) + " -> sub2", nil
+				},
+			},
 		)
 
 		subNode1.Connect("default", subNode2)
@@ -260,9 +274,11 @@ func TestGraphComposition(t *testing.T) {
 
 		// Create main graph
 		mainNode := pocket.NewNode[any, any]("main",
-			pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-				return input.(string) + " -> main", nil
-			}),
+			pocket.Steps{
+				Exec: func(ctx context.Context, input any) (any, error) {
+					return input.(string) + " -> main", nil
+				},
+			},
 		)
 
 		mainNode.Connect("default", subGraphNode)

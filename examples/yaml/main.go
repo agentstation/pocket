@@ -10,11 +10,12 @@ import (
 	"log"
 	"strings"
 
-	"github.com/agentstation/pocket"
 	"github.com/goccy/go-yaml"
+
+	"github.com/agentstation/pocket"
 )
 
-// Resume represents a structured resume format
+// Resume represents a structured resume format.
 type Resume struct {
 	Name       string      `yaml:"name" json:"name"`
 	Email      string      `yaml:"email" json:"email"`
@@ -22,7 +23,7 @@ type Resume struct {
 	Skills     []string    `yaml:"skills" json:"skills"`
 }
 
-// JobDetail represents job experience
+// JobDetail represents job experience.
 type JobDetail struct {
 	Employer string `yaml:"employer" json:"employer"`
 	Role     string `yaml:"role" json:"role"`
@@ -41,30 +42,32 @@ func main() {
 	fmt.Println("-------------------------")
 
 	yamlExtractor := pocket.NewNode[any, any]("extract-data",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			text := input.(string)
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				text := input.(string)
 
-			// Simulate extracting structured data from text
-			data := map[string]interface{}{
-				"source_text": text,
-				"extracted": map[string]interface{}{
-					"entities": []string{"Pocket", "YAML", "Go"},
-					"topics":   []string{"framework", "serialization", "efficiency"},
-					"metadata": map[string]interface{}{
-						"word_count": len(strings.Fields(text)),
-						"has_code":   strings.Contains(text, "func"),
+				// Simulate extracting structured data from text
+				data := map[string]interface{}{
+					"source_text": text,
+					"extracted": map[string]interface{}{
+						"entities": []string{"Pocket", "YAML", "Go"},
+						"topics":   []string{"framework", "serialization", "efficiency"},
+						"metadata": map[string]interface{}{
+							"word_count": len(strings.Fields(text)),
+							"has_code":   strings.Contains(text, "func"),
+						},
 					},
-				},
-			}
+				}
 
-			// Convert to YAML
-			yamlBytes, err := yaml.Marshal(data)
-			if err != nil {
-				return nil, err
-			}
+				// Convert to YAML
+				yamlBytes, err := yaml.Marshal(data)
+				if err != nil {
+					return nil, err
+				}
 
-			return string(yamlBytes), nil
-		}),
+				return string(yamlBytes), nil
+			},
+		},
 	)
 
 	graph := pocket.NewGraph(yamlExtractor, store)
@@ -132,60 +135,64 @@ func main() {
 	}
 
 	structuredNode := pocket.NewNode[any, any]("resume-extractor",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Prepare schema and examples for reference
-			schemaYAML, _ := yaml.Marshal(schema)
-			exampleYAML, _ := yaml.Marshal(examples[0])
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare schema and examples for reference
+				schemaYAML, _ := yaml.Marshal(schema)
+				exampleYAML, _ := yaml.Marshal(examples[0])
 
-			return map[string]interface{}{
-				"input":       input,
-				"schemaYAML":  string(schemaYAML),
-				"exampleYAML": string(exampleYAML),
-			}, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, prepData any) (any, error) {
-			// Extract prep data
-			data := prepData.(map[string]interface{})
-			input := data["input"]
+				return map[string]interface{}{
+					"input":       input,
+					"schemaYAML":  string(schemaYAML),
+					"exampleYAML": string(exampleYAML),
+				}, nil
+			},
+			Exec: func(ctx context.Context, prepData any) (any, error) {
+				// Extract prep data
+				data := prepData.(map[string]interface{})
+				input := data["input"]
 
-			// Simulate structured extraction
-			result := map[string]interface{}{
-				"input":     input,
-				"processed": true,
-				"timestamp": "2024-01-01T00:00:00Z",
-			}
+				// Simulate structured extraction
+				result := map[string]interface{}{
+					"input":     input,
+					"processed": true,
+					"timestamp": "2024-01-01T00:00:00Z",
+				}
 
-			yamlBytes, err := yaml.Marshal(result)
-			if err != nil {
-				return nil, err
-			}
+				yamlBytes, err := yaml.Marshal(result)
+				if err != nil {
+					return nil, err
+				}
 
-			return map[string]interface{}{
-				"yamlOutput":  string(yamlBytes),
-				"schemaYAML":  data["schemaYAML"],
-				"exampleYAML": data["exampleYAML"],
-			}, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
-			// Extract exec result
-			execResult := result.(map[string]interface{})
+				return map[string]interface{}{
+					"yamlOutput":  string(yamlBytes),
+					"schemaYAML":  data["schemaYAML"],
+					"exampleYAML": data["exampleYAML"],
+				}, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prepData, result any) (any, string, error) {
+				// Extract exec result
+				execResult := result.(map[string]interface{})
 
-			// Store schema and example for reference
-			store.Set(ctx, "schema", execResult["schemaYAML"])
-			store.Set(ctx, "example", execResult["exampleYAML"])
+				// Store schema and example for reference
+				store.Set(ctx, "schema", execResult["schemaYAML"])
+				store.Set(ctx, "example", execResult["exampleYAML"])
 
-			// Return the YAML output
-			return execResult["yamlOutput"], "default", nil
-		}),
+				// Return the YAML output
+				return execResult["yamlOutput"], "default", nil
+			},
+		},
 	)
 
 	// Create a pipeline that processes raw text
 	pipeline := pocket.NewNode[any, any]("pipeline",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// In real use, this would prepare a prompt for an LLM
-			fmt.Println("Preparing structured extraction prompt...")
-			return input, nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// In real use, this would prepare a prompt for an LLM
+				fmt.Println("Preparing structured extraction prompt...")
+				return input, nil
+			},
+		},
 	)
 
 	pipeline.Connect("default", structuredNode)
@@ -241,59 +248,65 @@ skills:
 
 	// Create a classifier that outputs YAML with routing info
 	classifier := pocket.NewNode[any, any]("classifier",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			text := input.(string)
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				text := input.(string)
 
-			// Classify text and return structured result
-			classification := map[string]interface{}{
-				"text":       text,
-				"category":   "technical",
-				"confidence": 0.95,
-				"topics":     []string{"programming", "yaml"},
-				"route":      "technical-handler",
-			}
+				// Classify text and return structured result
+				classification := map[string]interface{}{
+					"text":       text,
+					"category":   "technical",
+					"confidence": 0.95,
+					"topics":     []string{"programming", "yaml"},
+					"route":      "technical-handler",
+				}
 
-			if strings.Contains(strings.ToLower(text), "business") {
-				classification["category"] = "business"
-				classification["route"] = "business-handler"
-			}
+				if strings.Contains(strings.ToLower(text), "business") {
+					classification["category"] = "business"
+					classification["route"] = "business-handler"
+				}
 
-			// Convert to YAML
-			yamlBytes, err := yaml.Marshal(classification)
-			if err != nil {
-				return nil, err
-			}
+				// Convert to YAML
+				yamlBytes, err := yaml.Marshal(classification)
+				if err != nil {
+					return nil, err
+				}
 
-			return string(yamlBytes), nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			// Extract routing from YAML output
-			if yamlStr, ok := result.(string); ok {
-				// Parse YAML to get route
-				var data map[string]interface{}
-				if err := yaml.Unmarshal([]byte(yamlStr), &data); err == nil {
-					if route, ok := data["route"].(string); ok {
-						return yamlStr, route, nil
+				return string(yamlBytes), nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				// Extract routing from YAML output
+				if yamlStr, ok := result.(string); ok {
+					// Parse YAML to get route
+					var data map[string]interface{}
+					if err := yaml.Unmarshal([]byte(yamlStr), &data); err == nil {
+						if route, ok := data["route"].(string); ok {
+							return yamlStr, route, nil
+						}
 					}
 				}
-			}
-			return result, "default", nil
-		}),
+				return result, "default", nil
+			},
+		},
 	)
 
 	// Create handlers
 	techHandler := pocket.NewNode[any, any]("technical-handler",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			fmt.Println("→ Routed to Technical Handler")
-			return "Technical content processed", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				fmt.Println("→ Routed to Technical Handler")
+				return "Technical content processed", nil
+			},
+		},
 	)
 
 	businessHandler := pocket.NewNode[any, any]("business-handler",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			fmt.Println("→ Routed to Business Handler")
-			return "Business content processed", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				fmt.Println("→ Routed to Business Handler")
+				return "Business content processed", nil
+			},
+		},
 	)
 
 	// Connect based on classification

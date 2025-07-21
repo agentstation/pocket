@@ -223,8 +223,10 @@ func (f *defaultNodeFactory) createGenericNode(def *NodeDefinition) (pocket.Node
 	}
 
 	node := pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(execFunc),
-		pocket.WithPost(postFunc),
+		pocket.Steps{
+			Exec: execFunc,
+			Post: postFunc,
+		},
 	)
 
 	// Note: Cannot set type information directly on nodes in the new API
@@ -261,10 +263,12 @@ func LLMNodeBuilder(def *NodeDefinition) (pocket.Node, error) {
 	prompt, _ := def.Config["prompt"].(string)
 
 	return pocket.NewNode[any, any](def.Name,
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			// This would integrate with an actual LLM
-			return fmt.Sprintf("LLM response from %s for prompt: %s", model, prompt), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				// This would integrate with an actual LLM
+				return fmt.Sprintf("LLM response from %s for prompt: %s", model, prompt), nil
+			},
+		},
 	), nil
 }
 
@@ -273,20 +277,22 @@ func ValidatorNodeBuilder(def *NodeDefinition) (pocket.Node, error) {
 	requiredFields, _ := def.Config["required_fields"].([]interface{})
 
 	return pocket.NewNode[any, any](def.Name,
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
-			// Simple validation logic
-			inputMap, ok := input.(map[string]interface{})
-			if !ok {
-				return nil, "invalid", fmt.Errorf("input must be a map")
-			}
-
-			for _, field := range requiredFields {
-				if _, exists := inputMap[field.(string)]; !exists {
-					return nil, "invalid", fmt.Errorf("missing required field: %s", field)
+		pocket.Steps{
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, exec any) (any, string, error) {
+				// Simple validation logic
+				inputMap, ok := input.(map[string]interface{})
+				if !ok {
+					return nil, "invalid", fmt.Errorf("input must be a map")
 				}
-			}
 
-			return input, "valid", nil
-		}),
+				for _, field := range requiredFields {
+					if _, exists := inputMap[field.(string)]; !exists {
+						return nil, "invalid", fmt.Errorf("missing required field: %s", field)
+					}
+				}
+
+				return input, "valid", nil
+			},
+		},
 	), nil
 }
