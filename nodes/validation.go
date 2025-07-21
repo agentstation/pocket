@@ -1,4 +1,4 @@
-package builtin
+package nodes
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 )
 
 // ValidateNodeConfig validates a node configuration against its schema.
-func ValidateNodeConfig(meta *NodeMetadata, config map[string]interface{}) error {
+func ValidateNodeConfig(meta *Metadata, config map[string]interface{}) error {
 	if len(meta.ConfigSchema) == 0 {
 		// No schema defined, skip validation
 		return nil

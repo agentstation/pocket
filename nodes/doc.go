@@ -1,4 +1,4 @@
-// Package builtin provides the built-in node types for Pocket workflows.
+// Package nodes provides the built-in node types for Pocket workflows.
 // These nodes are available out-of-the-box and provide core functionality
 // for data manipulation, I/O operations, flow control, and more.
 //
@@ -10,4 +10,4 @@
 //
 // Each node type is registered with metadata that describes its
 // configuration schema, inputs, outputs, and usage examples.
-package builtin
+package nodes

@@ -6,19 +6,19 @@ import (
 	"fmt"
 
 	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/builtin"
-	"github.com/agentstation/pocket/plugin"
+	"github.com/agentstation/pocket/nodes"
+	"github.com/agentstation/pocket/plugins"
 	"github.com/agentstation/pocket/yaml"
 )
 
 // PluginNodeBuilder creates Pocket nodes from WASM plugins.
 type PluginNodeBuilder struct {
-	plugin   plugin.Plugin
-	nodeType plugin.NodeDefinition
+	plugin   plugins.Plugin
+	nodeType plugins.NodeDefinition
 }
 
 // NewPluginNodeBuilder creates a new builder for a specific node type in a plugin.
-func NewPluginNodeBuilder(p plugin.Plugin, nodeType *plugin.NodeDefinition) *PluginNodeBuilder {
+func NewPluginNodeBuilder(p plugins.Plugin, nodeType *plugins.NodeDefinition) *PluginNodeBuilder {
 	return &PluginNodeBuilder{
 		plugin:   p,
 		nodeType: *nodeType,
@@ -26,9 +26,9 @@ func NewPluginNodeBuilder(p plugin.Plugin, nodeType *plugin.NodeDefinition) *Plu
 }
 
 // Metadata returns the node metadata.
-func (b *PluginNodeBuilder) Metadata() builtin.NodeMetadata {
-	// Convert plugin node definition to builtin metadata
-	return builtin.NodeMetadata{
+func (b *PluginNodeBuilder) Metadata() nodes.Metadata {
+	// Convert plugin node definition to nodes metadata
+	return nodes.Metadata{
 		Type:         b.nodeType.Type,
 		Category:     b.nodeType.Category,
 		Description:  b.nodeType.Description,
@@ -56,7 +56,7 @@ func (b *PluginNodeBuilder) prepFunc(def *yaml.NodeDefinition) pocket.PrepFunc {
 			return nil, fmt.Errorf("failed to marshal input: %w", err)
 		}
 
-		req := plugin.Request{
+		req := plugins.Request{
 			Node:     b.nodeType.Type,
 			Function: "prep",
 			Config:   def.Config,
@@ -76,7 +76,7 @@ func (b *PluginNodeBuilder) prepFunc(def *yaml.NodeDefinition) pocket.PrepFunc {
 		}
 
 		// Unmarshal response
-		var resp plugin.Response
+		var resp plugins.Response
 		if err := json.Unmarshal(respJSON, &resp); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -106,7 +106,7 @@ func (b *PluginNodeBuilder) execFunc(def *yaml.NodeDefinition) pocket.ExecFunc {
 			return nil, fmt.Errorf("failed to marshal prep data: %w", err)
 		}
 
-		req := plugin.Request{
+		req := plugins.Request{
 			Node:       b.nodeType.Type,
 			Function:   "exec",
 			Config:     def.Config,
@@ -126,7 +126,7 @@ func (b *PluginNodeBuilder) execFunc(def *yaml.NodeDefinition) pocket.ExecFunc {
 		}
 
 		// Unmarshal response
-		var resp plugin.Response
+		var resp plugins.Response
 		if err := json.Unmarshal(respJSON, &resp); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -155,7 +155,7 @@ func (b *PluginNodeBuilder) postFunc(def *yaml.NodeDefinition) pocket.PostFunc {
 		prepJSON, _ := json.Marshal(prepData)
 		execJSON, _ := json.Marshal(execResult)
 
-		req := plugin.Request{
+		req := plugins.Request{
 			Node:       b.nodeType.Type,
 			Function:   "post",
 			Config:     def.Config,
@@ -177,7 +177,7 @@ func (b *PluginNodeBuilder) postFunc(def *yaml.NodeDefinition) pocket.PostFunc {
 		}
 
 		// Unmarshal response
-		var resp plugin.Response
+		var resp plugins.Response
 		if err := json.Unmarshal(respJSON, &resp); err != nil {
 			return nil, "", fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -204,11 +204,11 @@ func (b *PluginNodeBuilder) postFunc(def *yaml.NodeDefinition) pocket.PostFunc {
 	}
 }
 
-// convertExamples converts plugin examples to builtin examples.
-func convertExamples(examples []plugin.Example) []builtin.Example {
-	result := make([]builtin.Example, len(examples))
+// convertExamples converts plugin examples to nodes examples.
+func convertExamples(examples []plugins.Example) []nodes.Example {
+	result := make([]nodes.Example, len(examples))
 	for i, ex := range examples {
-		result[i] = builtin.Example{
+		result[i] = nodes.Example{
 			Name:        ex.Name,
 			Description: ex.Description,
 			Config:      ex.Config,

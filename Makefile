@@ -22,6 +22,20 @@ test-race:
 	@echo "Running tests with race detector..."
 	@go test -race -v ./...
 
+# Run integration tests
+test-integration:
+	@echo "Running integration tests..."
+	@go test -tags=integration -v ./cmd/pocket -run "Integration"
+
+# Run end-to-end tests
+test-e2e: build
+	@echo "Running end-to-end tests..."
+	@go test -tags=e2e -v ./cmd/pocket -run "E2E"
+
+# Run all tests (unit, integration, e2e)
+test-all: test test-integration test-e2e
+	@echo "All tests completed!"
+
 # Run linters
 lint:
 	@echo "Running linters..."
@@ -159,6 +173,9 @@ help:
 	@echo "Available targets:"
 	@echo "  make test          - Run tests"
 	@echo "  make test-race     - Run tests with race detector"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-e2e      - Run end-to-end tests (builds binary first)"
+	@echo "  make test-all      - Run all tests (unit, integration, e2e)"
 	@echo "  make lint          - Run linters"
 	@echo "  make fmt           - Format code (basic)"
 	@echo "  make fmt-all       - Comprehensive formatting with all tools"

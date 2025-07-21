@@ -8,7 +8,7 @@ import (
 
 	"github.com/goccy/go-yaml"
 
-	"github.com/agentstation/pocket/plugin"
+	"github.com/agentstation/pocket/plugins"
 )
 
 func TestDefaultPluginPaths(t *testing.T) {
@@ -49,14 +49,14 @@ func TestDiscover(t *testing.T) {
 	}
 
 	// Create valid manifest for plugin1
-	manifest1 := plugin.Metadata{
+	manifest1 := plugins.Metadata{
 		Name:        "test-plugin-1",
 		Version:     "1.0.0",
 		Description: "Test plugin 1",
 		Author:      "Test",
 		Runtime:     "wasm",
 		Binary:      "plugin.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "test-node-1",
 				Category:    "test",
@@ -91,18 +91,18 @@ func TestDiscover(t *testing.T) {
 
 	// Test discovery
 	l := New()
-	plugins, err := l.Discover(pluginDir)
+	discovered, err := l.Discover(pluginDir)
 	if err != nil {
 		t.Fatalf("Discover failed: %v", err)
 	}
 
 	// Should find only the valid plugin
-	if len(plugins) != 1 {
-		t.Errorf("Expected 1 valid plugin, got %d", len(plugins))
+	if len(discovered) != 1 {
+		t.Errorf("Expected 1 valid plugin, got %d", len(discovered))
 	}
 
-	if len(plugins) > 0 && plugins[0].Name != "test-plugin-1" {
-		t.Errorf("Expected plugin name 'test-plugin-1', got %s", plugins[0].Name)
+	if len(discovered) > 0 && discovered[0].Name != "test-plugin-1" {
+		t.Errorf("Expected plugin name 'test-plugin-1', got %s", discovered[0].Name)
 	}
 }
 
@@ -110,14 +110,14 @@ func TestLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create test manifest
-	manifest := plugin.Metadata{
+	manifest := plugins.Metadata{
 		Name:        "load-test-plugin",
 		Version:     "1.0.0",
 		Description: "Plugin for load testing",
 		Author:      "Test",
 		Runtime:     "wasm",
 		Binary:      "test.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "test-node",
 				Category:    "test",
@@ -183,18 +183,18 @@ func TestLoad(t *testing.T) {
 func TestValidateMetadata(t *testing.T) {
 	tests := []struct {
 		name     string
-		metadata plugin.Metadata
+		metadata plugins.Metadata
 		wantErr  bool
 		errMsg   string
 	}{
 		{
 			name: "valid metadata",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Category:    "test",
@@ -206,11 +206,11 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "missing name",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Category:    "test",
@@ -223,11 +223,11 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "missing version",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Category:    "test",
@@ -240,11 +240,11 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "missing runtime",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Category:    "test",
@@ -257,11 +257,11 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "missing binary",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Category:    "test",
@@ -274,24 +274,24 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "no nodes",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes:   []plugin.NodeDefinition{},
+				Nodes:   []plugins.NodeDefinition{},
 			},
 			wantErr: true,
 			errMsg:  "plugin must export at least one node",
 		},
 		{
 			name: "node missing type",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Category:    "test",
 						Description: "Test node",
@@ -303,12 +303,12 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "node missing category",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:        "test-node",
 						Description: "Test node",
@@ -320,12 +320,12 @@ func TestValidateMetadata(t *testing.T) {
 		},
 		{
 			name: "node missing description",
-			metadata: plugin.Metadata{
+			metadata: plugins.Metadata{
 				Name:    "test-plugin",
 				Version: "1.0.0",
 				Runtime: "wasm",
 				Binary:  "plugin.wasm",
-				Nodes: []plugin.NodeDefinition{
+				Nodes: []plugins.NodeDefinition{
 					{
 						Type:     "test-node",
 						Category: "test",
@@ -354,17 +354,17 @@ func TestValidateMetadata(t *testing.T) {
 func TestLoadManifest(t *testing.T) {
 	tmpDir := t.TempDir()
 	l := &loader{
-		discovered: make(map[string]plugin.Metadata),
+		discovered: make(map[string]plugins.Metadata),
 	}
 
 	// Test YAML manifest
-	yamlManifest := plugin.Metadata{
+	yamlManifest := plugins.Metadata{
 		Name:        "yaml-plugin",
 		Version:     "1.0.0",
 		Description: "YAML test plugin",
 		Runtime:     "wasm",
 		Binary:      "plugin.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "test",
 				Category:    "test",
@@ -403,12 +403,12 @@ func TestUnsupportedRuntime(t *testing.T) {
 	l := New()
 	ctx := context.Background()
 
-	metadata := plugin.Metadata{
+	metadata := plugins.Metadata{
 		Name:    "unsupported-plugin",
 		Version: "1.0.0",
 		Runtime: "python", // Unsupported runtime
 		Binary:  "plugin.py",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "test",
 				Category:    "test",

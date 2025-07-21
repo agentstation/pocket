@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/agentstation/pocket/plugin"
+	"github.com/agentstation/pocket/plugins"
 )
 
 // Test WASM module that implements a simple echo plugin.
@@ -21,14 +21,14 @@ var testWASM = []byte{
 func TestNewPlugin(t *testing.T) {
 	ctx := context.Background()
 
-	metadata := plugin.Metadata{
+	metadata := plugins.Metadata{
 		Name:        "test-plugin",
 		Version:     "1.0.0",
 		Description: "Test plugin",
 		Author:      "Test",
 		Runtime:     "wasm",
 		Binary:      "test.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "echo",
 				Category:    "test",
@@ -78,21 +78,21 @@ func TestLoadPlugin(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a test manifest
-	manifest := plugin.Metadata{
+	manifest := plugins.Metadata{
 		Name:        "test-plugin",
 		Version:     "1.0.0",
 		Description: "Test plugin",
 		Author:      "Test",
 		Runtime:     "wasm",
 		Binary:      "test.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "test-node",
 				Category:    "test",
 				Description: "Test node",
 			},
 		},
-		Permissions: plugin.Permissions{
+		Permissions: plugins.Permissions{
 			Memory:  "10MB",
 			Timeout: 5 * time.Second,
 		},
@@ -125,7 +125,7 @@ func TestLoadPlugin(t *testing.T) {
 
 // TestPluginMetadata tests that plugin metadata is correctly stored and retrieved.
 func TestPluginMetadata(t *testing.T) {
-	metadata := plugin.Metadata{
+	metadata := plugins.Metadata{
 		Name:        "sentiment-analyzer",
 		Version:     "1.0.0",
 		Description: "Analyzes text sentiment",
@@ -133,7 +133,7 @@ func TestPluginMetadata(t *testing.T) {
 		License:     "MIT",
 		Runtime:     "wasm",
 		Binary:      "plugin.wasm",
-		Nodes: []plugin.NodeDefinition{
+		Nodes: []plugins.NodeDefinition{
 			{
 				Type:        "sentiment",
 				Category:    "ai",
@@ -149,11 +149,11 @@ func TestPluginMetadata(t *testing.T) {
 				},
 			},
 		},
-		Permissions: plugin.Permissions{
+		Permissions: plugins.Permissions{
 			Memory:  "10MB",
 			Timeout: 5 * time.Second,
 		},
-		Requirements: plugin.Requirements{
+		Requirements: plugins.Requirements{
 			Pocket: ">=1.0.0",
 			Memory: "10MB",
 		},
@@ -182,7 +182,7 @@ func TestPluginMetadata(t *testing.T) {
 
 // TestPluginRequest tests the request/response serialization.
 func TestPluginRequest(t *testing.T) {
-	req := plugin.Request{
+	req := plugins.Request{
 		Node:     "sentiment",
 		Function: "exec",
 		Config: map[string]interface{}{
@@ -198,7 +198,7 @@ func TestPluginRequest(t *testing.T) {
 	}
 
 	// Test unmarshaling
-	var decoded plugin.Request
+	var decoded plugins.Request
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal request: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestPluginRequest(t *testing.T) {
 
 // TestPluginResponse tests the response serialization.
 func TestPluginResponse(t *testing.T) {
-	resp := plugin.Response{
+	resp := plugins.Response{
 		Success: true,
 		Output:  json.RawMessage(`{"sentiment": "positive", "score": 0.8}`),
 		Next:    "done",
@@ -226,7 +226,7 @@ func TestPluginResponse(t *testing.T) {
 	}
 
 	// Test unmarshaling
-	var decoded plugin.Response
+	var decoded plugins.Response
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
@@ -243,33 +243,33 @@ func TestPluginResponse(t *testing.T) {
 func TestPluginSecurity(t *testing.T) {
 	tests := []struct {
 		name        string
-		permissions plugin.Permissions
+		permissions plugins.Permissions
 		expectation string
 	}{
 		{
 			name: "memory limit",
-			permissions: plugin.Permissions{
+			permissions: plugins.Permissions{
 				Memory: "1MB",
 			},
 			expectation: "should enforce memory limit",
 		},
 		{
 			name: "timeout",
-			permissions: plugin.Permissions{
+			permissions: plugins.Permissions{
 				Timeout: 1 * time.Second,
 			},
 			expectation: "should enforce timeout",
 		},
 		{
 			name: "environment variables",
-			permissions: plugin.Permissions{
+			permissions: plugins.Permissions{
 				Env: []string{"HOME", "PATH"},
 			},
 			expectation: "should only allow specified env vars",
 		},
 		{
 			name: "filesystem access",
-			permissions: plugin.Permissions{
+			permissions: plugins.Permissions{
 				Filesystem: []string{"/tmp", "/data"},
 			},
 			expectation: "should only allow specified paths",

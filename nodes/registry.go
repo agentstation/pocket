@@ -1,4 +1,4 @@
-package builtin
+package nodes
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 // NodeBuilder creates nodes and provides metadata.
 type NodeBuilder interface {
-	Metadata() NodeMetadata
+	Metadata() Metadata
 	Build(def *yaml.NodeDefinition) (pocket.Node, error)
 }
 

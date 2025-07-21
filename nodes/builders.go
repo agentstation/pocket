@@ -1,4 +1,4 @@
-package builtin
+package nodes
 
 import (
 	"bytes"
@@ -31,8 +31,8 @@ type EchoNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *EchoNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *EchoNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "echo",
 		Category:    "core",
 		Description: "Outputs a message and passes through input",
@@ -114,8 +114,8 @@ type DelayNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *DelayNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *DelayNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "delay",
 		Category:    "core",
 		Description: "Delays execution for a specified duration",
@@ -182,8 +182,8 @@ type RouterNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *RouterNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *RouterNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "router",
 		Category:    "core",
 		Description: "Routes to a specific node based on configuration",
@@ -240,8 +240,8 @@ type TransformNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *TransformNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *TransformNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "transform",
 		Category:    "data",
 		Description: "Transforms input data",
@@ -315,8 +315,8 @@ type ConditionalNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *ConditionalNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *ConditionalNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "conditional",
 		Category:    "core",
 		Description: "Routes to different nodes based on conditions",
@@ -447,8 +447,8 @@ type TemplateNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *TemplateNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *TemplateNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "template",
 		Category:    "data",
 		Description: "Renders Go templates with input data",
@@ -582,7 +582,7 @@ func (b *TemplateNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, erro
 
 			case "yaml":
 				// For YAML, we'll keep it as string since we don't have a YAML parser imported
-				// in the builtin package. The downstream can parse it if needed.
+				// in the nodes package. The downstream can parse it if needed.
 				return map[string]interface{}{
 					"yaml":   result,
 					"format": "yaml",
@@ -601,8 +601,8 @@ type HTTPNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *HTTPNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *HTTPNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "http",
 		Category:    "io",
 		Description: "Makes HTTP requests with retry and timeout support",
@@ -836,8 +836,8 @@ type JSONPathNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *JSONPathNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *JSONPathNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "jsonpath",
 		Category:    "data",
 		Description: "Extracts data from JSON using JSONPath expressions",
@@ -982,8 +982,8 @@ type ValidateNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *ValidateNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *ValidateNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "validate",
 		Category:    "data",
 		Description: "Validates data against JSON Schema",
@@ -1185,8 +1185,8 @@ type AggregateNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *AggregateNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *AggregateNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "aggregate",
 		Category:    "data",
 		Description: "Collects and combines data from multiple inputs",
@@ -1408,8 +1408,8 @@ type FileNodeBuilder struct {
 }
 
 // Metadata returns the node metadata.
-func (b *FileNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *FileNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "file",
 		Category:    "io",
 		Description: "Reads or writes files with path restrictions",
@@ -1793,8 +1793,8 @@ type ExecNodeBuilder struct {
 	Verbose bool
 }
 
-func (b *ExecNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *ExecNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "exec",
 		Category:    "io",
 		Description: "Executes shell commands with restrictions",
@@ -2044,8 +2044,8 @@ type ParallelNodeBuilder struct {
 	Verbose bool
 }
 
-func (b *ParallelNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *ParallelNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "parallel",
 		Category:    "flow",
 		Description: "Executes multiple operations in parallel",
@@ -2398,8 +2398,8 @@ type LuaNodeBuilder struct {
 }
 
 // Metadata returns metadata for the Lua node.
-func (b *LuaNodeBuilder) Metadata() NodeMetadata {
-	return NodeMetadata{
+func (b *LuaNodeBuilder) Metadata() Metadata {
+	return Metadata{
 		Type:        "lua",
 		Category:    "script",
 		Description: "Execute Lua scripts for custom logic",

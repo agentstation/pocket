@@ -1,7 +1,7 @@
-package builtin
+package nodes
 
-// NodeMetadata describes a node type.
-type NodeMetadata struct {
+// Metadata describes a node type.
+type Metadata struct {
 	Type         string                 `json:"type"`
 	Category     string                 `json:"category"`
 	Description  string                 `json:"description"`
