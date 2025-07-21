@@ -73,12 +73,11 @@ if command -v godot >/dev/null 2>&1; then
 else
     # Fallback: Use sed to add periods to Go comments
     # This sed command adds a period to comments that don't end with punctuation
-    sed -i.bak -E '
-        # Match single-line comments that dont end with punctuation
-        s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])$|\1//\2.|g
-        # Match comment lines that start with a capital letter and dont end with punctuation
-        s|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,\n]*[a-zA-Z0-9\)"])([[:space:]]*)$|\1//\2.\3|g
-    ' "$file_path" && rm -f "${file_path}.bak"
+    # Use a backup extension for compatibility with BSD sed
+    sed -i '.bak' -E \
+        -e 's|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,]*[a-zA-Z0-9\)"])$|\1//\2.|g' \
+        -e 's|^([[:space:]]*)//([[:space:]]+[A-Z][^.!?:;,]*[a-zA-Z0-9\)"])([[:space:]]*)$|\1//\2.\3|g' \
+        "$file_path" && rm -f "${file_path}.bak"
 fi
 
 # Run specific golangci-lint fixers if available

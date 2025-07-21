@@ -43,7 +43,9 @@
       "Bash(tee:*)",
       "Bash(godot:*)",
       "Bash(go doc:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(git checkout:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   },
@@ -54,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/go-format-hook.sh"
+            "command": "bash scripts/go-format-hook.sh"
           }
         ]
       },
@@ -63,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/go-format-hook.sh"
+            "command": "bash scripts/go-format-hook.sh"
           }
         ]
       },
@@ -72,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/go-format-hook.sh"
+            "command": "bash scripts/go-format-hook.sh"
           }
         ]
       }

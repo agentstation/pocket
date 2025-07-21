@@ -131,12 +131,8 @@ build:
 	@go build $(LDFLAGS) -o bin/pocket ./cmd/pocket
 	@echo "Binary built: bin/pocket"
 
-# Build the pocket-plugins CLI
-build-plugins:
-	@echo "Building pocket-plugins CLI..."
-	@mkdir -p bin
-	@go build $(LDFLAGS) -o bin/pocket-plugins ./cmd/pocket-plugins
-	@echo "Binary built: bin/pocket-plugins"
+# Note: pocket-plugins has been integrated into the main pocket binary
+# Use 'pocket plugins' command instead
 
 # Build for all platforms
 build-all:
@@ -172,7 +168,6 @@ help:
 	@echo "  make bench         - Run benchmarks"
 	@echo "  make generate      - Generate documentation"
 	@echo "  make build         - Build pocket binary"
-	@echo "  make build-plugins - Build pocket-plugins CLI"
 	@echo "  make build-all     - Build for all platforms"
 	@echo "  make install       - Install pocket binary to GOPATH/bin"
 	@echo "  make install-tools - Install development tools"

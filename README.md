@@ -13,7 +13,7 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 - 🎯 **Decision graphs** - Dynamic routing based on runtime logic
 - 🔒 **Type safety** - Optional compile-time type checking with generics
 - 🚀 **Built-in concurrency** - Native Go goroutines and patterns
-- 📦 **Minimal dependencies** - Core library uses only `golang.org/x/sync`, YAML features use [goccy/go-yaml](https://github.com/goccy/go-yaml)
+- 📦 **Minimal dependencies** - Uses `golang.org/x/sync` for sync and [goccy/go-yaml](https://github.com/goccy/go-yaml) for YAML
 - 🔧 **Interface-based** - Extensible architecture, graphs as nodes
 - 🛡️ **Production ready** - Error handling, retries, observability
 - 🔌 **Plugin system** - Built-in nodes, Lua scripting, and WebAssembly plugins
@@ -79,7 +79,7 @@ Want more? Check out the [Getting Started Guide](docs/guides/GETTING_STARTED.md)
 
 ## Core Concepts
 
-### The Prep/Exec/Post Pattern
+### The Prep-> Exec-> Post Pattern
 
 Every Pocket node follows a three-phase lifecycle:
 
