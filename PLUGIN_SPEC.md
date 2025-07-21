@@ -846,10 +846,10 @@ plugins:
    - [x] Add timeout support for scripts
    - [x] Add type_of function for type checking
 
-2. **Script Management** (Not Implemented)
-   - [ ] Add script discovery from ~/.pocket/scripts
-   - [ ] Implement script validation command
-   - [ ] Add script debugging support
+2. **Script Management** (Complete)
+   - [x] Add script discovery from ~/.pocket/scripts
+   - [x] Implement script validation command
+   - [x] Add script debugging support
 
 ### Phase 3 Tasks (Complete)
 
