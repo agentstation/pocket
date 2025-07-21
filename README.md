@@ -16,7 +16,7 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 - 📦 **Minimal dependencies** - Core library uses only `golang.org/x/sync`, YAML features use [goccy/go-yaml](https://github.com/goccy/go-yaml)
 - 🔧 **Interface-based** - Extensible architecture, graphs as nodes
 - 🛡️ **Production ready** - Error handling, retries, observability
-- 🔌 **Plugin system** - 11 built-in node types with metadata and CLI discovery
+- 🔌 **Plugin system** - Built-in nodes, Lua scripting, and WebAssembly plugins
 
 ## 📚 Documentation
 
@@ -32,15 +32,16 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 go get github.com/agentstation/pocket
 ```
 
-### As a CLI Tool (Experimental)
-
-> **Note**: The CLI feature is experimental and the YAML format may change in future versions.
+### As a CLI Tool
 
 ```bash
-# Install from source
+# Install the Pocket CLI
 go install github.com/agentstation/pocket/cmd/pocket@latest
 
-# Or clone and build
+# Install the Plugin Manager (optional)
+go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
+
+# Or clone and build from source
 git clone https://github.com/agentstation/pocket.git
 cd pocket
 make build
@@ -320,9 +321,11 @@ planNode.Connect("done", think)
 - **[Custom Nodes](docs/advanced/CUSTOM_NODES.md)** - Extend the framework
 - **[Performance](docs/advanced/PERFORMANCE.md)** - Optimization guide
 
-## CLI (Experimental)
+## Experimental
 
-> **⚠️ Experimental Feature**: The CLI and YAML workflow format are experimental and subject to change.
+> **⚠️ Experimental Features**: The following features are experimental and subject to change.
+
+### CLI
 
 Run workflows from YAML files:
 
@@ -335,6 +338,12 @@ pocket run workflow.yaml --verbose
 
 # Validate without executing
 pocket run workflow.yaml --dry-run
+
+# Script management commands
+pocket scripts                       # List discovered scripts
+pocket scripts validate <path>       # Validate a Lua script
+pocket scripts info <name>          # Show script details
+pocket scripts run <name> [input]   # Run a script directly
 ```
 
 Example workflow (`hello.yaml`):
@@ -362,6 +371,71 @@ connections:
 ```
 
 See [CLI examples](examples/cli/) for more workflow examples and [CLI documentation](docs/advanced/CLI.md) for detailed information.
+
+### Plugins
+
+Pocket supports three types of plugins:
+
+#### 1. Built-in Nodes
+Pocket includes 11+ built-in node types for common operations:
+- **Core**: echo, delay, conditional, router
+- **Data**: transform, template, jsonpath, aggregate, validate
+- **I/O**: http, file, exec
+- **Flow**: parallel
+- **Script**: lua
+
+#### 2. Lua Scripts
+Write custom logic in Lua with sandboxed execution:
+
+```lua
+-- ~/.pocket/scripts/data_processor.lua
+-- @name: data-processor
+-- @category: data
+-- @description: Process data with custom logic
+
+function exec(input)
+    -- Your custom logic here
+    return {
+        processed = true,
+        original = input,
+        timestamp = os.time()
+    }
+end
+```
+
+#### 3. WebAssembly (WASM) Plugins
+Build plugins in any language that compiles to WASM:
+
+```bash
+# Install the plugin CLI
+go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
+
+# Discover and manage plugins
+pocket-plugins list                  # List installed plugins
+pocket-plugins info <plugin>         # Show plugin details
+pocket-plugins install <path>        # Install a plugin
+pocket-plugins uninstall <plugin>    # Remove a plugin
+```
+
+Example WASM plugin structure:
+```
+~/.pocket/plugins/
+  my-plugin/
+    manifest.yaml    # Plugin metadata
+    plugin.wasm     # Compiled WebAssembly
+    README.md       # Documentation
+```
+
+Supported languages for WASM plugins:
+- **TypeScript/JavaScript** - Using Javy for compilation
+- **Rust** - Native WASM support with wasm-bindgen
+- **Go** - Using TinyGo or regular Go with WASM target
+- **Any language** that compiles to WASM
+
+For detailed plugin development guides, see:
+- [Plugin System Overview](docs/PLUGIN_SYSTEM.md)
+- [Plugin Development Guide](docs/PLUGINS.md)
+- [Plugin Examples](plugin/examples/)
 
 ## Testing
 
