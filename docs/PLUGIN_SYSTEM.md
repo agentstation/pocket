@@ -2,7 +2,13 @@
 
 ## Overview
 
-The Pocket plugin system provides an extensible architecture for adding new node types to the framework. Phase 1 establishes a solid foundation with 13 built-in nodes organized by category, comprehensive metadata support, and full CLI integration.
+The Pocket plugin system provides an extensible architecture for adding new node types to the framework. The system has been implemented in three phases:
+
+1. **Phase 1**: Built-in nodes with metadata and CLI integration (✅ Complete)
+2. **Phase 2**: Lua scripting for custom logic (✅ Complete)  
+3. **Phase 3**: WebAssembly plugins for any language (✅ Complete)
+
+This provides a complete plugin ecosystem from simple built-in nodes to full WebAssembly plugin support.
 
 ## Phase 1 Status: ✅ Complete
 
@@ -149,17 +155,39 @@ See the `examples/cli/` directory for complete workflow examples:
 4. **Documentation**: Self-documenting through metadata
 5. **Testing**: Comprehensive test coverage for all nodes
 
-## Future Phases
+## Phase 2 Status: ✅ Complete
 
-### Phase 2: Lua Scripting (Planned)
-- Embedded Lua interpreter for custom logic
-- Sandboxed execution environment
-- Access to workflow data and limited APIs
+### Lua Scripting Integration
+- **Embedded Lua interpreter** via Shopify/go-lua
+- **Sandboxed execution** with restricted functions
+- **JSON support** with encode/decode functions
+- **String utilities** for common operations
+- **Script timeout** support for safety
+- **File-based scripts** in addition to inline
 
-### Phase 3: External Plugins (Planned)
-- WebAssembly (WASM) support for untrusted code
-- RPC plugins for advanced integrations
-- Plugin marketplace and distribution
+## Phase 3 Status: ✅ Complete
+
+### WebAssembly Plugin Support
+- **WASM Runtime**: Integrated wazero (pure Go, no CGO)
+- **Plugin Architecture**: Complete lifecycle support (prep/exec/post)
+- **TypeScript SDK**: Full SDK with Javy integration
+- **Example Plugins**: TypeScript, Rust, and Go examples
+- **Security**: Sandboxing with memory limits and permissions
+- **CLI Tool**: `pocket-plugins` for plugin management
+- **Documentation**: Comprehensive guides and API reference
+
+### Plugin CLI Commands
+- `pocket-plugins list` - List installed plugins
+- `pocket-plugins install <path>` - Install plugin from directory
+- `pocket-plugins remove <name>` - Remove installed plugin
+- `pocket-plugins info <name>` - Show plugin details
+- `pocket-plugins validate <path>` - Validate plugin manifest
+
+For detailed plugin documentation, see:
+- [Plugin User Guide](PLUGINS.md)
+- [Plugin Development Guide](PLUGIN_DEVELOPMENT.md)
+- [Plugin SDK API Reference](PLUGIN_SDK_API.md)
+- [Plugin Migration Guide](PLUGIN_MIGRATION.md)
 
 ## Development Guide
 

@@ -1,5 +1,7 @@
 # Pocket Plugin System Specification
 
+> **Note**: This is the original planning specification for the Pocket plugin system. All three phases have now been implemented. For current documentation, see [Plugin System Overview](docs/PLUGIN_SYSTEM.md).
+
 ## Overview
 
 This document specifies the plugin architecture for Pocket, enabling extensible node types through a progressive enhancement strategy. The system will support built-in nodes, embedded scripting (Lua), and external plugins (WASM/RPC) while maintaining Pocket's core principles of simplicity, type safety, and clean architecture.
@@ -849,18 +851,18 @@ plugins:
    - [ ] Implement script validation command
    - [ ] Add script debugging support
 
-### Phase 3 Tasks (Future)
+### Phase 3 Tasks (Complete)
 
 1. **WASM Plugin Support**
-   - [ ] Integrate knqyf263/go-plugin or wapc/wapc-go
-   - [ ] Define plugin SDK interfaces
-   - [ ] Implement WASM runtime and loader
-   - [ ] Add plugin discovery from ~/.pocket/plugins
-   - [ ] Create TypeScript/JavaScript SDK (@pocket/plugin-sdk)
-   - [ ] Add support for Javy (JS to WASM compiler)
-   - [ ] Implement security sandboxing and permissions
-   - [ ] Create example plugins (TypeScript, Rust, Go)
-   - [ ] Add plugin packaging and distribution tools
+   - [x] Integrate wazero (pure Go WebAssembly runtime)
+   - [x] Define plugin SDK interfaces
+   - [x] Implement WASM runtime and loader
+   - [x] Add plugin discovery from ~/.pocket/plugins
+   - [x] Create TypeScript/JavaScript SDK (@pocket/plugin-sdk)
+   - [x] Add support for Javy (JS to WASM compiler)
+   - [x] Implement security sandboxing and permissions
+   - [x] Create example plugins (TypeScript, Rust, Go)
+   - [x] Add plugin packaging and distribution tools
 
 2. **RPC Plugin Support**
    - [ ] Integrate hashicorp/go-plugin
@@ -872,11 +874,11 @@ plugins:
    - [ ] Add plugin health checks and monitoring
 
 3. **Plugin CLI Commands**
-   - [ ] `pocket plugins list` - List installed plugins
-   - [ ] `pocket plugins install <url>` - Install plugin from URL
-   - [ ] `pocket plugins remove <name>` - Remove installed plugin
-   - [ ] `pocket plugins info <name>` - Show plugin details
-   - [ ] `pocket plugins validate <path>` - Validate plugin manifest
+   - [x] `pocket-plugins list` - List installed plugins
+   - [x] `pocket-plugins install <path>` - Install plugin from directory
+   - [x] `pocket-plugins remove <name>` - Remove installed plugin
+   - [x] `pocket-plugins info <name>` - Show plugin details
+   - [x] `pocket-plugins validate <path>` - Validate plugin manifest
 
 ## Testing Strategy
 
