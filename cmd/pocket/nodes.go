@@ -111,9 +111,9 @@ func runNodesList(config *NodesConfig) error {
 	})
 
 	switch config.Format {
-	case "json":
+	case jsonFormat:
 		return outputJSON(nodes)
-	case "yaml":
+	case yamlFormat:
 		return outputYAML(nodes)
 	default:
 		return outputTable(nodes)

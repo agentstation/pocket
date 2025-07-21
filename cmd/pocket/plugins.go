@@ -113,14 +113,14 @@ func getPluginsDir() (string, error) {
 }
 
 // listPlugins lists all installed plugins.
-func listPlugins(verbose bool) error {
+func listPlugins(_ bool) error {
 	pluginsDir, err := getPluginsDir()
 	if err != nil {
 		return fmt.Errorf("failed to get plugins directory: %w", err)
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
+	if err := os.MkdirAll(pluginsDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
@@ -133,7 +133,7 @@ func listPlugins(verbose bool) error {
 	// Filter .wasm files
 	var plugins []os.DirEntry
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".wasm") {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), wasmExtension) {
 			plugins = append(plugins, entry)
 		}
 	}
@@ -147,8 +147,8 @@ func listPlugins(verbose bool) error {
 	fmt.Printf("Installed plugins (%d):\n\n", len(plugins))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "NAME\tSIZE\tMODIFIED\n")
-	fmt.Fprintf(w, "----\t----\t--------\n")
+	_, _ = fmt.Fprintf(w, "NAME\tSIZE\tMODIFIED\n")
+	_, _ = fmt.Fprintf(w, "----\t----\t--------\n")
 
 	for _, plugin := range plugins {
 		info, err := plugin.Info()
@@ -156,19 +156,19 @@ func listPlugins(verbose bool) error {
 			continue
 		}
 
-		name := strings.TrimSuffix(plugin.Name(), ".wasm")
+		name := strings.TrimSuffix(plugin.Name(), wasmExtension)
 		size := formatSize(info.Size())
 		modified := info.ModTime().Format("2006-01-02 15:04")
 
-		fmt.Fprintf(w, "%s\t%s\t%s\n", name, size, modified)
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", name, size, modified)
 	}
 
-	w.Flush()
+	_ = w.Flush()
 	return nil
 }
 
 // installPlugin installs a WebAssembly plugin.
-func installPlugin(pluginPath, customName string, verbose bool) error {
+func installPlugin(pluginPath, customName string, _ bool) error {
 	// Expand path
 	expandedPath, err := expandPath(pluginPath)
 	if err != nil {
@@ -187,7 +187,7 @@ func installPlugin(pluginPath, customName string, verbose bool) error {
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
+	if err := os.MkdirAll(pluginsDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create plugins directory: %w", err)
 	}
 
@@ -196,8 +196,8 @@ func installPlugin(pluginPath, customName string, verbose bool) error {
 	if targetName == "" {
 		targetName = filepath.Base(expandedPath)
 	}
-	if !strings.HasSuffix(targetName, ".wasm") {
-		targetName += ".wasm"
+	if !strings.HasSuffix(targetName, wasmExtension) {
+		targetName += wasmExtension
 	}
 
 	targetPath := filepath.Join(pluginsDir, targetName)
@@ -214,24 +214,24 @@ func installPlugin(pluginPath, customName string, verbose bool) error {
 	}
 
 	// Write to target
-	if err := os.WriteFile(targetPath, data, 0o644); err != nil {
+	if err := os.WriteFile(targetPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to install plugin: %w", err)
 	}
 
-	fmt.Printf("✅ Installed plugin: %s\n", strings.TrimSuffix(targetName, ".wasm"))
+	fmt.Printf("✅ Installed plugin: %s\n", strings.TrimSuffix(targetName, wasmExtension))
 	return nil
 }
 
 // showPluginInfo displays information about a plugin.
-func showPluginInfo(pluginName string, verbose bool) error {
+func showPluginInfo(pluginName string, _ bool) error {
 	pluginsDir, err := getPluginsDir()
 	if err != nil {
 		return fmt.Errorf("failed to get plugins directory: %w", err)
 	}
 
 	// Add .wasm extension if not present
-	if !strings.HasSuffix(pluginName, ".wasm") {
-		pluginName += ".wasm"
+	if !strings.HasSuffix(pluginName, wasmExtension) {
+		pluginName += wasmExtension
 	}
 
 	pluginPath := filepath.Join(pluginsDir, pluginName)
@@ -239,11 +239,11 @@ func showPluginInfo(pluginName string, verbose bool) error {
 	// Check if exists
 	info, err := os.Stat(pluginPath)
 	if err != nil {
-		return fmt.Errorf("plugin not found: %s", strings.TrimSuffix(pluginName, ".wasm"))
+		return fmt.Errorf("plugin not found: %s", strings.TrimSuffix(pluginName, wasmExtension))
 	}
 
 	// Display info
-	fmt.Printf("Plugin: %s\n", strings.TrimSuffix(pluginName, ".wasm"))
+	fmt.Printf("Plugin: %s\n", strings.TrimSuffix(pluginName, wasmExtension))
 	fmt.Printf("Path: %s\n", pluginPath)
 	fmt.Printf("Size: %s\n", formatSize(info.Size()))
 	fmt.Printf("Modified: %s\n", info.ModTime().Format("2006-01-02 15:04:05"))
@@ -257,29 +257,29 @@ func showPluginInfo(pluginName string, verbose bool) error {
 }
 
 // removePlugin removes an installed plugin.
-func removePlugin(pluginName string, force bool, verbose bool) error {
+func removePlugin(pluginName string, force, _ bool) error {
 	pluginsDir, err := getPluginsDir()
 	if err != nil {
 		return fmt.Errorf("failed to get plugins directory: %w", err)
 	}
 
 	// Add .wasm extension if not present
-	if !strings.HasSuffix(pluginName, ".wasm") {
-		pluginName += ".wasm"
+	if !strings.HasSuffix(pluginName, wasmExtension) {
+		pluginName += wasmExtension
 	}
 
 	pluginPath := filepath.Join(pluginsDir, pluginName)
 
 	// Check if exists
 	if _, err := os.Stat(pluginPath); err != nil {
-		return fmt.Errorf("plugin not found: %s", strings.TrimSuffix(pluginName, ".wasm"))
+		return fmt.Errorf("plugin not found: %s", strings.TrimSuffix(pluginName, wasmExtension))
 	}
 
 	// Confirm removal if not forced
 	if !force {
-		fmt.Printf("Remove plugin '%s'? [y/N]: ", strings.TrimSuffix(pluginName, ".wasm"))
+		fmt.Printf("Remove plugin '%s'? [y/N]: ", strings.TrimSuffix(pluginName, wasmExtension))
 		var response string
-		fmt.Scanln(&response)
+		_, _ = fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Cancelled.")
 			return nil
@@ -291,7 +291,7 @@ func removePlugin(pluginName string, force bool, verbose bool) error {
 		return fmt.Errorf("failed to remove plugin: %w", err)
 	}
 
-	fmt.Printf("✅ Removed plugin: %s\n", strings.TrimSuffix(pluginName, ".wasm"))
+	fmt.Printf("✅ Removed plugin: %s\n", strings.TrimSuffix(pluginName, wasmExtension))
 	return nil
 }
 

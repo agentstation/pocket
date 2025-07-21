@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/goccy/go-yaml"
+	"github.com/spf13/cobra"
 )
 
 // versionCmd represents the version command.
@@ -30,14 +30,14 @@ var versionCmd = &cobra.Command{
 		}
 
 		switch output {
-		case "json":
+		case jsonFormat:
 			data, err := json.MarshalIndent(versionInfo, "", "  ")
 			if err != nil {
 				return fmt.Errorf("failed to marshal version info: %w", err)
 			}
 			fmt.Println(string(data))
 
-		case "yaml":
+		case yamlFormat:
 			data, err := yaml.Marshal(versionInfo)
 			if err != nil {
 				return fmt.Errorf("failed to marshal version info: %w", err)

@@ -6,9 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
-	"github.com/spf13/cobra"
 )
 
 // docsCmd represents the docs command.
@@ -66,7 +67,7 @@ func runGenerateDocs(config *DocsConfig) error {
 	})
 
 	switch config.Format {
-	case "json":
+	case jsonFormat:
 		return generateJSONDocs(nodes, config.Output)
 	default:
 		return generateMarkdownDocs(nodes, config.Output)
