@@ -35,11 +35,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage:\n")
 		fmt.Fprintf(os.Stderr, "  pocket [flags] <command> [arguments]\n\n")
 		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  run <file.yaml>    Execute a workflow from a YAML file\n")
-		fmt.Fprintf(os.Stderr, "  nodes              List available node types\n")
-		fmt.Fprintf(os.Stderr, "  nodes info <type>  Show detailed info about a node type\n")
-		fmt.Fprintf(os.Stderr, "  nodes docs         Generate node documentation\n")
-		fmt.Fprintf(os.Stderr, "  version            Show version information\n\n")
+		fmt.Fprintf(os.Stderr, "  run <file.yaml>        Execute a workflow from a YAML file\n")
+		fmt.Fprintf(os.Stderr, "  nodes                  List available node types\n")
+		fmt.Fprintf(os.Stderr, "  nodes info <type>      Show detailed info about a node type\n")
+		fmt.Fprintf(os.Stderr, "  nodes docs             Generate node documentation\n")
+		fmt.Fprintf(os.Stderr, "  scripts                List discovered scripts\n")
+		fmt.Fprintf(os.Stderr, "  scripts validate <path> Validate a Lua script\n")
+		fmt.Fprintf(os.Stderr, "  scripts info <name>    Show script details\n")
+		fmt.Fprintf(os.Stderr, "  scripts run <name>     Run a script directly\n")
+		fmt.Fprintf(os.Stderr, "  version                Show version information\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
@@ -129,6 +133,55 @@ func main() {
 				Format: "table",
 			}
 			if err := runNodesList(config); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	case "scripts":
+		// Handle scripts subcommands
+		var subCommand string
+		if len(args) > 1 {
+			subCommand = args[1]
+		}
+
+		switch subCommand {
+		case "validate":
+			if len(args) < 3 {
+				fmt.Fprintf(os.Stderr, "Error: scripts validate requires a script path\n")
+				fmt.Fprintf(os.Stderr, "Usage: pocket scripts validate <path>\n")
+				os.Exit(1)
+			}
+			if err := runScriptsValidate(args[2], isVerbose); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		case "info":
+			if len(args) < 3 {
+				fmt.Fprintf(os.Stderr, "Error: scripts info requires a script name\n")
+				fmt.Fprintf(os.Stderr, "Usage: pocket scripts info <name>\n")
+				os.Exit(1)
+			}
+			if err := runScriptsInfo(args[2], isVerbose); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		case "run":
+			if len(args) < 3 {
+				fmt.Fprintf(os.Stderr, "Error: scripts run requires a script name\n")
+				fmt.Fprintf(os.Stderr, "Usage: pocket scripts run <name> [input-json]\n")
+				os.Exit(1)
+			}
+			var inputJSON string
+			if len(args) > 3 {
+				inputJSON = args[3]
+			}
+			if err := runScriptsRun(args[2], inputJSON, isVerbose); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			// List scripts
+			if err := runScriptsList(isVerbose); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
