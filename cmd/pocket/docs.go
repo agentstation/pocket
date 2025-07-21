@@ -6,9 +6,30 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
 )
+
+// docsCmd represents the docs command.
+var docsCmd = &cobra.Command{
+	Use:   "docs",
+	Short: "Generate documentation",
+	Long: `Generate comprehensive documentation for Pocket nodes.
+
+The documentation includes descriptions, schemas, and examples for each node.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		config := &DocsConfig{
+			Format: output,
+		}
+		return runGenerateDocs(config)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(docsCmd)
+}
 
 // DocsConfig holds configuration for the docs command.
 type DocsConfig struct {
@@ -46,7 +67,7 @@ func runGenerateDocs(config *DocsConfig) error {
 	})
 
 	switch config.Format {
-	case "json":
+	case jsonFormat:
 		return generateJSONDocs(nodes, config.Output)
 	default:
 		return generateMarkdownDocs(nodes, config.Output)

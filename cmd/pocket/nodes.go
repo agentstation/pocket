@@ -7,10 +7,74 @@ import (
 	"strings"
 
 	goyaml "github.com/goccy/go-yaml"
+	"github.com/spf13/cobra"
 
 	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
 )
+
+// nodesCmd represents the nodes command.
+var nodesCmd = &cobra.Command{
+	Use:   "nodes",
+	Short: "Manage and explore available node types",
+	Long: `Explore and manage Pocket node types.
+
+List all available nodes, get detailed information about specific node types,
+or generate documentation for all nodes.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Default action is to list nodes
+		config := &NodesConfig{
+			Format: output,
+		}
+		return runNodesList(config)
+	},
+}
+
+// nodesInfoCmd represents the nodes info command.
+var nodesInfoCmd = &cobra.Command{
+	Use:   "info <node-type>",
+	Short: "Show detailed information about a node type",
+	Long: `Display detailed information about a specific node type.
+
+Shows the node's description, configuration schema, input/output schemas,
+and usage examples.`,
+	Example: `  # Get info about the echo node
+  pocket nodes info echo
+
+  # Get info in JSON format
+  pocket nodes info transform --output json`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		nodeType := args[0]
+		return runNodesInfo(nodeType)
+	},
+}
+
+// nodesDocsCmd represents the nodes docs command.
+var nodesDocsCmd = &cobra.Command{
+	Use:   "docs",
+	Short: "Generate node documentation",
+	Long: `Generate comprehensive documentation for all available node types.
+
+The documentation includes descriptions, schemas, and examples for each node.`,
+	Example: `  # Generate markdown documentation
+  pocket nodes docs
+
+  # Generate JSON documentation
+  pocket nodes docs --output json`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		config := &DocsConfig{
+			Format: output,
+		}
+		return runGenerateDocs(config)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(nodesCmd)
+	nodesCmd.AddCommand(nodesInfoCmd)
+	nodesCmd.AddCommand(nodesDocsCmd)
+}
 
 // NodesConfig holds configuration for the nodes command.
 type NodesConfig struct {
@@ -24,11 +88,7 @@ func runNodesList(config *NodesConfig) error {
 	loader := yaml.NewLoader()
 	builtin.RegisterAll(loader, false)
 
-	// Get all registered nodes from builtin registry
-	// Note: Since the registry doesn't expose its contents, we use a hardcoded list
-
-	// We need to expose the registered nodes. For now, let's use the metadata
-	// from a hardcoded list since the registry doesn't expose its contents
+	// Get all registered nodes
 	nodes := getBuiltinNodes()
 
 	// Filter by type if specified
@@ -51,9 +111,9 @@ func runNodesList(config *NodesConfig) error {
 	})
 
 	switch config.Format {
-	case "json":
+	case jsonFormat:
 		return outputJSON(nodes)
-	case "yaml":
+	case yamlFormat:
 		return outputYAML(nodes)
 	default:
 		return outputTable(nodes)

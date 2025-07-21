@@ -12,7 +12,106 @@ import (
 
 	"github.com/agentstation/pocket"
 	"github.com/agentstation/pocket/builtin/script"
+	"github.com/spf13/cobra"
 )
+
+// scriptsCmd represents the scripts command.
+var scriptsCmd = &cobra.Command{
+	Use:   "scripts",
+	Short: "Manage Lua scripts",
+	Long: `Discover, validate, and manage Lua scripts.
+
+Scripts are discovered from ~/.pocket/scripts/ and can be used as nodes
+in your workflows. Each script should have metadata comments describing
+its purpose and configuration.`,
+	Example: `  # List all discovered scripts
+  pocket scripts
+
+  # Validate a script
+  pocket scripts validate my-script.lua
+
+  # Get script information
+  pocket scripts info data-processor
+
+  # Run a script directly
+  pocket scripts run data-processor '{"input": "data"}'`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Default action is to list scripts
+		return runScriptsList(verbose)
+	},
+}
+
+// scriptsValidateCmd represents the scripts validate command.
+var scriptsValidateCmd = &cobra.Command{
+	Use:   "validate <script-path>",
+	Short: "Validate a Lua script",
+	Long: `Validate a Lua script's syntax and structure without executing it.
+
+Checks for syntax errors and verifies that required functions are present.`,
+	Example: `  # Validate a script
+  pocket scripts validate my-script.lua
+
+  # Validate with verbose output
+  pocket scripts validate my-script.lua --verbose`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		scriptPath := args[0]
+		return runScriptsValidate(scriptPath, verbose)
+	},
+}
+
+// scriptsInfoCmd represents the scripts info command.
+var scriptsInfoCmd = &cobra.Command{
+	Use:   "info <script-name>",
+	Short: "Show script details",
+	Long: `Display detailed information about a discovered script.
+
+Shows the script's metadata, file path, size, and validation status.`,
+	Example: `  # Get script information
+  pocket scripts info data-processor
+
+  # Get info with verbose output
+  pocket scripts info data-processor --verbose`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		scriptName := args[0]
+		return runScriptsInfo(scriptName, verbose)
+	},
+}
+
+// scriptsRunCmd represents the scripts run command.
+var scriptsRunCmd = &cobra.Command{
+	Use:   "run <script-name> [input-json]",
+	Short: "Run a script directly",
+	Long: `Execute a discovered script directly for testing purposes.
+
+Optionally provide input data as a JSON string. Use --verbose to see
+debug output from the script.`,
+	Example: `  # Run a script without input
+  pocket scripts run my-script
+
+  # Run with JSON input
+  pocket scripts run data-processor '{"text": "Hello", "value": 42}'
+
+  # Run with verbose output for debugging
+  pocket scripts run data-processor --verbose`,
+	Args: cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		scriptName := args[0]
+		inputJSON := ""
+		if len(args) > 1 {
+			inputJSON = args[1]
+		}
+		return runScriptsRun(scriptName, inputJSON, verbose)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(scriptsCmd)
+	scriptsCmd.AddCommand(scriptsValidateCmd)
+	scriptsCmd.AddCommand(scriptsInfoCmd)
+	scriptsCmd.AddCommand(scriptsRunCmd)
+}
 
 // runScriptsList lists all discovered scripts.
 func runScriptsList(verbose bool) error {

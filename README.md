@@ -13,7 +13,7 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 - 🎯 **Decision graphs** - Dynamic routing based on runtime logic
 - 🔒 **Type safety** - Optional compile-time type checking with generics
 - 🚀 **Built-in concurrency** - Native Go goroutines and patterns
-- 📦 **Minimal dependencies** - Core library uses only `golang.org/x/sync`, YAML features use [goccy/go-yaml](https://github.com/goccy/go-yaml)
+- 📦 **Minimal dependencies** - Uses `golang.org/x/sync` for sync and [goccy/go-yaml](https://github.com/goccy/go-yaml) for YAML
 - 🔧 **Interface-based** - Extensible architecture, graphs as nodes
 - 🛡️ **Production ready** - Error handling, retries, observability
 - 🔌 **Plugin system** - Built-in nodes, Lua scripting, and WebAssembly plugins
@@ -37,9 +37,6 @@ go get github.com/agentstation/pocket
 ```bash
 # Install the Pocket CLI
 go install github.com/agentstation/pocket/cmd/pocket@latest
-
-# Install the Plugin Manager (optional)
-go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
 
 # Or clone and build from source
 git clone https://github.com/agentstation/pocket.git
@@ -79,7 +76,7 @@ Want more? Check out the [Getting Started Guide](docs/guides/GETTING_STARTED.md)
 
 ## Core Concepts
 
-### The Prep/Exec/Post Pattern
+### The Prep-> Exec-> Post Pattern
 
 Every Pocket node follows a three-phase lifecycle:
 
@@ -240,13 +237,13 @@ Install and manage plugins with the CLI:
 
 ```bash
 # Install a plugin
-pocket-plugins install ./my-plugin
+pocket plugins install ./my-plugin.wasm
 
 # List installed plugins
-pocket-plugins list
+pocket plugins list
 
 # Get plugin info
-pocket-plugins info sentiment-analyzer
+pocket plugins info sentiment-analyzer
 ```
 
 [Plugin documentation →](docs/PLUGINS.md) | [Create your own plugin →](docs/PLUGIN_SDK_API.md)
@@ -407,14 +404,11 @@ end
 Build plugins in any language that compiles to WASM:
 
 ```bash
-# Install the plugin CLI
-go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
-
-# Discover and manage plugins
-pocket-plugins list                  # List installed plugins
-pocket-plugins info <plugin>         # Show plugin details
-pocket-plugins install <path>        # Install a plugin
-pocket-plugins uninstall <plugin>    # Remove a plugin
+# Plugin management is built into the main CLI
+pocket plugins list                  # List installed plugins
+pocket plugins info <plugin>         # Show plugin details
+pocket plugins install <path>        # Install a plugin
+pocket plugins remove <plugin>       # Remove a plugin
 ```
 
 Example WASM plugin structure:

@@ -12,6 +12,15 @@ import (
 	"github.com/agentstation/pocket/builtin"
 	"github.com/agentstation/pocket/yaml"
 	goyaml "github.com/goccy/go-yaml"
+	"github.com/spf13/cobra"
+)
+
+var (
+	// Run command flags.
+	dryRun     bool
+	storeType  string
+	maxEntries int
+	ttl        time.Duration
 )
 
 // RunConfig holds configuration for the run command.
@@ -24,18 +33,64 @@ type RunConfig struct {
 	TTL        time.Duration
 }
 
+// runCmd represents the run command.
+var runCmd = &cobra.Command{
+	Use:   "run <workflow.yaml>",
+	Short: "Execute a workflow from a YAML file",
+	Long: `Execute a Pocket workflow defined in a YAML file.
+
+The workflow file should define nodes, connections, and a start node.
+Use --dry-run to validate the workflow without executing it.`,
+	Example: `  # Run a workflow
+  pocket run workflow.yaml
+
+  # Run with verbose output
+  pocket run workflow.yaml --verbose
+
+  # Validate without executing
+  pocket run workflow.yaml --dry-run
+
+  # Use bounded store with TTL
+  pocket run workflow.yaml --store-type bounded --max-entries 1000 --ttl 5m`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		workflowPath := args[0]
+
+		// Validate and expand path
+		expandedPath, err := expandPath(workflowPath)
+		if err != nil {
+			return fmt.Errorf("invalid path: %w", err)
+		}
+
+		config := &RunConfig{
+			FilePath:   expandedPath,
+			Verbose:    verbose,
+			DryRun:     dryRun,
+			StoreType:  storeType,
+			MaxEntries: maxEntries,
+			TTL:        ttl,
+		}
+
+		return runWorkflow(config)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+
+	// Local flags for run command
+	runCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate workflow without executing")
+	runCmd.Flags().StringVar(&storeType, "store-type", "memory", "Store type: memory or bounded")
+	runCmd.Flags().IntVar(&maxEntries, "max-entries", 10000, "Max entries for bounded store")
+	runCmd.Flags().DurationVar(&ttl, "ttl", 0, "TTL for store entries (0 = no expiration)")
+}
+
 // runWorkflow executes a workflow from a YAML file.
 //
 //nolint:gocyclo // Complex due to workflow parsing, validation, and execution handling
 func runWorkflow(config *RunConfig) error {
-	// Expand path (handle ~)
-	filePath, err := expandPath(config.FilePath)
-	if err != nil {
-		return fmt.Errorf("expand path: %w", err)
-	}
-
 	// Make path absolute
-	absPath, err := filepath.Abs(filePath)
+	absPath, err := filepath.Abs(config.FilePath)
 	if err != nil {
 		return fmt.Errorf("get absolute path: %w", err)
 	}
@@ -53,7 +108,7 @@ func runWorkflow(config *RunConfig) error {
 	}
 
 	// Read the YAML file
-	data, err := os.ReadFile(absPath) // #nosec G304 - User-provided workflow file
+	data, err := os.ReadFile(absPath) //nolint:gosec // User-provided workflow file
 	if err != nil {
 		return fmt.Errorf("read file: %w", err)
 	}
