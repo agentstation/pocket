@@ -45,7 +45,21 @@
       "Bash(go doc:*)",
       "Bash(go vet:*)",
       "Bash(git checkout:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(# Check plugin package for plugin.Plugin\ngrep -n \"\"type Plugin\"\" plugin/plugin.go)",
+      "Bash(# Check yaml package for yaml.YAML\ngrep -n \"\"type YAML\"\" yaml/*.go)",
+      "Bash(# Check loader package for loader.Loader\ngrep -n \"\"type\"\" plugin/loader/loader.go | grep -E \"\"(Loader|loader)\"\")",
+      "Bash(# Check middleware package\ngrep -n \"\"type\"\" middleware/middleware.go)",
+      "Bash(# Check for usage patterns of the stuttering types\necho \"\"=== cache.Cache usage ===\"\"\ngrep -n \"\"cache\\.Cache\"\" **/*.go | head -5\necho -e \"\"\\n=== plugin.Plugin usage ===\"\"\ngrep -n \"\"plugin\\.Plugin\"\" **/*.go | head -5)",
+      "Bash(# Check node package in internal/node\ngrep -n \"\"type.*Node\"\" internal/node/*.go | grep -E \"\"(struct|interface)\"\")",
+      "Bash(# Check graph package\ngrep -n \"\"type.*Graph\"\" internal/graph/*.go | grep -E \"\"(struct|interface)\"\")",
+      "Bash(# Check for builder.Builder pattern\ngrep -n \"\"type.*Builder\"\" **/*.go | grep -E \"\"(struct|interface)\"\" | grep -v \"\"NodeBuilder\"\")",
+      "Bash(# Check the actual package for builder.go and compose/compose.go\nhead -5 builder.go\necho \"\"---\"\"\nhead -5 compose/compose.go)",
+      "Bash(# Look for types that end with their package name\necho \"\"=== Checking for type names ending with package name ===\"\"\necho -e \"\"\\n--- cache package ---\"\"\ngrep -n \"\"^type.*Cache\"\" cache/*.go\necho -e \"\"\\n--- plugin package ---\"\"\ngrep -n \"\"^type.*Plugin\"\" plugin/*.go\necho -e \"\"\\n--- loader package ---\"\"\ngrep -n \"\"^type.*Loader\"\" plugin/loader/*.go\necho -e \"\"\\n--- node package ---\"\"\ngrep -n \"\"^type.*Node\"\" internal/node/*.go\necho -e \"\"\\n--- graph package ---\"\"\ngrep -n \"\"^type.*Graph\"\" internal/graph/*.go)",
+      "Bash(# Check for variable names that stutter with their types\necho \"\"=== Looking for variable stuttering patterns ===\"\"\n# Common pattern: var cacheCache cache.Cache\ngrep -n \"\"var.*cache.*cache\\.Cache\"\" **/*.go\ngrep -n \"\":=.*cache\\.Cache\"\" **/*.go | grep -i \"\"cache.*:=\"\")",
+      "Bash(# Look for actual usage patterns that demonstrate stuttering\necho \"\"=== Checking imports and usage ===\"\"\ngrep -n \"\"cache\\.Cache\"\" **/*.go | head -10\necho -e \"\"\\n=== Plugin.Plugin usage ===\"\"\ngrep -n \"\"plugin\\.Plugin\"\" **/*.go | head -10)",
+      "Bash(# Look for variable declarations that might stutter\necho \"\"=== Checking for variable declaration stuttering ===\"\"\n# Pattern: var builderBuilder, var cacheCache, etc.\ngrep -rn \"\"var [a-z]*Builder.*Builder\"\" --include=\"\"*.go\"\" .\ngrep -rn \"\"var [a-z]*Cache.*Cache\"\" --include=\"\"*.go\"\" .\ngrep -rn \"\"var [a-z]*Plugin.*Plugin\"\" --include=\"\"*.go\"\" .\ngrep -rn \"\"var [a-z]*Store.*Store\"\" --include=\"\"*.go\"\" .)",
+      "Bash(# Look for examples of stuttering in function signatures\necho \"\"=== Function signatures with stuttering types ===\"\"\ngrep -n \"\"cache\\.Cache\"\" plugin/**/*.go cache/**/*.go\necho -e \"\"\\n=== Plugin signatures ===\"\"\ngrep -n \"\"plugin\\.Plugin\"\" plugin/**/*.go)"
     ],
     "deny": []
   },

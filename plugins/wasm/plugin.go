@@ -14,12 +14,12 @@ import (
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 
-	"github.com/agentstation/pocket/plugin"
+	"github.com/agentstation/pocket/plugins"
 )
 
 // wasmPlugin implements the Plugin interface for WebAssembly plugins.
 type wasmPlugin struct {
-	metadata plugin.Metadata
+	metadata plugins.Metadata
 	runtime  wazero.Runtime
 	module   api.Module
 
@@ -31,7 +31,7 @@ type wasmPlugin struct {
 }
 
 // NewPlugin creates a new WebAssembly plugin from bytes.
-func NewPlugin(ctx context.Context, wasmBytes []byte, metadata *plugin.Metadata) (plugin.Plugin, error) {
+func NewPlugin(ctx context.Context, wasmBytes []byte, metadata *plugins.Metadata) (plugins.Plugin, error) {
 	// Create runtime with configuration
 	runtimeConfig := wazero.NewRuntimeConfig()
 
@@ -125,7 +125,7 @@ func NewPlugin(ctx context.Context, wasmBytes []byte, metadata *plugin.Metadata)
 }
 
 // Metadata returns the plugin's metadata.
-func (p *wasmPlugin) Metadata() plugin.Metadata {
+func (p *wasmPlugin) Metadata() plugins.Metadata {
 	return p.metadata
 }
 
@@ -216,7 +216,7 @@ func (p *wasmPlugin) Close(ctx context.Context) error {
 }
 
 // LoadPlugin loads a WebAssembly plugin from a file.
-func LoadPlugin(ctx context.Context, path string) (plugin.Plugin, error) {
+func LoadPlugin(ctx context.Context, path string) (plugins.Plugin, error) {
 	// Read manifest
 	manifestPath := filepath.Join(filepath.Dir(path), "manifest.yaml")
 	manifestData, err := os.ReadFile(manifestPath) // nolint:gosec // Path is constructed
@@ -230,7 +230,7 @@ func LoadPlugin(ctx context.Context, path string) (plugin.Plugin, error) {
 	}
 
 	// Parse manifest
-	var metadata plugin.Metadata
+	var metadata plugins.Metadata
 	if filepath.Ext(manifestPath) == ".json" {
 		err = json.Unmarshal(manifestData, &metadata)
 	} else {

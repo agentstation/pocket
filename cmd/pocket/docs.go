@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/agentstation/pocket/builtin"
+	"github.com/agentstation/pocket/nodes"
 	"github.com/agentstation/pocket/yaml"
 )
 
@@ -42,42 +42,42 @@ type DocsConfig struct {
 func runGenerateDocs(config *DocsConfig) error {
 	// Create a loader and registry to get all nodes
 	loader := yaml.NewLoader()
-	builtin.RegisterAll(loader, false)
+	nodes.RegisterAll(loader, false)
 
 	// Get all registered nodes
-	nodes := getBuiltinNodes()
+	allNodes := getBuiltinNodes()
 
 	// Filter by category if specified
 	if config.Category != "" {
-		filtered := []builtin.NodeMetadata{}
-		for _, node := range nodes {
+		filtered := []nodes.Metadata{}
+		for _, node := range allNodes {
 			if node.Category == config.Category {
 				filtered = append(filtered, node)
 			}
 		}
-		nodes = filtered
+		allNodes = filtered
 	}
 
 	// Sort by category then type
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].Category != nodes[j].Category {
-			return nodes[i].Category < nodes[j].Category
+	sort.Slice(allNodes, func(i, j int) bool {
+		if allNodes[i].Category != allNodes[j].Category {
+			return allNodes[i].Category < allNodes[j].Category
 		}
-		return nodes[i].Type < nodes[j].Type
+		return allNodes[i].Type < allNodes[j].Type
 	})
 
 	switch config.Format {
 	case jsonFormat:
-		return generateJSONDocs(nodes, config.Output)
+		return generateJSONDocs(allNodes, config.Output)
 	default:
-		return generateMarkdownDocs(nodes, config.Output)
+		return generateMarkdownDocs(allNodes, config.Output)
 	}
 }
 
 // generateMarkdownDocs generates Markdown documentation.
 //
 //nolint:gocyclo // Complex due to comprehensive documentation generation with multiple sections
-func generateMarkdownDocs(nodes []builtin.NodeMetadata, output string) error {
+func generateMarkdownDocs(nodeList []nodes.Metadata, output string) error {
 	var sb strings.Builder
 
 	sb.WriteString("# Pocket Node Reference\n\n")
@@ -85,8 +85,8 @@ func generateMarkdownDocs(nodes []builtin.NodeMetadata, output string) error {
 	sb.WriteString("## Table of Contents\n\n")
 
 	// Group by category
-	categories := make(map[string][]builtin.NodeMetadata)
-	for _, node := range nodes {
+	categories := make(map[string][]nodes.Metadata)
+	for _, node := range nodeList {
 		categories[node.Category] = append(categories[node.Category], node)
 	}
 
@@ -268,13 +268,13 @@ func writeYAMLValue(sb *strings.Builder, key string, value interface{}, indent s
 }
 
 // generateJSONDocs generates JSON documentation.
-func generateJSONDocs(nodes []builtin.NodeMetadata, output string) error {
+func generateJSONDocs(nodeList []nodes.Metadata, output string) error {
 	// Create documentation structure
 	doc := map[string]interface{}{
 		"title":       "Pocket Node Reference",
 		"description": "Comprehensive reference for all built-in nodes in the Pocket framework",
 		"version":     "1.0.0",
-		"nodes":       nodes,
+		"nodes":       nodeList,
 	}
 
 	// Marshal to JSON

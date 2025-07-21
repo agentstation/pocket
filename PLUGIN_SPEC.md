@@ -32,7 +32,7 @@ This document specifies the plugin architecture for Pocket, enabling extensible 
 
 ```
 /pocket/
-  /builtin/                 # All built-in nodes
+  /nodes/                   # All built-in nodes
     registry.go            # Central registration and metadata
     doc.go                # Package documentation
     types.go              # Shared types (NodeMetadata, Example, etc.)
@@ -46,8 +46,8 @@ This document specifies the plugin architecture for Pocket, enabling extensible 
 ### Node Metadata Structure
 
 ```go
-// builtin/registry.go
-package builtin
+// nodes/registry.go
+package nodes
 
 import (
     "github.com/agentstation/pocket"
@@ -141,7 +141,7 @@ import (
     "text/template"
     
     "github.com/agentstation/pocket"
-    "github.com/agentstation/pocket/builtin"
+    "github.com/agentstation/pocket/nodes"
     "github.com/agentstation/pocket/yaml"
 )
 
@@ -150,8 +150,8 @@ type ConditionalNodeBuilder struct {
     verbose bool
 }
 
-func (b *ConditionalNodeBuilder) Metadata() builtin.NodeMetadata {
-    return builtin.NodeMetadata{
+func (b *ConditionalNodeBuilder) Metadata() nodes.NodeMetadata {
+    return nodes.NodeMetadata{
         Type:        "conditional",
         Category:    "core",
         Description: "Routes to different nodes based on conditions",
@@ -176,7 +176,7 @@ func (b *ConditionalNodeBuilder) Metadata() builtin.NodeMetadata {
             },
             "required": []string{"conditions"},
         },
-        Examples: []builtin.Example{
+        Examples: []nodes.Example{
             {
                 Name: "Route by score",
                 Config: map[string]interface{}{
@@ -276,7 +276,7 @@ import (
     "time"
     
     "github.com/agentstation/pocket"
-    "github.com/agentstation/pocket/builtin"
+    "github.com/agentstation/pocket/nodes"
     "github.com/agentstation/pocket/yaml"
 )
 
@@ -285,8 +285,8 @@ type HTTPNodeBuilder struct {
     verbose bool
 }
 
-func (b *HTTPNodeBuilder) Metadata() builtin.NodeMetadata {
-    return builtin.NodeMetadata{
+func (b *HTTPNodeBuilder) Metadata() nodes.NodeMetadata {
+    return nodes.NodeMetadata{
         Type:        "http",
         Category:    "io",
         Description: "Makes HTTP requests with retry and timeout support",
@@ -329,7 +329,7 @@ func (b *HTTPNodeBuilder) Metadata() builtin.NodeMetadata {
                 "body":    map[string]interface{}{"type": ["object", "string"]},
             },
         },
-        Examples: []builtin.Example{
+        Examples: []nodes.Example{
             {
                 Name: "GET request",
                 Config: map[string]interface{}{
@@ -494,7 +494,7 @@ func (b *HTTPNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 ### Script Node Implementation
 
 ```go
-// builtin/script/lua.go
+// nodes/script/lua.go
 package script
 
 import (
@@ -503,7 +503,7 @@ import (
     
     "github.com/Shopify/go-lua"
     "github.com/agentstation/pocket"
-    "github.com/agentstation/pocket/builtin"
+    "github.com/agentstation/pocket/nodes"
     "github.com/agentstation/pocket/yaml"
 )
 
@@ -512,8 +512,8 @@ type LuaNodeBuilder struct {
     verbose bool
 }
 
-func (b *LuaNodeBuilder) Metadata() builtin.NodeMetadata {
-    return builtin.NodeMetadata{
+func (b *LuaNodeBuilder) Metadata() nodes.NodeMetadata {
+    return nodes.NodeMetadata{
         Type:        "lua",
         Category:    "script",
         Description: "Execute Lua scripts for custom logic",
@@ -534,7 +534,7 @@ func (b *LuaNodeBuilder) Metadata() builtin.NodeMetadata {
                 {"required": []string{"file"}},
             },
         },
-        Examples: []builtin.Example{
+        Examples: []nodes.Example{
             {
                 Name: "Filter high scores",
                 Config: map[string]interface{}{

@@ -1,4 +1,4 @@
-package builtin
+package nodes
 
 import (
 	"strings"
@@ -7,7 +7,7 @@ import (
 
 func TestValidateNodeConfig(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			ConfigSchema: map[string]interface{}{
 				"type": "object",
@@ -36,7 +36,7 @@ func TestValidateNodeConfig(t *testing.T) {
 	})
 
 	t.Run("missing required field", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			ConfigSchema: map[string]interface{}{
 				"type": "object",
@@ -63,7 +63,7 @@ func TestValidateNodeConfig(t *testing.T) {
 	})
 
 	t.Run("invalid type", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			ConfigSchema: map[string]interface{}{
 				"type": "object",
@@ -89,7 +89,7 @@ func TestValidateNodeConfig(t *testing.T) {
 	})
 
 	t.Run("enum validation", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			ConfigSchema: map[string]interface{}{
 				"type": "object",
@@ -122,7 +122,7 @@ func TestValidateNodeConfig(t *testing.T) {
 	})
 
 	t.Run("no schema", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			// No ConfigSchema
 		}
@@ -138,7 +138,7 @@ func TestValidateNodeConfig(t *testing.T) {
 	})
 
 	t.Run("additional properties", func(t *testing.T) {
-		meta := NodeMetadata{
+		meta := Metadata{
 			Type: "test",
 			ConfigSchema: map[string]interface{}{
 				"type": "object",

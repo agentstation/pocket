@@ -10,9 +10,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/builtin/script"
 	"github.com/spf13/cobra"
+
+	"github.com/agentstation/pocket"
+	"github.com/agentstation/pocket/nodes/script"
 )
 
 // scriptsCmd represents the scripts command.

@@ -9,7 +9,7 @@ import (
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
 
-	"github.com/agentstation/pocket/builtin"
+	"github.com/agentstation/pocket/nodes"
 	"github.com/agentstation/pocket/yaml"
 )
 
@@ -86,45 +86,45 @@ type NodesConfig struct {
 func runNodesList(config *NodesConfig) error {
 	// Create a loader and registry to get all nodes
 	loader := yaml.NewLoader()
-	builtin.RegisterAll(loader, false)
+	nodes.RegisterAll(loader, false)
 
 	// Get all registered nodes
-	nodes := getBuiltinNodes()
+	allNodes := getBuiltinNodes()
 
 	// Filter by type if specified
 	if config.Type != "" {
-		filtered := []builtin.NodeMetadata{}
-		for _, node := range nodes {
+		filtered := []nodes.Metadata{}
+		for _, node := range allNodes {
 			if node.Type == config.Type {
 				filtered = append(filtered, node)
 			}
 		}
-		nodes = filtered
+		allNodes = filtered
 	}
 
 	// Sort by category then type
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].Category != nodes[j].Category {
-			return nodes[i].Category < nodes[j].Category
+	sort.Slice(allNodes, func(i, j int) bool {
+		if allNodes[i].Category != allNodes[j].Category {
+			return allNodes[i].Category < allNodes[j].Category
 		}
-		return nodes[i].Type < nodes[j].Type
+		return allNodes[i].Type < allNodes[j].Type
 	})
 
 	switch config.Format {
 	case jsonFormat:
-		return outputJSON(nodes)
+		return outputJSON(allNodes)
 	case yamlFormat:
-		return outputYAML(nodes)
+		return outputYAML(allNodes)
 	default:
-		return outputTable(nodes)
+		return outputTable(allNodes)
 	}
 }
 
 // runNodesInfo shows detailed information about a specific node type.
 func runNodesInfo(nodeType string) error {
-	nodes := getBuiltinNodes()
+	allNodes := getBuiltinNodes()
 
-	for _, node := range nodes {
+	for _, node := range allNodes {
 		if node.Type != nodeType {
 			continue
 		}
@@ -172,32 +172,32 @@ func runNodesInfo(nodeType string) error {
 	return fmt.Errorf("node type '%s' not found", nodeType)
 }
 
-// getBuiltinNodes returns metadata for all builtin nodes.
-func getBuiltinNodes() []builtin.NodeMetadata {
+// getBuiltinNodes returns metadata for all built-in nodes.
+func getBuiltinNodes() []nodes.Metadata {
 	// Create instances to get metadata
-	return []builtin.NodeMetadata{
-		(&builtin.EchoNodeBuilder{}).Metadata(),
-		(&builtin.DelayNodeBuilder{}).Metadata(),
-		(&builtin.RouterNodeBuilder{}).Metadata(),
-		(&builtin.ConditionalNodeBuilder{}).Metadata(),
-		(&builtin.TransformNodeBuilder{}).Metadata(),
-		(&builtin.TemplateNodeBuilder{}).Metadata(),
-		(&builtin.JSONPathNodeBuilder{}).Metadata(),
-		(&builtin.ValidateNodeBuilder{}).Metadata(),
-		(&builtin.AggregateNodeBuilder{}).Metadata(),
-		(&builtin.HTTPNodeBuilder{}).Metadata(),
-		(&builtin.FileNodeBuilder{}).Metadata(),
-		(&builtin.ExecNodeBuilder{}).Metadata(),
-		(&builtin.ParallelNodeBuilder{}).Metadata(),
-		(&builtin.LuaNodeBuilder{}).Metadata(),
+	return []nodes.Metadata{
+		(&nodes.EchoNodeBuilder{}).Metadata(),
+		(&nodes.DelayNodeBuilder{}).Metadata(),
+		(&nodes.RouterNodeBuilder{}).Metadata(),
+		(&nodes.ConditionalNodeBuilder{}).Metadata(),
+		(&nodes.TransformNodeBuilder{}).Metadata(),
+		(&nodes.TemplateNodeBuilder{}).Metadata(),
+		(&nodes.JSONPathNodeBuilder{}).Metadata(),
+		(&nodes.ValidateNodeBuilder{}).Metadata(),
+		(&nodes.AggregateNodeBuilder{}).Metadata(),
+		(&nodes.HTTPNodeBuilder{}).Metadata(),
+		(&nodes.FileNodeBuilder{}).Metadata(),
+		(&nodes.ExecNodeBuilder{}).Metadata(),
+		(&nodes.ParallelNodeBuilder{}).Metadata(),
+		(&nodes.LuaNodeBuilder{}).Metadata(),
 	}
 }
 
 // outputTable outputs nodes in table format.
-func outputTable(nodes []builtin.NodeMetadata) error {
+func outputTable(nodeList []nodes.Metadata) error {
 	// Group by category
-	categories := make(map[string][]builtin.NodeMetadata)
-	for _, node := range nodes {
+	categories := make(map[string][]nodes.Metadata)
+	for _, node := range nodeList {
 		categories[node.Category] = append(categories[node.Category], node)
 	}
 
@@ -218,15 +218,15 @@ func outputTable(nodes []builtin.NodeMetadata) error {
 		}
 	}
 
-	fmt.Printf("\nTotal: %d node types\n", len(nodes))
+	fmt.Printf("\nTotal: %d node types\n", len(nodeList))
 	fmt.Println("\nUse 'pocket nodes info <type>' for detailed information about a specific node.")
 
 	return nil
 }
 
 // outputJSON outputs nodes in JSON format.
-func outputJSON(nodes []builtin.NodeMetadata) error {
-	data, err := json.MarshalIndent(nodes, "", "  ")
+func outputJSON(nodeList []nodes.Metadata) error {
+	data, err := json.MarshalIndent(nodeList, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -235,10 +235,10 @@ func outputJSON(nodes []builtin.NodeMetadata) error {
 }
 
 // outputYAML outputs nodes in YAML format.
-func outputYAML(nodes []builtin.NodeMetadata) error {
+func outputYAML(nodeList []nodes.Metadata) error {
 	// Convert to YAML-friendly format
-	output := make([]map[string]interface{}, len(nodes))
-	for i, node := range nodes {
+	output := make([]map[string]interface{}, len(nodeList))
+	for i, node := range nodeList {
 		output[i] = map[string]interface{}{
 			"type":        node.Type,
 			"category":    node.Category,

@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/agentstation/pocket"
-	"github.com/agentstation/pocket/builtin"
-	"github.com/agentstation/pocket/yaml"
 	goyaml "github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
+
+	"github.com/agentstation/pocket"
+	"github.com/agentstation/pocket/nodes"
+	"github.com/agentstation/pocket/yaml"
 )
 
 var (
@@ -169,7 +170,7 @@ func runWorkflow(config *RunConfig) error {
 
 	// Create a loader and register built-in nodes
 	loader := yaml.NewLoader()
-	builtin.RegisterAll(loader, config.Verbose)
+	nodes.RegisterAll(loader, config.Verbose)
 
 	// Load the graph
 	graph, err := loader.LoadDefinition(&graphDef, store)

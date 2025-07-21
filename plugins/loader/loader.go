@@ -10,8 +10,8 @@ import (
 
 	"github.com/goccy/go-yaml"
 
-	"github.com/agentstation/pocket/plugin"
-	"github.com/agentstation/pocket/plugin/wasm"
+	"github.com/agentstation/pocket/plugins"
+	"github.com/agentstation/pocket/plugins/wasm"
 )
 
 // DefaultPluginPaths returns the default paths to search for plugins.
@@ -29,26 +29,26 @@ func DefaultPluginPaths() []string {
 	return paths
 }
 
-// loader implements the plugin.Loader interface.
+// loader implements the plugins.Loader interface.
 type loader struct {
 	// Cache of discovered plugins
-	discovered map[string]plugin.Metadata
+	discovered map[string]plugins.Metadata
 }
 
 // New creates a new plugin loader.
-func New() plugin.Loader {
+func New() plugins.Loader {
 	return &loader{
-		discovered: make(map[string]plugin.Metadata),
+		discovered: make(map[string]plugins.Metadata),
 	}
 }
 
 // Discover finds all plugins in the given paths.
-func (l *loader) Discover(paths ...string) ([]plugin.Metadata, error) {
+func (l *loader) Discover(paths ...string) ([]plugins.Metadata, error) {
 	if len(paths) == 0 {
 		paths = DefaultPluginPaths()
 	}
 
-	var plugins []plugin.Metadata
+	var discovered []plugins.Metadata
 
 	for _, path := range paths {
 		// Skip if path doesn't exist
@@ -83,7 +83,7 @@ func (l *loader) Discover(paths ...string) ([]plugin.Metadata, error) {
 
 				// Store in cache
 				l.discovered[metadata.Name] = metadata
-				plugins = append(plugins, metadata)
+				discovered = append(discovered, metadata)
 			}
 
 			return nil
@@ -94,11 +94,11 @@ func (l *loader) Discover(paths ...string) ([]plugin.Metadata, error) {
 		}
 	}
 
-	return plugins, nil
+	return discovered, nil
 }
 
 // Load loads a plugin from the given path.
-func (l *loader) Load(ctx context.Context, path string) (plugin.Plugin, error) {
+func (l *loader) Load(ctx context.Context, path string) (plugins.Plugin, error) {
 	// Check if it's a manifest file
 	if strings.HasSuffix(path, "manifest.yaml") || strings.HasSuffix(path, "manifest.json") {
 		metadata, err := l.loadManifest(path)
@@ -149,7 +149,7 @@ func (l *loader) Load(ctx context.Context, path string) (plugin.Plugin, error) {
 // LoadFromMetadata loads a plugin using its metadata.
 //
 //nolint:gocritic // hugeParam: metadata is copied intentionally for safety
-func (l *loader) LoadFromMetadata(ctx context.Context, metadata plugin.Metadata) (plugin.Plugin, error) {
+func (l *loader) LoadFromMetadata(ctx context.Context, metadata plugins.Metadata) (plugins.Plugin, error) {
 	// Validate metadata
 	if err := validateMetadata(metadata); err != nil {
 		return nil, fmt.Errorf("invalid metadata: %w", err)
@@ -188,19 +188,19 @@ func (l *loader) LoadFromMetadata(ctx context.Context, metadata plugin.Metadata)
 }
 
 // loadManifest loads a plugin manifest from a file.
-func (l *loader) loadManifest(path string) (plugin.Metadata, error) {
+func (l *loader) loadManifest(path string) (plugins.Metadata, error) {
 	data, err := os.ReadFile(path) // nolint:gosec // Path is from manifest
 	if err != nil {
-		return plugin.Metadata{}, fmt.Errorf("failed to read manifest: %w", err)
+		return plugins.Metadata{}, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	var metadata plugin.Metadata
+	var metadata plugins.Metadata
 
 	// YAML parser can handle both YAML and JSON
 	err = yaml.Unmarshal(data, &metadata)
 
 	if err != nil {
-		return plugin.Metadata{}, fmt.Errorf("failed to parse manifest: %w", err)
+		return plugins.Metadata{}, fmt.Errorf("failed to parse manifest: %w", err)
 	}
 
 	// Resolve binary path relative to manifest
@@ -214,7 +214,7 @@ func (l *loader) loadManifest(path string) (plugin.Metadata, error) {
 // validateMetadata validates plugin metadata.
 //
 //nolint:gocritic // hugeParam: metadata is copied intentionally for validation
-func validateMetadata(metadata plugin.Metadata) error {
+func validateMetadata(metadata plugins.Metadata) error {
 	if metadata.Name == "" {
 		return fmt.Errorf("plugin name is required")
 	}

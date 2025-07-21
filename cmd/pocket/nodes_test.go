@@ -8,19 +8,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/agentstation/pocket/builtin"
+	"github.com/agentstation/pocket/nodes"
 )
 
 func TestGetBuiltinNodes(t *testing.T) {
-	nodes := getBuiltinNodes()
+	allNodes := getBuiltinNodes()
 
 	// Check that we have nodes
-	if len(nodes) == 0 {
-		t.Error("Expected at least one builtin node")
+	if len(allNodes) == 0 {
+		t.Error("Expected at least one built-in node")
 	}
 
 	// Check that all nodes have required fields
-	for _, node := range nodes {
+	for _, node := range allNodes {
 		if node.Type == "" {
 			t.Error("Node missing type")
 		}
@@ -35,7 +35,7 @@ func TestGetBuiltinNodes(t *testing.T) {
 	// Check for expected node types
 	expectedTypes := []string{"echo", "delay", "router", "conditional", "transform"}
 	typeMap := make(map[string]bool)
-	for _, node := range nodes {
+	for _, node := range allNodes {
 		typeMap[node.Type] = true
 	}
 
@@ -48,7 +48,7 @@ func TestGetBuiltinNodes(t *testing.T) {
 
 func TestOutputTable(t *testing.T) {
 	// Create test nodes
-	nodes := []builtin.NodeMetadata{
+	testNodes := []nodes.Metadata{
 		{
 			Type:        "test1",
 			Category:    "core",
@@ -66,7 +66,7 @@ func TestOutputTable(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputTable(nodes)
+	err := outputTable(testNodes)
 	if err != nil {
 		t.Errorf("outputTable() error = %v", err)
 	}
@@ -98,7 +98,7 @@ func TestOutputTable(t *testing.T) {
 
 func TestOutputJSON(t *testing.T) {
 	// Create test nodes
-	nodes := []builtin.NodeMetadata{
+	testNodes := []nodes.Metadata{
 		{
 			Type:        "test1",
 			Category:    "core",
@@ -111,7 +111,7 @@ func TestOutputJSON(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputJSON(nodes)
+	err := outputJSON(testNodes)
 	if err != nil {
 		t.Errorf("outputJSON() error = %v", err)
 	}
@@ -124,7 +124,7 @@ func TestOutputJSON(t *testing.T) {
 	output := buf.String()
 
 	// Parse JSON to verify it's valid
-	var result []builtin.NodeMetadata
+	var result []nodes.Metadata
 	if err := json.Unmarshal([]byte(output), &result); err != nil {
 		t.Errorf("Invalid JSON output: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestOutputJSON(t *testing.T) {
 
 func TestOutputYAML(t *testing.T) {
 	// Create test nodes
-	nodes := []builtin.NodeMetadata{
+	testNodes := []nodes.Metadata{
 		{
 			Type:        "test1",
 			Category:    "core",
@@ -154,7 +154,7 @@ func TestOutputYAML(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputYAML(nodes)
+	err := outputYAML(testNodes)
 	if err != nil {
 		t.Errorf("outputYAML() error = %v", err)
 	}

@@ -1,5 +1,5 @@
-// Package plugin provides the core interfaces and types for the Pocket plugin system.
-package plugin
+// Package plugins provides the core interfaces and types for the Pocket plugin system.
+package plugins
 
 import (
 	"context"
