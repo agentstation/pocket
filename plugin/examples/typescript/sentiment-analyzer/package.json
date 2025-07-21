@@ -1,0 +1,23 @@
+{
+  "name": "pocket-sentiment-analyzer",
+  "version": "1.0.0",
+  "description": "Sentiment analysis plugin for Pocket",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node build.js",
+    "build:ts": "tsc",
+    "build:bundle": "node build.js",
+    "build:wasm": "javy compile dist/plugin.js -o plugin.wasm",
+    "build:all": "npm run build && npm run build:wasm",
+    "clean": "rm -rf dist plugin.wasm",
+    "test": "jest",
+    "check-javy": "javy --version || echo 'Javy not installed. Run: npm install -g @shopify/javy'"
+  },
+  "dependencies": {
+    "@pocket/plugin-sdk": "file:../../../sdk/typescript"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "esbuild": "^0.19.0"
+  }
+}

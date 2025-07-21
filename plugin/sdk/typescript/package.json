@@ -1,0 +1,37 @@
+{
+  "name": "@pocket/plugin-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for building Pocket plugins",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "build:wasm": "javy compile dist/index.js -o plugin.wasm",
+    "build:all": "npm run build && npm run build:wasm",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "keywords": [
+    "pocket",
+    "plugin",
+    "sdk",
+    "webassembly",
+    "wasm"
+  ],
+  "author": "Pocket Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
