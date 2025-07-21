@@ -1,0 +1,92 @@
+name: word-counter
+version: 1.0.0
+description: Word counting and analysis plugin for Pocket
+author: Pocket Team
+license: MIT
+
+runtime: wasm
+binary: plugin.wasm
+
+nodes:
+  - type: word-count
+    category: text
+    description: Count words and analyze text statistics
+    configSchema:
+      type: object
+      properties:
+        min_word_length:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Minimum word length to count
+        stop_words:
+          type: array
+          items:
+            type: string
+          default: ["a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+                   "has", "he", "in", "is", "it", "its", "of", "on", "that", "the",
+                   "to", "was", "will", "with"]
+          description: Words to exclude from counting
+    inputSchema:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: Text to analyze
+        case_sensitive:
+          type: boolean
+          default: false
+          description: Whether to treat words case-sensitively
+      required: ["text"]
+    outputSchema:
+      type: object
+      properties:
+        total_words:
+          type: integer
+          description: Total number of words
+        unique_words:
+          type: integer
+          description: Number of unique words
+        word_frequencies:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Word frequency map
+        average_word_length:
+          type: number
+          description: Average length of words
+        longest_word:
+          type: string
+          description: The longest word found
+        shortest_word:
+          type: string
+          description: The shortest word found
+      required: ["total_words", "unique_words", "word_frequencies", 
+               "average_word_length", "longest_word", "shortest_word"]
+    examples:
+      - name: Basic text analysis
+        input:
+          text: "The quick brown fox jumps over the lazy dog"
+          case_sensitive: false
+        output:
+          total_words: 6
+          unique_words: 6
+          word_frequencies:
+            quick: 1
+            brown: 1
+            fox: 1
+            jumps: 1
+            over: 1
+            lazy: 1
+            dog: 1
+          average_word_length: 4.0
+          longest_word: "jumps"
+          shortest_word: "fox"
+
+permissions:
+  memory: 5MB
+  timeout: 3s
+
+requirements:
+  pocket: ">=1.0.0"

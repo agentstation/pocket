@@ -1,0 +1,20 @@
+{
+  "name": "pocket-sentiment-analyzer",
+  "version": "1.0.0",
+  "description": "Sentiment analysis plugin for Pocket",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:wasm": "javy compile dist/bundle.js -o plugin.wasm",
+    "bundle": "esbuild dist/index.js --bundle --platform=neutral --outfile=dist/bundle.js",
+    "build:all": "npm run build && npm run bundle && npm run build:wasm",
+    "clean": "rm -rf dist plugin.wasm"
+  },
+  "dependencies": {
+    "@pocket/plugin-sdk": "file:../../../sdk/typescript"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "esbuild": "^0.19.0"
+  }
+}

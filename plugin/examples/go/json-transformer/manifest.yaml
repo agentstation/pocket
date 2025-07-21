@@ -1,0 +1,102 @@
+name: json-transformer
+version: 1.0.0
+description: JSON transformation plugin for Pocket
+author: Pocket Team
+license: MIT
+
+runtime: wasm
+binary: plugin.wasm
+
+nodes:
+  - type: json-transform
+    category: data
+    description: Transform JSON data using various operations
+    configSchema:
+      type: object
+      properties:
+        transforms:
+          type: object
+          description: Named transform specifications
+          additionalProperties:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: ["flatten", "nest", "filter", "map", "reduce"]
+              parameters:
+                type: object
+            required: ["type"]
+        default_depth:
+          type: integer
+          default: 10
+          description: Default depth for nested operations
+    inputSchema:
+      type: object
+      properties:
+        data:
+          description: JSON data to transform
+        transform:
+          type: string
+          description: Name of transform to apply
+      required: ["data", "transform"]
+    outputSchema:
+      type: object
+      properties:
+        result:
+          description: Transformed JSON data
+        metadata:
+          type: object
+          properties:
+            operation:
+              type: string
+            changes:
+              type: integer
+      required: ["result", "metadata"]
+    examples:
+      - name: Flatten nested JSON
+        input:
+          data:
+            user:
+              name: John Doe
+              contact:
+                email: john@example.com
+                phone: 555-1234
+          transform: flatten
+        output:
+          result:
+            user.name: John Doe
+            user.contact.email: john@example.com
+            user.contact.phone: 555-1234
+          metadata:
+            operation: flatten
+            changes: 5
+      - name: Filter fields
+        input:
+          data:
+            id: 123
+            name: Product
+            price: 99.99
+            internal_code: ABC123
+          transform: filter_public
+        config:
+          transforms:
+            filter_public:
+              type: filter
+              parameters:
+                fields: ["internal_code"]
+                exclude: true
+        output:
+          result:
+            id: 123
+            name: Product
+            price: 99.99
+          metadata:
+            operation: filter
+            changes: 1
+
+permissions:
+  memory: 10MB
+  timeout: 5s
+
+requirements:
+  pocket: ">=1.0.0"
