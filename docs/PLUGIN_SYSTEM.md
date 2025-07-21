@@ -5,10 +5,10 @@
 The Pocket plugin system provides an extensible architecture for adding new node types to the framework. The system has been implemented in three phases:
 
 1. **Phase 1**: Built-in nodes with metadata and CLI integration (✅ Complete)
-2. **Phase 2**: Lua scripting for custom logic (✅ Complete)  
+2. **Phase 2**: Lua scripting for custom logic (⚠️ Partially Complete - missing script management features)  
 3. **Phase 3**: WebAssembly plugins for any language (✅ Complete)
 
-This provides a complete plugin ecosystem from simple built-in nodes to full WebAssembly plugin support.
+While the core Lua scripting functionality is implemented, some convenience features for script management (discovery, validation, debugging) were not completed in Phase 2.
 
 ## Phase 1 Status: ✅ Complete
 
@@ -155,15 +155,20 @@ See the `examples/cli/` directory for complete workflow examples:
 4. **Documentation**: Self-documenting through metadata
 5. **Testing**: Comprehensive test coverage for all nodes
 
-## Phase 2 Status: ✅ Complete
+## Phase 2 Status: ⚠️ Partially Complete
 
-### Lua Scripting Integration
+### Lua Scripting Integration (Implemented)
 - **Embedded Lua interpreter** via Shopify/go-lua
 - **Sandboxed execution** with restricted functions
 - **JSON support** with encode/decode functions
 - **String utilities** for common operations
 - **Script timeout** support for safety
 - **File-based scripts** in addition to inline
+
+### Script Management (Not Implemented)
+- ❌ Script discovery from ~/.pocket/scripts
+- ❌ Script validation command
+- ❌ Script debugging support
 
 ## Phase 3 Status: ✅ Complete
 

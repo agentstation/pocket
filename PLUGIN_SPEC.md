@@ -846,7 +846,7 @@ plugins:
    - [x] Add timeout support for scripts
    - [x] Add type_of function for type checking
 
-2. **Script Management**
+2. **Script Management** (Not Implemented)
    - [ ] Add script discovery from ~/.pocket/scripts
    - [ ] Implement script validation command
    - [ ] Add script debugging support
