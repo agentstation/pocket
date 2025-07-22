@@ -585,6 +585,6 @@ Organize your scripts:
 
 ## See Also
 
-- [Built-in Nodes Reference](BUILT_IN.md) - All available node types
+- [Built-in Nodes Reference](../NODE_TYPES.md) - All available node types
 - [Examples](examples/lua/) - Complete Lua script examples
 - [Lua 5.2 Reference Manual](https://www.lua.org/manual/5.2/) - Official Lua documentation

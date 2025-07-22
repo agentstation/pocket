@@ -659,5 +659,5 @@ func (b *Builder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 
 - [Architecture Overview](../concepts/ARCHITECTURE.md) - Core concepts
 - [Testing Guide](../guides/TESTING.md) - Testing best practices
-- [API Reference](../reference/API.md) - Complete API documentation
-- [Built-in Nodes](BUILT_IN.md) - Existing node implementations
+- [API Reference](../library/api-reference.md) - Complete API documentation
+- [Built-in Nodes](../NODE_TYPES.md) - Existing node implementations

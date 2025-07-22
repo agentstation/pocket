@@ -290,6 +290,6 @@ After exploring these examples:
 
 ## Questions?
 
-- Check the [API Reference](../reference/API.md)
-- Review the [Getting Started Guide](../guides/GETTING_STARTED.md)
+- Check the [API Reference](../library/api-reference.md)
+- Review the [Getting Started Guide](../library/getting-started.md)
 - Explore the [source code](https://github.com/agentstation/pocket)

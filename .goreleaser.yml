@@ -1,0 +1,308 @@
+# GoReleaser configuration for Pocket
+# Documentation: https://goreleaser.com
+
+# Global settings
+project_name: pocket
+version: 2
+
+# Build configuration
+builds:
+  - id: pocket
+    main: ./cmd/pocket
+    binary: pocket
+    
+    # Set version information via ldflags
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.buildDate={{.Date}}
+      - -X main.goVersion={{.Env.GO_VERSION}}
+    
+    # Build for multiple platforms
+    goos:
+      - darwin
+      - linux
+      - windows
+    
+    goarch:
+      - amd64
+      - arm64
+      - "386"
+    
+    # Ignore certain combinations
+    ignore:
+      - goos: darwin
+        goarch: "386"
+      - goos: windows
+        goarch: arm64
+    
+    # Environment variables
+    env:
+      - CGO_ENABLED=0
+    
+    # Custom build tags
+    tags:
+      - netgo
+      - osusergo
+
+# Archive configuration
+archives:
+  - id: pocket-archive
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    
+    # Use tar.gz for Unix, zip for Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+    
+    # Files to include in the archive
+    files:
+      - LICENSE
+      - README.md
+      - docs/cli/getting-started.md
+      - examples/cli/*.yaml
+    
+    # Create a more organized archive structure
+    wrap_in_directory: true
+    
+    # Custom directory name inside archive
+    rlcp: true
+
+# Checksum configuration
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# Changelog configuration
+changelog:
+  use: github
+  sort: asc
+  abbrev: 0
+  groups:
+    - title: '🚀 Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: '🐛 Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: '📚 Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: '🧪 Testing'
+      regexp: '^.*?test(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: '🔧 Maintenance'
+      regexp: '^.*?chore(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: '⚡ Performance'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 5
+    - title: 'Other changes'
+  filters:
+    exclude:
+      - '^Merge'
+      - '^merge'
+      - 'WIP'
+
+# Release configuration
+release:
+  github:
+    owner: agentstation
+    name: pocket
+  
+  # Create a draft release first
+  draft: false
+  
+  # Mark as prerelease for beta/rc versions
+  prerelease: auto
+  
+  # Release name template
+  name_template: "Pocket {{.Version}}"
+  
+  # Disable source tarball upload (we'll use our own)
+  disable: false
+  
+  # Custom release notes
+  header: |
+    ## Pocket {{.Version}}
+    
+    Graph execution engine for LLM workflows.
+  
+  footer: |
+    ## Installation
+    
+    ### Homebrew (macOS and Linux)
+    ```bash
+    brew install agentstation/tap/pocket
+    ```
+    
+    ### Go Install
+    ```bash
+    go install github.com/agentstation/pocket/cmd/pocket@{{.Tag}}
+    ```
+    
+    ### Direct Download
+    Download the appropriate binary for your platform from the assets below.
+    
+    ### Verify Checksums
+    ```bash
+    # Download checksums.txt and verify
+    sha256sum -c checksums.txt
+    ```
+    
+    ---
+    
+    **Full Documentation**: https://github.com/agentstation/pocket/tree/{{.Tag}}/docs
+    
+    Built with ❤️ by [AgentStation](https://agentstation.ai)
+
+# Snapshot configuration (for testing)
+snapshot:
+  name_template: "{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
+# Source configuration
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}-{{ .Version }}-source'
+  format: 'tar.gz'
+
+# Homebrew tap configuration
+brews:
+  - repository:
+      owner: agentstation
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    
+    # Formula name
+    name: pocket
+    
+    # Folder inside the repository
+    folder: Formula
+    
+    # Git commit information
+    commit_author:
+      name: "GitHub Actions"
+      email: "actions@github.com"
+    
+    commit_msg_template: "Update pocket to {{ .Tag }}"
+    
+    # Homepage
+    homepage: "https://github.com/agentstation/pocket"
+    
+    # Description
+    description: "Graph execution engine for LLM workflows - CLI tool for executing workflows defined as graphs"
+    
+    # License
+    license: "MIT"
+    
+    # Skip upload if version exists
+    skip_upload: false
+    
+    # Use pre-built binaries (bottles) instead of building from source
+    download_strategy: CurlDownloadStrategy
+    
+    # Dependencies - go is only needed for building from source
+    dependencies:
+      - name: go
+        type: build
+        version: "1.21"
+    
+    # Custom install block that supports both bottles and source builds
+    install: |
+      if build.bottle?
+        bin.install "pocket"
+      else
+        # Build from source
+        system "go", "build", *std_go_args(ldflags: "-s -w -X main.version=#{version}"), "./cmd/pocket"
+      end
+      
+      # Install shell completions if they exist
+      bash_completion.install "completions/pocket.bash" if File.exist?("completions/pocket.bash")
+      zsh_completion.install "completions/_pocket" if File.exist?("completions/_pocket")
+      fish_completion.install "completions/pocket.fish" if File.exist?("completions/pocket.fish")
+      
+      # Install documentation
+      doc.install "README.md", "LICENSE"
+      doc.install Dir["docs/*"] if Dir.exist?("docs")
+      
+      # Install examples
+      if Dir.exist?("examples/cli")
+        pkgshare.install "examples/cli" => "examples"
+      end
+    
+    # Test block
+    test: |
+      # Test version command
+      assert_match version.to_s, shell_output("#{bin}/pocket version")
+      
+      # Test help output
+      assert_match "Usage:", shell_output("#{bin}/pocket --help")
+      
+      # Create a simple test workflow
+      (testpath/"test.yaml").write <<~EOS
+        name: test-workflow
+        start: hello
+        
+        nodes:
+          - name: hello
+            type: echo
+            config:
+              message: "Hello from Homebrew test!"
+      EOS
+      
+      # Test dry run
+      output = shell_output("#{bin}/pocket run --dry-run #{testpath}/test.yaml")
+      assert_match "test-workflow", output
+      
+      # Test validate command
+      assert_match "valid", shell_output("#{bin}/pocket validate #{testpath}/test.yaml")
+      
+      # Test nodes list command
+      output = shell_output("#{bin}/pocket nodes list")
+      assert_match "echo", output
+      assert_match "http", output
+      assert_match "conditional", output
+    
+    # Custom caveats
+    caveats: |
+      Pocket has been installed! 🚀
+
+      Quick start:
+        pocket run workflow.yaml      # Run a workflow
+        pocket validate workflow.yaml # Validate workflow syntax
+        pocket nodes list            # List available nodes
+        pocket --help               # Show all commands
+
+      Create your first workflow:
+        cat > hello.yaml << 'EOF'
+        name: hello-world
+        start: greet
+        
+        nodes:
+          - name: greet
+            type: echo
+            config:
+              message: "Hello from Pocket!"
+        EOF
+        
+        pocket run hello.yaml
+
+      Examples:
+        View examples: ls #{opt_pkgshare}/examples/
+        
+      Documentation:
+        Full docs: https://github.com/agentstation/pocket/tree/master/docs
+        Quick start: https://github.com/agentstation/pocket/blob/master/docs/cli/getting-started.md
+        
+      Build powerful LLM workflows with graphs that think, decide, and act!
+
+# Announce releases
+announce:
+  skip: false

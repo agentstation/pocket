@@ -1,8 +1,8 @@
-# Node Interface Design
+# Node Interface: The Engine's Building Block
 
 ## Overview
 
-In Pocket, `Node` is an interface, not a struct. This fundamental design decision enables powerful composition patterns and extensibility while maintaining a simple API.
+In Pocket's graph execution engine, `Node` is an interface, not a struct. This fundamental design decision enables the engine to execute diverse node types - from built-in nodes to custom plugins - through a unified interface.
 
 ## The Node Interface
 

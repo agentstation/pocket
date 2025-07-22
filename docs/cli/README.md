@@ -13,8 +13,11 @@ The Pocket CLI is a command-line tool that:
 ## Quick Start
 
 ```bash
-# Install Pocket CLI
-go install github.com/agentstation/pocket/cmd/pocket@latest
+# Install Pocket CLI (recommended: via Homebrew)
+brew install agentstation/tap/pocket
+
+# Or install via Go
+# go install github.com/agentstation/pocket/cmd/pocket@latest
 
 # Run your first workflow
 pocket run hello.yaml

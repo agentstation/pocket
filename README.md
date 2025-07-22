@@ -1,288 +1,213 @@
-# Pocket - Graph Execution Engine for LLM Workflows
+# Pocket
 
 [![CI Status](https://github.com/agentstation/pocket/actions/workflows/ci.yml/badge.svg)](https://github.com/agentstation/pocket/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/agentstation/pocket.svg)](https://github.com/agentstation/pocket)
-[![Go Reference](https://pkg.go.dev/badge/github.com/agentstation/pocket.svg)](https://pkg.go.dev/github.com/agentstation/pocket)
-[![Go Report Card](https://goreportcard.com/badge/github.com/agentstation/pocket)](https://goreportcard.com/report/github.com/agentstation/pocket)
-[![codecov](https://codecov.io/gh/agentstation/pocket/graph/badge.svg?token=3EQVJCCSHN)](https://codecov.io/gh/agentstation/pocket)
 
-Pocket is a graph execution engine for building LLM workflows. Define your workflows in YAML, extend with plugins in any language, and run them with a simple CLI command - or embed the engine directly in your Go applications.
+Pocket is a CLI tool for executing LLM workflows defined as graphs. Write your workflows in YAML, extend with plugins in any language, and run them with a simple command.
 
 ## What is Pocket?
 
-Pocket is a **graph execution engine** that:
-- 🎯 **Executes decision graphs** - Workflows are directed graphs with dynamic routing
-- 🌐 **Language agnostic** - Define workflows in YAML/JSON, extend with plugins in any language
-- 🔌 **Extensible** - 14 built-in nodes, Lua scripting, and WebAssembly plugin support
-- 🚀 **Production ready** - Error handling, retries, timeouts, and observability built-in
-- 📦 **Minimal dependencies** - Only essential Go dependencies for maximum reliability
+Pocket executes workflows as directed graphs, where nodes make decisions and route data dynamically - perfect for LLM agents that need to think, act, and adapt based on their outputs.
+
+```mermaid
+graph LR
+    Think[Think] --> Decide{Decide Action}
+    Decide -->|Research| Search[Search Web]
+    Decide -->|Calculate| Math[Run Calculation]
+    Decide -->|Complete| Done[Return Result]
+    Search --> Think
+    Math --> Think
+```
+
+## Installation
+
+### Quick Install (Recommended)
+
+```bash
+# macOS and Linux via Homebrew (pre-built binary)
+brew install agentstation/tap/pocket
+
+# Or use our install script
+curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.sh | bash
+```
+
+### Other Installation Methods
+
+<details>
+<summary>Build from Source via Homebrew</summary>
+
+```bash
+# Compile locally instead of using pre-built binary
+brew install --build-from-source agentstation/tap/pocket
+```
+</details>
+
+<details>
+<summary>Install via Go</summary>
+
+```bash
+go install github.com/agentstation/pocket/cmd/pocket@latest
+```
+</details>
+
+<details>
+<summary>Download Pre-built Binaries</summary>
+
+Download the latest release for your platform from the [releases page](https://github.com/agentstation/pocket/releases/latest).
+
+```bash
+# Example for Linux x64
+curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-linux-x86_64.tar.gz -o pocket.tar.gz
+tar -xzf pocket.tar.gz
+sudo mv pocket-linux-x86_64/pocket /usr/local/bin/
+```
+
+Available platforms:
+- macOS: `pocket-darwin-x86_64.tar.gz` (Intel), `pocket-darwin-arm64.tar.gz` (Apple Silicon)
+- Linux: `pocket-linux-x86_64.tar.gz`, `pocket-linux-arm64.tar.gz`, `pocket-linux-i386.tar.gz`
+- Windows: `pocket-windows-x86_64.zip`, `pocket-windows-i386.zip`
+</details>
+
+<details>
+<summary>Verify Installation</summary>
+
+```bash
+# Check version
+pocket version
+
+# Verify checksums (optional)
+curl -L https://github.com/agentstation/pocket/releases/latest/download/checksums.txt -o checksums.txt
+sha256sum -c checksums.txt
+```
+</details>
 
 ## Quick Start
 
-### Option 1: Using Pocket CLI (Recommended for Most Users)
+Create a workflow that thinks and acts:
 
-Perfect for running workflows without writing code:
-
-```bash
-# Install Pocket CLI
-go install github.com/agentstation/pocket/cmd/pocket@latest
-
-# Create your first workflow
-cat > hello.yaml << 'EOF'
-name: hello-world
-start: greet
+```yaml
+# agent.yaml
+name: simple-agent
+start: think
 
 nodes:
-  - name: greet
+  - name: think
+    type: http
+    config:
+      url: "https://api.openai.com/v1/chat/completions"
+      method: POST
+      headers:
+        Authorization: "Bearer ${OPENAI_API_KEY}"
+      body:
+        model: "gpt-4"
+        messages:
+          - role: "system"
+            content: "You are a helpful assistant. Respond with either SEARCH: <query> or ANSWER: <response>"
+          - role: "user"
+            content: "{{.question}}"
+            
+  - name: route
+    type: conditional
+    config:
+      conditions:
+        - if: '{{contains .choices[0].message.content "SEARCH:"}}'
+          then: search
+        - if: '{{contains .choices[0].message.content "ANSWER:"}}'
+          then: respond
+          
+  - name: search
+    type: http
+    config:
+      url: "https://api.search.com/v1/search"
+      params:
+        q: '{{.query}}'
+        
+  - name: respond
     type: echo
     config:
-      message: "Hello from Pocket!"
-      
-  - name: transform
-    type: template
-    config:
-      template: "🚀 {{.message | upper}}"
+      message: '{{.answer}}'
 
 connections:
-  - from: greet
-    to: transform
-EOF
-
-# Run it!
-pocket run hello.yaml
+  - from: think
+    to: route
+  - from: search
+    to: think  # Loop back with search results
 ```
 
-**[→ Full CLI Documentation](docs/cli/)**
+Run it:
 
-### Option 2: Using as a Go Library
-
-For embedding the graph engine in your applications:
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/agentstation/pocket"
-)
-
-func main() {
-    // Create a simple greeting node
-    greet := pocket.NewNode[string, string]("greet",
-        pocket.WithExec(func(ctx context.Context, name string) (string, error) {
-            return fmt.Sprintf("Hello, %s!", name), nil
-        }),
-    )
-    
-    // Run it
-    store := pocket.NewStore()
-    graph := pocket.NewGraph(greet, store)
-    
-    result, _ := graph.Run(context.Background(), "World")
-    fmt.Println(result) // "Hello, World!"
-}
+```bash
+pocket run agent.yaml --input '{"question": "What is the weather in Tokyo?"}'
 ```
 
-**[→ Full Go Library Documentation](docs/library/)**
+## Why Pocket?
 
-## 📚 Documentation
+### 🌐 Language Agnostic
 
-- **[CLI Documentation](docs/cli/)** - Command reference, YAML schemas, plugin management
-- **[Library Documentation](docs/library/)** - Go API, embedding guide, type safety
-- **[Full Documentation Hub](docs/README.md)** - All guides, patterns, and references
+Write workflows in YAML, extend with plugins in **any language**:
+- **Lua** - Quick scripts for custom logic
+- **WebAssembly** - Compile from Rust, Go, TypeScript, or any WASM-compatible language
+- **Native Go** - High-performance plugins
+
+### 🧠 Dynamic Routing
+
+Unlike linear pipelines, Pocket workflows make decisions:
+- Conditional branching based on data
+- Loops for agent think-act cycles  
+- Parallel execution for efficiency
+- Error handling with fallback paths
+
+### 🚀 Production Ready
+
+Built for real-world use:
+- Automatic retries with exponential backoff
+- Timeouts and cancellation
+- Comprehensive error handling
+- Observable with metrics and tracing
+
+### 📦 Zero Dependencies
+
+Just a single binary. No runtime required.
 
 ## Key Features
 
-### 🎯 Graph Execution Engine
+### Build LLM Agents That Think and Act
 
-Pocket executes workflows as directed graphs where:
-- **Nodes** perform operations (transform data, make API calls, etc.)
-- **Edges** route data between nodes based on outputs
-- **Decisions** happen dynamically at runtime
-
-```mermaid
-graph LR
-    Input --> Validate{Valid?}
-    Validate -->|Yes| Process
-    Validate -->|No| HandleError
-    Process --> Transform
-    Transform --> Output
-```
-
-### 🔌 Extensible Node System
-
-**14 Built-in Nodes:**
-- **Core**: echo, delay, router, conditional
-- **Data**: transform, template, jsonpath, validate, aggregate  
-- **I/O**: http, file, exec
-- **Flow**: parallel
-- **Script**: lua
-
-**Plugin Support:**
-- **Lua Scripts** - Write custom logic in sandboxed Lua
-- **WebAssembly** - Create plugins in TypeScript, Rust, Go, or any WASM-compatible language
-
-### 🏗️ The Prep→Exec→Post Pattern
-
-Every node follows a three-phase lifecycle:
-
-```mermaid
-graph LR
-    Prep["Prep<br/>Read State<br/>Validate Input"] --> Exec["Exec<br/>Pure Logic<br/>No Side Effects"] --> Post["Post<br/>Write State<br/>Route Decision"]
-```
-
-This pattern ensures:
-- **Clear separation of concerns**
-- **Predictable execution**
-- **Easy testing and debugging**
-- **Natural error boundaries**
-
-## CLI Usage
-
-### Running Workflows
-
-```bash
-# Run a workflow
-pocket run workflow.yaml
-
-# With verbose output
-pocket run workflow.yaml --verbose
-
-# Validate without executing
-pocket run workflow.yaml --dry-run
-```
-
-### Managing Nodes and Plugins
-
-```bash
-# List available nodes
-pocket nodes list
-
-# Get node details
-pocket nodes info http
-
-# Install a plugin
-pocket plugins install ./sentiment-analyzer
-
-# List installed plugins
-pocket plugins list
-```
-
-### Example Workflow
+Create agents that can reason, search, use tools, and make decisions:
 
 ```yaml
-name: api-processor
-start: fetch-data
-
 nodes:
-  - name: fetch-data
-    type: http
+  - name: agent-brain
+    type: lua
     config:
-      url: "https://api.example.com/data"
-      
-  - name: validate
-    type: validate
-    config:
-      schema:
-        type: object
-        required: [status, data]
-        
-  - name: transform
-    type: transform
-    config:
-      jq: ".data | map({id, value: .price * 1.1})"
-
-connections:
-  - from: fetch-data
-    to: validate
-  - from: validate
-    to: transform
-    action: valid
-  - from: validate
-    to: error-handler
-    action: invalid
+      script: |
+        -- Analyze the task and decide what to do
+        local task = input.task
+        if string.find(task, "calculate") then
+          return {action = "calculator", expression = task}
+        elseif string.find(task, "search") then
+          return {action = "web_search", query = task}
+        else
+          return {action = "direct_answer", task = task}
+        end
 ```
 
-**[→ More Workflow Examples](docs/workflows/)**
+### Write Plugins in Any Language
 
-## Library Usage
-
-### Building Workflows in Go
-
-```go
-// Create nodes with type safety
-validate := pocket.NewNode[Order, ValidationResult]("validate",
-    pocket.WithExec(validateOrder),
-)
-
-process := pocket.NewNode[ValidationResult, ProcessedOrder]("process",
-    pocket.WithExec(processOrder),
-)
-
-notify := pocket.NewNode[ProcessedOrder, NotifyResult]("notify",
-    pocket.WithExec(sendNotification),
-)
-
-// Connect workflow
-validate.Connect("valid", process)
-validate.Connect("invalid", handleError)
-process.Connect("success", notify)
-
-// Run
-graph := pocket.NewGraph(validate, pocket.NewStore())
-result, err := graph.Run(ctx, order)
-```
-
-### Advanced Patterns
-
-**Agent Pattern (Think-Act Loop):**
-```go
-think := pocket.NewNode[Context, Decision]("think",
-    pocket.WithExec(analyzeContext),
-    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
-        input Context, prep, decision any) (Decision, string, error) {
-        
-        d := decision.(Decision)
-        store.Set(ctx, "lastDecision", d)
-        return d, d.Action, nil // Route to action
-    }),
-)
-
-// Actions loop back to think
-think.Connect("research", researchNode)
-think.Connect("execute", executeNode)
-think.Connect("plan", planNode)
-```
-
-**[→ More Patterns](docs/patterns/)**
-
-## Creating Plugins
-
-### Lua Script Example
-
+**Lua Script Plugin:**
 ```lua
--- ~/.pocket/scripts/sentiment.lua
--- @name: sentiment-analyzer
--- @description: Analyze text sentiment
-
+-- sentiment.lua
 function exec(input)
-    local text = input.text or ""
-    local positive_words = {"good", "great", "excellent", "amazing"}
-    local negative_words = {"bad", "poor", "terrible", "awful"}
+    local text = input.text:lower()
+    local positive = {"good", "great", "excellent", "love"}
+    local negative = {"bad", "terrible", "hate", "awful"}
     
     local score = 0
-    for _, word in ipairs(positive_words) do
-        if string.find(text:lower(), word) then
-            score = score + 1
-        end
+    for _, word in ipairs(positive) do
+        if string.find(text, word) then score = score + 1 end
     end
-    
-    for _, word in ipairs(negative_words) do
-        if string.find(text:lower(), word) then
-            score = score - 1
-        end
+    for _, word in ipairs(negative) do
+        if string.find(text, word) then score = score - 1 end
     end
     
     return {
@@ -292,104 +217,202 @@ function exec(input)
 end
 ```
 
-### WebAssembly Plugin Example
-
+**WebAssembly Plugin (TypeScript):**
 ```typescript
-// TypeScript plugin using Pocket SDK
-import { PocketPlugin, NodeBuilder } from '@pocket/sdk';
-
-export default class SentimentAnalyzer extends PocketPlugin {
-  createNodes(): NodeBuilder[] {
-    return [
-      this.createNode('sentiment')
-        .withExec(async (input: any) => {
-          const text = input.text || '';
-          // Sentiment analysis logic
-          return { sentiment: 'positive', confidence: 0.95 };
-        })
-        .build()
-    ];
-  }
+export function analyzeImage(input: ImageData): Analysis {
+    // Your image processing logic compiled to WASM
+    return { objects: detected, confidence: 0.95 };
 }
 ```
 
-**[→ Plugin Development Guide](docs/development/plugin-development.md)**
+### Define Complex Workflows in Simple YAML
 
-## Installation Options
+Pocket's YAML format is designed for clarity:
 
-### CLI Binary (Recommended)
+```yaml
+name: data-pipeline
+start: fetch
 
-```bash
-# Via go install
-go install github.com/agentstation/pocket/cmd/pocket@latest
-
-# Or download pre-built binaries (coming soon)
-# curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-$(uname -s)-$(uname -m) -o pocket
-# chmod +x pocket
-# sudo mv pocket /usr/local/bin/
+nodes:
+  - name: fetch
+    type: parallel  # Fetch from multiple sources concurrently
+    config:
+      tasks:
+        - {type: http, config: {url: "${API1}"}}
+        - {type: http, config: {url: "${API2}"}}
+        
+  - name: merge
+    type: aggregate
+    config:
+      mode: combine
+      
+  - name: validate
+    type: validate
+    config:
+      schema:
+        type: object
+        required: [id, data]
 ```
 
-### Go Library
+### Production Features Built-In
 
-```bash
-go get github.com/agentstation/pocket
+- **Retries**: `retry: {max_attempts: 3, delay: "2s"}`
+- **Timeouts**: `timeout: "30s"`
+- **Caching**: Built-in store with TTL
+- **Observability**: Metrics, traces, and structured logs
+
+## 📚 Documentation
+
+- **[Getting Started Guide](docs/cli/getting-started.md)** - Build your first workflow
+- **[Workflow Examples](docs/workflows/)** - Real-world patterns and use cases
+- **[Plugin Development](docs/cli/plugins.md)** - Extend Pocket with custom nodes
+- **[Full Documentation](docs/README.md)** - All guides and references
+
+## Examples
+
+### LLM Agent with Tools
+
+```yaml
+name: research-agent
+start: think
+
+nodes:
+  - name: think
+    type: llm  # Uses OpenAI, Anthropic, or local models
+    config:
+      prompt: |
+        You have access to: calculator, web_search, file_reader
+        User query: {{.query}}
+        Respond with the tool to use and parameters.
+        
+  - name: use-tool
+    type: router
+    config:
+      routes:
+        calculator: calc-node
+        web_search: search-node
+        file_reader: read-node
 ```
 
-### From Source
+### Data Processing Pipeline
+
+```yaml
+name: etl-pipeline
+start: extract
+
+nodes:
+  - name: extract
+    type: file
+    config:
+      path: "data/*.json"
+      
+  - name: transform
+    type: transform
+    config:
+      jq: 'map(select(.active) | {id, name, value: .price * 1.1})'
+      
+  - name: load
+    type: http
+    config:
+      url: "${WAREHOUSE_API}"
+      method: POST
+```
+
+[→ More Examples](docs/workflows/)
+
+## Plugins
+
+Extend Pocket with plugins:
+
+```bash
+# Install a plugin
+pocket plugin install github.com/example/pocket-redis
+
+# Use in your workflow
+nodes:
+  - name: cache-result
+    type: redis-set  # From the plugin
+    config:
+      key: "result:{{.id}}"
+      value: "{{.data}}"
+```
+
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
+
+```bash
+# Run tests
+go test -race ./...
+
+# Build
+make build
+
+# Run benchmarks
+make bench
+```
+
+## Using as a Go Library
+
+While Pocket is designed as a CLI tool, it can also be embedded in Go applications:
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/agentstation/pocket"
+)
+
+func main() {
+    // Create nodes
+    process := pocket.NewNode[Input, Output]("process",
+        pocket.Steps{
+            Exec: func(ctx context.Context, input any) (any, error) {
+                // Your logic here
+                return processData(input.(Input))
+            },
+        },
+    )
+    
+    // Build and run workflow
+    graph := pocket.NewGraph(process, pocket.NewStore())
+    result, _ := graph.Run(context.Background(), myInput)
+}
+```
+
+[→ Go Library Documentation](docs/library/)
+
+## Development
+
+### Prerequisites
+
+- Go 1.21+
+- Make (optional)
+
+### Building from Source
 
 ```bash
 git clone https://github.com/agentstation/pocket.git
 cd pocket
-make build
+go build -o pocket cmd/pocket/main.go
 ```
 
-## Examples
+### Architecture
 
-The `examples/` directory contains:
+Pocket uses a three-phase execution model:
 
-- **[CLI Workflows](examples/cli/)** - YAML workflow examples
-- **[Go Examples](examples/)** - Library usage patterns
-- **[Plugin Examples](plugins/examples/)** - Custom plugin implementations
+1. **Prep** - Validate input and prepare data
+2. **Exec** - Execute core logic (pure functions)
+3. **Post** - Handle results and routing decisions
 
-## Contributing
+This ensures predictable execution and easy testing.
 
-We welcome contributions! Pocket is built by the community, for the community.
+### Go-Specific Information
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing`)
-3. Write tests for your changes
-4. Ensure all tests pass (`go test -race ./...`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing`)
-7. Open a Pull Request
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed guidelines.
-
-## Testing
-
-```bash
-# Run all tests with race detection
-go test -race ./...
-
-# Run with coverage
-go test -cover ./...
-
-# Run benchmarks
-go test -bench=. -benchmem ./...
-
-# Generate coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-## Performance
-
-Pocket is designed for production performance:
-
-- Zero allocations in hot paths
-- Minimal overhead for node execution
-- Efficient concurrent patterns
-- Comprehensive benchmarks
+[![Go Reference](https://pkg.go.dev/badge/github.com/agentstation/pocket.svg)](https://pkg.go.dev/github.com/agentstation/pocket)
+[![Go Report Card](https://goreportcard.com/badge/github.com/agentstation/pocket)](https://goreportcard.com/report/github.com/agentstation/pocket)
+[![codecov](https://codecov.io/gh/agentstation/pocket/graph/badge.svg?token=3EQVJCCSHN)](https://codecov.io/gh/agentstation/pocket)
 
 ## License
 
@@ -397,7 +420,4 @@ MIT - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-- Inspired by workflow automation patterns
-- Built for production Go applications
-- Designed for LLM-directed workflows
-- Built with ❤️ by [AgentStation](https://agentstation.ai)
+Built with ❤️ by [AgentStation](https://agentstation.ai) for the LLM agent community.

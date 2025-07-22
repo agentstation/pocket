@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/go-format-hook.sh"
+            "command": "/Users/jack/src/github.com/agentstation/pocket/.claude/hooks/go-format-wrapper.sh"
           }
         ]
       },
@@ -79,7 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/go-format-hook.sh"
+            "command": "/Users/jack/src/github.com/agentstation/pocket/.claude/hooks/go-format-wrapper.sh"
           }
         ]
       },
@@ -88,7 +88,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/go-format-hook.sh"
+            "command": "/Users/jack/src/github.com/agentstation/pocket/.claude/hooks/go-format-wrapper.sh"
           }
         ]
       }

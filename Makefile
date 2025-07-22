@@ -168,6 +168,37 @@ install: build
 	@cp bin/pocket $(GOPATH)/bin/pocket
 	@echo "Installed successfully!"
 
+# Create a new release tag
+release-tag:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make release-tag VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Creating release tag $(VERSION)..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "Tag created. Push with: git push origin $(VERSION)"
+
+# Test release locally with GoReleaser
+release-test:
+	@echo "Testing release with GoReleaser..."
+	@if ! command -v goreleaser >/dev/null 2>&1; then \
+		echo "Error: goreleaser not installed. Install with:"; \
+		echo "  go install github.com/goreleaser/goreleaser@latest"; \
+		exit 1; \
+	fi
+	@goreleaser release --snapshot --clean --skip=publish
+
+# Create a full release (requires appropriate permissions)
+release:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Error: VERSION is required. Usage: make release VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Creating release $(VERSION)..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@git push origin $(VERSION)
+	@echo "Tag pushed. GitHub Actions will handle the release."
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -191,4 +222,7 @@ help:
 	@echo "  make install-devbox - Install devbox"
 	@echo "  make devbox-update - Update devbox packages"
 	@echo "  make devbox        - Run devbox shell"
+	@echo "  make release-tag VERSION=v1.0.0 - Create a release tag"
+	@echo "  make release-test  - Test release locally with GoReleaser"
+	@echo "  make release VERSION=v1.0.0 - Create and push release tag"
 	@echo "  make help          - Show this help message"

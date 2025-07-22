@@ -7,14 +7,27 @@ This guide covers all installation methods for the Pocket CLI.
 The fastest way to install Pocket:
 
 ```bash
-go install github.com/agentstation/pocket/cmd/pocket@latest
+# macOS and Linux via Homebrew
+brew install agentstation/tap/pocket
 ```
-
-This requires Go 1.21 or later installed on your system.
 
 ## Installation Methods
 
-### Method 1: Using Go Install (Recommended)
+### Method 1: Homebrew (Recommended for macOS and Linux)
+
+```bash
+# Tap and install
+brew tap agentstation/tap
+brew install pocket
+
+# Or install directly
+brew install agentstation/tap/pocket
+
+# Verify installation
+pocket version
+```
+
+### Method 2: Using Go Install
 
 ```bash
 # Install the latest version
@@ -27,25 +40,54 @@ go install github.com/agentstation/pocket/cmd/pocket@v0.1.0
 pocket version
 ```
 
-### Method 2: Pre-built Binaries (Coming Soon)
+Note: This requires Go 1.21 or later installed on your system.
+
+### Method 3: Install Script
+
+Our automated install script detects your platform and downloads the appropriate binary:
 
 ```bash
-# Linux
-curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-linux-amd64 -o pocket
-chmod +x pocket
-sudo mv pocket /usr/local/bin/
+# Install latest version
+curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.sh | bash
 
-# macOS
-curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-darwin-amd64 -o pocket
-chmod +x pocket
-sudo mv pocket /usr/local/bin/
+# Install specific version
+curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.sh | bash -s -- --version v1.0.0
 
-# Windows
-# Download from https://github.com/agentstation/pocket/releases
-# Add to PATH
+# Install to custom directory
+curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.sh | bash -s -- --install-dir ~/.local/bin
 ```
 
-### Method 3: Building from Source
+### Method 4: Pre-built Binaries
+
+Download binaries directly from our [releases page](https://github.com/agentstation/pocket/releases/latest):
+
+```bash
+# Linux x64
+curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-linux-x86_64.tar.gz -o pocket.tar.gz
+tar -xzf pocket.tar.gz
+sudo mv pocket-linux-x86_64/pocket /usr/local/bin/
+
+# macOS Intel
+curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-darwin-x86_64.tar.gz -o pocket.tar.gz
+tar -xzf pocket.tar.gz
+sudo mv pocket-darwin-x86_64/pocket /usr/local/bin/
+
+# macOS Apple Silicon
+curl -L https://github.com/agentstation/pocket/releases/latest/download/pocket-darwin-arm64.tar.gz -o pocket.tar.gz
+tar -xzf pocket.tar.gz
+sudo mv pocket-darwin-arm64/pocket /usr/local/bin/
+
+# Windows
+# Download pocket-windows-x86_64.zip from releases page
+# Extract and add to PATH
+```
+
+Available platforms:
+- **macOS**: darwin-x86_64 (Intel), darwin-arm64 (Apple Silicon)
+- **Linux**: linux-x86_64, linux-arm64, linux-i386
+- **Windows**: windows-x86_64, windows-i386
+
+### Method 5: Building from Source
 
 ```bash
 # Clone the repository

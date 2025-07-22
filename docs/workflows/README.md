@@ -103,5 +103,5 @@ pocket run workflows/real-world/agent.yaml --dry-run
 ## Learn More
 
 - [YAML Schema Reference](../cli/yaml-schema.md)
-- [Built-in Nodes](../nodes/built-in/)
+- [Built-in Nodes](../NODE_TYPES.md)
 - [Plugin Development](../development/plugin-development.md)

@@ -1,17 +1,24 @@
-# Pocket Architecture
+# Pocket Architecture: Graph Execution Engine
 
 ## Overview
 
-Pocket is a minimalist framework for building LLM workflows using a graph-based architecture. At its core, Pocket represents workflows as directed graphs where nodes perform computations and edges represent decision paths.
+Pocket is a graph execution engine designed for building and running LLM workflows. As a language-agnostic execution engine, Pocket processes workflow definitions (in YAML/JSON or Go code) by executing them as directed graphs where nodes perform computations and edges represent decision paths.
+
+The engine provides:
+- **Language-agnostic execution** via YAML/JSON workflow definitions
+- **Native Go embedding** for applications requiring programmatic control
+- **Plugin system** supporting Lua, WebAssembly, and native Go extensions
+- **Production-ready features** including retries, timeouts, and state management
 
 ## Core Design Principles
 
-### 1. Graph-Based Workflows
+### 1. Graph-Based Execution Model
 
-Workflows in Pocket are directed graphs where:
-- **Nodes** represent units of computation
+The Pocket engine executes workflows as directed graphs where:
+- **Nodes** represent units of computation (built-in, plugin, or custom)
 - **Edges** represent decision paths between nodes
 - **Execution** flows through the graph based on runtime decisions
+- **State** is managed by the engine across node executions
 
 ```mermaid
 graph TD
@@ -109,15 +116,21 @@ graph, err := pocket.NewBuilder(store).
     Build()
 ```
 
-## Execution Model
+## Execution Engine Model
 
-### 1. Graph Traversal
+### 1. Graph Execution
 
-Execution begins at a start node and follows edges based on runtime decisions:
+The engine starts execution at a designated start node and traverses the graph based on runtime decisions:
 
 ```go
+// Programmatic execution
 graph := pocket.NewGraph(startNode, store)
 result, err := graph.Run(ctx, input)
+```
+
+```bash
+# CLI execution
+pocket run workflow.yaml --input data.json
 ```
 
 ### 2. Decision Routing
@@ -257,11 +270,17 @@ Pocket is designed for production performance:
 
 ## Summary
 
-Pocket's architecture provides:
-- **Simplicity**: Small API surface, easy to learn
-- **Power**: Express complex workflows naturally
-- **Safety**: Type checking and controlled state
-- **Performance**: Production-ready efficiency
-- **Flexibility**: Extensible at every level
+Pocket's graph execution engine provides:
+- **Language Agnostic**: Execute workflows from YAML/JSON without writing code
+- **Embeddable Engine**: Integrate the execution engine into Go applications
+- **Extensible Architecture**: Add custom nodes via plugins (Lua, WASM, Go)
+- **Production Ready**: Built-in retries, timeouts, state management, and error handling
+- **Type Safe**: Optional compile-time type checking for Go integrations
 
-The graph-based design with interface polymorphism and the Prep/Exec/Post pattern creates a framework that's both minimal and powerful, suitable for building sophisticated LLM workflows while maintaining code clarity and testability.
+The engine's architecture combines:
+1. **Graph-based execution model** for natural workflow representation
+2. **Interface polymorphism** enabling graphs as composable nodes
+3. **Prep/Exec/Post lifecycle** for clean separation of concerns
+4. **Plugin system** for language-agnostic extensibility
+
+This design creates a powerful execution engine suitable for everything from simple automation scripts to sophisticated LLM agent orchestration, while maintaining simplicity and testability.
