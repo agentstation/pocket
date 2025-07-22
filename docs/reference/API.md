@@ -114,31 +114,33 @@ import (
 func main() {
 	// Create a node that uses all three steps
 	processor := pocket.NewNode[any, any]("processor",
-		pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-			// Prepare: validate and transform input
-			data := input.(map[string]int)
-			if len(data) == 0 {
-				return nil, fmt.Errorf("empty data")
-			}
-			return data, nil
-		}),
-		pocket.WithExec(func(ctx context.Context, data any) (any, error) {
-			// Execute: calculate sum
-			m := data.(map[string]int)
-			sum := 0
-			for _, v := range m {
-				sum += v
-			}
-			return sum, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, data, sum any) (any, string, error) {
-			// Post: decide routing based on result
-			total := sum.(int)
-			if total > 100 {
-				return fmt.Sprintf("High total: %d", total), "high", nil
-			}
-			return fmt.Sprintf("Low total: %d", total), "low", nil
-		}),
+		pocket.Steps{
+			Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+				// Prepare: validate and transform input
+				data := input.(map[string]int)
+				if len(data) == 0 {
+					return nil, fmt.Errorf("empty data")
+				}
+				return data, nil
+			},
+			Exec: func(ctx context.Context, data any) (any, error) {
+				// Execute: calculate sum
+				m := data.(map[string]int)
+				sum := 0
+				for _, v := range m {
+					sum += v
+				}
+				return sum, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, data, sum any) (any, string, error) {
+				// Post: decide routing based on result
+				total := sum.(int)
+				if total > 100 {
+					return fmt.Sprintf("High total: %d", total), "high", nil
+				}
+				return fmt.Sprintf("Low total: %d", total), "low", nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()
@@ -186,6 +188,7 @@ Low total: 60
   - [func \(b \*Builder\) Start\(name string\) \*Builder](<#Builder.Start>)
   - [func \(b \*Builder\) WithOptions\(opts ...GraphOption\) \*Builder](<#Builder.WithOptions>)
 - [type ExecFunc](<#ExecFunc>)
+- [type FallbackFunc](<#FallbackFunc>)
 - [type FanIn](<#FanIn>)
   - [func NewFanIn\(combine func\(\[\]any\) \(any, error\), sources ...Node\) \*FanIn](<#NewFanIn>)
   - [func \(f \*FanIn\) Run\(ctx context.Context, store Store\) \(any, error\)](<#FanIn.Run>)
@@ -199,11 +202,10 @@ Low total: 60
 - [type Logger](<#Logger>)
 - [type Node](<#Node>)
   - [func Default\(n, next Node\) Node](<#Default>)
-  - [func NewNode\[In, Out any\]\(name string, opts ...Option\) Node](<#NewNode>)
+  - [func NewNode\[In, Out any\]\(name string, steps Steps, opts ...Option\) Node](<#NewNode>)
 - [type Option](<#Option>)
   - [func WithErrorHandler\(handler func\(error\)\) Option](<#WithErrorHandler>)
   - [func WithExec\[In, Out any\]\(fn func\(ctx context.Context, input In\) \(Out, error\)\) Option](<#WithExec>)
-  - [func WithFallback\[In, Out any\]\(fn func\(ctx context.Context, input In, err error\) \(Out, error\)\) Option](<#WithFallback>)
   - [func WithOnComplete\(fn func\(ctx context.Context, store StoreWriter\)\) Option](<#WithOnComplete>)
   - [func WithOnFailure\(fn func\(ctx context.Context, store StoreWriter, err error\)\) Option](<#WithOnFailure>)
   - [func WithOnSuccess\[Out any\]\(fn func\(ctx context.Context, store StoreWriter, output Out\)\) Option](<#WithOnSuccess>)
@@ -213,6 +215,7 @@ Low total: 60
   - [func WithTimeout\(timeout time.Duration\) Option](<#WithTimeout>)
 - [type PostFunc](<#PostFunc>)
 - [type PrepFunc](<#PrepFunc>)
+- [type Steps](<#Steps>)
 - [type Store](<#Store>)
   - [func NewStore\(opts ...StoreOption\) Store](<#NewStore>)
 - [type StoreOption](<#StoreOption>)
@@ -271,10 +274,12 @@ import (
 func main() {
 	// Create a processor that simulates work
 	processor := pocket.NewNode[any, any]("process",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			num := input.(int)
-			return num * num, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				num := input.(int)
+				return num * num, nil
+			},
+		},
 	)
 
 	store := pocket.NewStore()
@@ -336,21 +341,27 @@ func main() {
 
 	// Create a pipeline of transformations
 	double := pocket.NewNode[any, any]("double",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) * 2, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) * 2, nil
+			},
+		},
 	)
 
 	addTen := pocket.NewNode[any, any]("addTen",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input.(int) + 10, nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input.(int) + 10, nil
+			},
+		},
 	)
 
 	toString := pocket.NewNode[any, any]("toString",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Result: %d", input.(int)), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Result: %d", input.(int)), nil
+			},
+		},
 	)
 
 	nodes := []pocket.Node{double, addTen, toString}
@@ -428,7 +439,7 @@ func SetDefaults(opts ...Option)
 SetDefaults configures global defaults for all nodes.
 
 <a name="ValidateGraph"></a>
-## func [ValidateGraph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L651>)
+## func [ValidateGraph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L690>)
 
 ```go
 func ValidateGraph(start Node) error
@@ -492,29 +503,33 @@ store := pocket.NewStore()
 
 // Define nodes with lifecycle
 validate := pocket.NewNode[any, any]("validate",
-	pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-		email, ok := input.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string")
-		}
-		return email, nil
-	}),
-	pocket.WithExec(func(ctx context.Context, email any) (any, error) {
-		if !strings.Contains(email.(string), "@") {
-			return nil, fmt.Errorf("invalid email")
-		}
-		return email, nil
-	}),
-	pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-		return result, defaultRoute, nil
-	}),
+	pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			email, ok := input.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string")
+			}
+			return email, nil
+		},
+		Exec: func(ctx context.Context, email any) (any, error) {
+			if !strings.Contains(email.(string), "@") {
+				return nil, fmt.Errorf("invalid email")
+			}
+			return email, nil
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+			return result, defaultRoute, nil
+		},
+	},
 )
 
 normalize := pocket.NewNode[any, any]("normalize",
-	pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-		email := input.(string)
-		return strings.ToLower(strings.TrimSpace(email)), nil
-	}),
+	pocket.Steps{
+		Exec: func(ctx context.Context, input any) (any, error) {
+			email := input.(string)
+			return strings.ToLower(strings.TrimSpace(email)), nil
+		},
+	},
 )
 
 // Build the graph
@@ -610,6 +625,15 @@ ExecFunc performs the main processing logic without store access.
 type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err error)
 ```
 
+<a name="FallbackFunc"></a>
+## type [FallbackFunc](<https://github.com/agentstation/pocket/blob/master/pocket.go#L54>)
+
+FallbackFunc handles errors from the Exec step using the prepared data. It receives the prepResult \(like Exec\) and the error from the failed Exec. Like ExecFunc, it has no store access to maintain purity.
+
+```go
+type FallbackFunc func(ctx context.Context, prepResult any, execErr error) (fallbackResult any, err error)
+```
+
 <a name="FanIn"></a>
 ## type [FanIn](<https://github.com/agentstation/pocket/blob/master/builder.go#L170-L173>)
 
@@ -640,7 +664,7 @@ func (f *FanIn) Run(ctx context.Context, store Store) (any, error)
 Run executes the fan\-in pattern.
 
 <a name="Graph"></a>
-## type [Graph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L516-L518>)
+## type [Graph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L555-L557>)
 
 Graph is the public handle to a graph for backward compatibility.
 
@@ -651,7 +675,7 @@ type Graph struct {
 ```
 
 <a name="NewGraph"></a>
-### func [NewGraph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L594>)
+### func [NewGraph](<https://github.com/agentstation/pocket/blob/master/pocket.go#L633>)
 
 ```go
 func NewGraph(start Node, store Store, opts ...GraphOption) *Graph
@@ -660,7 +684,7 @@ func NewGraph(start Node, store Store, opts ...GraphOption) *Graph
 NewGraph creates a new graph starting from the given node.
 
 <a name="Graph.AsNode"></a>
-### func \(\*Graph\) [AsNode](<https://github.com/agentstation/pocket/blob/master/pocket.go#L908>)
+### func \(\*Graph\) [AsNode](<https://github.com/agentstation/pocket/blob/master/pocket.go#L947>)
 
 ```go
 func (g *Graph) AsNode(name string) Node
@@ -669,7 +693,7 @@ func (g *Graph) AsNode(name string) Node
 AsNode returns the graph as a Node interface. Since graph already implements Node, we just return it. This method exists for backward compatibility.
 
 <a name="Graph.Run"></a>
-### func \(\*Graph\) [Run](<https://github.com/agentstation/pocket/blob/master/pocket.go#L716>)
+### func \(\*Graph\) [Run](<https://github.com/agentstation/pocket/blob/master/pocket.go#L755>)
 
 ```go
 func (g *Graph) Run(ctx context.Context, input any) (output any, err error)
@@ -678,7 +702,7 @@ func (g *Graph) Run(ctx context.Context, input any) (output any, err error)
 Run executes the graph with the given input.
 
 <a name="GraphOption"></a>
-## type [GraphOption](<https://github.com/agentstation/pocket/blob/master/pocket.go#L527>)
+## type [GraphOption](<https://github.com/agentstation/pocket/blob/master/pocket.go#L566>)
 
 GraphOption configures a Graph.
 
@@ -687,7 +711,7 @@ type GraphOption func(*graphOptions)
 ```
 
 <a name="WithLogger"></a>
-### func [WithLogger](<https://github.com/agentstation/pocket/blob/master/pocket.go#L530>)
+### func [WithLogger](<https://github.com/agentstation/pocket/blob/master/pocket.go#L569>)
 
 ```go
 func WithLogger(logger Logger) GraphOption
@@ -696,7 +720,7 @@ func WithLogger(logger Logger) GraphOption
 WithLogger adds logging to the graph.
 
 <a name="WithTracer"></a>
-### func [WithTracer](<https://github.com/agentstation/pocket/blob/master/pocket.go#L537>)
+### func [WithTracer](<https://github.com/agentstation/pocket/blob/master/pocket.go#L576>)
 
 ```go
 func WithTracer(tracer Tracer) GraphOption
@@ -705,7 +729,7 @@ func WithTracer(tracer Tracer) GraphOption
 WithTracer adds distributed tracing.
 
 <a name="Logger"></a>
-## type [Logger](<https://github.com/agentstation/pocket/blob/master/pocket.go#L917-L921>)
+## type [Logger](<https://github.com/agentstation/pocket/blob/master/pocket.go#L956-L960>)
 
 Logger provides structured logging.
 
@@ -718,7 +742,7 @@ type Logger interface {
 ```
 
 <a name="Node"></a>
-## type [Node](<https://github.com/agentstation/pocket/blob/master/pocket.go#L84-L102>)
+## type [Node](<https://github.com/agentstation/pocket/blob/master/pocket.go#L106-L124>)
 
 Node is the core interface for all execution units in a workflow. Both simple nodes and graphs implement this interface.
 
@@ -752,22 +776,24 @@ ExampleNode demonstrates using the Prep/Exec/Post lifecycle.
 ```go
 // Create a node with lifecycle steps
 uppercase := pocket.NewNode[any, any]("uppercase",
-	pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
-		// Validate input is a string
-		text, ok := input.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string, got %T", input)
-		}
-		return text, nil
-	}),
-	pocket.WithExec(func(ctx context.Context, text any) (any, error) {
-		// Transform to uppercase
-		return strings.ToUpper(text.(string)), nil
-	}),
-	pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
-		// Return result and routing
-		return result, doneRoute, nil
-	}),
+	pocket.Steps{
+		Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+			// Validate input is a string
+			text, ok := input.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string, got %T", input)
+			}
+			return text, nil
+		},
+		Exec: func(ctx context.Context, text any) (any, error) {
+			// Transform to uppercase
+			return strings.ToUpper(text.(string)), nil
+		},
+		Post: func(ctx context.Context, store pocket.StoreWriter, input, text, result any) (any, string, error) {
+			// Return result and routing
+			return result, doneRoute, nil
+		},
+	},
 )
 
 store := pocket.NewStore()
@@ -811,29 +837,35 @@ func main() {
 
 	// Router node that checks input
 	router := pocket.NewNode[any, any]("router",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return input, nil
-		}),
-		pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
-			value := result.(int)
-			if value > 100 {
-				return result, "large", nil
-			}
-			return result, "small", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return input, nil
+			},
+			Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+				value := result.(int)
+				if value > 100 {
+					return result, "large", nil
+				}
+				return result, "small", nil
+			},
+		},
 	)
 
 	// Handler nodes
 	largeHandler := pocket.NewNode[any, any]("large",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Large number: %v", input), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Large number: %v", input), nil
+			},
+		},
 	)
 
 	smallHandler := pocket.NewNode[any, any]("small",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			return fmt.Sprintf("Small number: %v", input), nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				return fmt.Sprintf("Small number: %v", input), nil
+			},
+		},
 	)
 
 	// Connect nodes
@@ -862,7 +894,7 @@ Large number: 150
 </details>
 
 <a name="Default"></a>
-### func [Default](<https://github.com/agentstation/pocket/blob/master/pocket.go#L502>)
+### func [Default](<https://github.com/agentstation/pocket/blob/master/pocket.go#L541>)
 
 ```go
 func Default(n, next Node) Node
@@ -871,10 +903,10 @@ func Default(n, next Node) Node
 Default is a helper function to connect to the default next node.
 
 <a name="NewNode"></a>
-### func [NewNode](<https://github.com/agentstation/pocket/blob/master/pocket.go#L481>)
+### func [NewNode](<https://github.com/agentstation/pocket/blob/master/pocket.go#L490>)
 
 ```go
-func NewNode[In, Out any](name string, opts ...Option) Node
+func NewNode[In, Out any](name string, steps Steps, opts ...Option) Node
 ```
 
 NewNode creates a new node with optional compile\-time type safety.
@@ -883,6 +915,12 @@ Type parameters:
 
 - In: The expected input type for this node \(use 'any' for dynamic typing\)
 - Out: The output type this node produces \(use 'any' for dynamic typing\)
+
+Parameters:
+
+- name: The node's identifier
+- steps: The lifecycle functions \(Prep, Exec, Post\) \- all fields are optional
+- opts: Additional options like retry, timeout, error handlers, etc.
 
 Type safety mechanism:
 
@@ -897,22 +935,27 @@ Examples:
 ```
 // Typed node - enables full type checking across the workflow
 validator := NewNode[User, ValidationResult]("validator",
-    WithExec(func(ctx context.Context, store Store, user User) (ValidationResult, error) {
-        // Compile-time type safety - no casting needed
-        return ValidationResult{Valid: true}, nil
-    }),
+    Steps{
+        Exec: func(ctx context.Context, user any) (any, error) {
+            // Type assertions handled by the framework
+            return ValidationResult{Valid: true}, nil
+        },
+    },
+    WithRetry(3, time.Second),
 )
 
 // Untyped node - no compile-time checks (explicit [any, any] encourages adding types)
 processor := NewNode[any, any]("processor",
-    WithExec(func(ctx context.Context, store Store, input any) (any, error) {
-        return processData(input), nil
-    }),
+    Steps{
+        Prep: prepFunc,
+        Exec: execFunc,
+        Post: postFunc,
+    },
 )
 ```
 
 <a name="Option"></a>
-## type [Option](<https://github.com/agentstation/pocket/blob/master/pocket.go#L148>)
+## type [Option](<https://github.com/agentstation/pocket/blob/master/pocket.go#L170>)
 
 Option configures a Node.
 
@@ -921,7 +964,7 @@ type Option func(*nodeOptions)
 ```
 
 <a name="WithErrorHandler"></a>
-### func [WithErrorHandler](<https://github.com/agentstation/pocket/blob/master/pocket.go#L262>)
+### func [WithErrorHandler](<https://github.com/agentstation/pocket/blob/master/pocket.go#L284>)
 
 ```go
 func WithErrorHandler(handler func(error)) Option
@@ -930,7 +973,7 @@ func WithErrorHandler(handler func(error)) Option
 WithErrorHandler sets a custom error handler.
 
 <a name="WithExec"></a>
-### func [WithExec](<https://github.com/agentstation/pocket/blob/master/pocket.go#L177>)
+### func [WithExec](<https://github.com/agentstation/pocket/blob/master/pocket.go#L199>)
 
 ```go
 func WithExec[In, Out any](fn func(ctx context.Context, input In) (Out, error)) Option
@@ -938,17 +981,8 @@ func WithExec[In, Out any](fn func(ctx context.Context, input In) (Out, error)) 
 
 WithExec sets the execution function with type safety. The types In and Out should match the node's types when used with NewNode\[In, Out\]. For dynamic typing, use WithExec\[any, any\]. Exec functions do not have store access to enforce pure business logic.
 
-<a name="WithFallback"></a>
-### func [WithFallback](<https://github.com/agentstation/pocket/blob/master/pocket.go#L272>)
-
-```go
-func WithFallback[In, Out any](fn func(ctx context.Context, input In, err error) (Out, error)) Option
-```
-
-WithFallback adds a fallback function that runs if the exec step fails. The types In and Out should match the node's types when used with NewNode\[In, Out\]. For dynamic typing, use WithFallback\[any, any\]. Like exec functions, fallback functions do not have store access.
-
 <a name="WithOnComplete"></a>
-### func [WithOnComplete](<https://github.com/agentstation/pocket/blob/master/pocket.go#L319>)
+### func [WithOnComplete](<https://github.com/agentstation/pocket/blob/master/pocket.go#L318>)
 
 ```go
 func WithOnComplete(fn func(ctx context.Context, store StoreWriter)) Option
@@ -957,7 +991,7 @@ func WithOnComplete(fn func(ctx context.Context, store StoreWriter)) Option
 WithOnComplete sets a cleanup hook that always runs after execution. The store parameter provides full read\-write access for cleanup operations.
 
 <a name="WithOnFailure"></a>
-### func [WithOnFailure](<https://github.com/agentstation/pocket/blob/master/pocket.go#L311>)
+### func [WithOnFailure](<https://github.com/agentstation/pocket/blob/master/pocket.go#L310>)
 
 ```go
 func WithOnFailure(fn func(ctx context.Context, store StoreWriter, err error)) Option
@@ -966,7 +1000,7 @@ func WithOnFailure(fn func(ctx context.Context, store StoreWriter, err error)) O
 WithOnFailure sets a cleanup hook that runs after failed execution. The store parameter provides full read\-write access for cleanup operations.
 
 <a name="WithOnSuccess"></a>
-### func [WithOnSuccess](<https://github.com/agentstation/pocket/blob/master/pocket.go#L295>)
+### func [WithOnSuccess](<https://github.com/agentstation/pocket/blob/master/pocket.go#L294>)
 
 ```go
 func WithOnSuccess[Out any](fn func(ctx context.Context, store StoreWriter, output Out)) Option
@@ -975,7 +1009,7 @@ func WithOnSuccess[Out any](fn func(ctx context.Context, store StoreWriter, outp
 WithOnSuccess sets a cleanup hook that runs after successful execution. The type Out should match the node's output type when used with NewNode\[In, Out\]. For dynamic typing, use WithOnSuccess\[any\]. The store parameter provides full read\-write access for cleanup operations.
 
 <a name="WithPost"></a>
-### func [WithPost](<https://github.com/agentstation/pocket/blob/master/pocket.go#L210>)
+### func [WithPost](<https://github.com/agentstation/pocket/blob/master/pocket.go#L232>)
 
 ```go
 func WithPost[In, Out any](fn func(ctx context.Context, store StoreWriter, input In, prepResult any, execResult Out) (Out, string, error)) Option
@@ -984,7 +1018,7 @@ func WithPost[In, Out any](fn func(ctx context.Context, store StoreWriter, input
 WithPost sets the post\-processing function with type safety. The types In and Out should match the node's types when used with NewNode\[In, Out\]. Post functions have access to all step results and determine routing. For dynamic typing, use WithPost\[any, any\]. The store parameter provides full read\-write access for state mutations.
 
 <a name="WithPrep"></a>
-### func [WithPrep](<https://github.com/agentstation/pocket/blob/master/pocket.go#L154>)
+### func [WithPrep](<https://github.com/agentstation/pocket/blob/master/pocket.go#L176>)
 
 ```go
 func WithPrep[In any](fn func(ctx context.Context, store StoreReader, input In) (any, error)) Option
@@ -993,7 +1027,7 @@ func WithPrep[In any](fn func(ctx context.Context, store StoreReader, input In) 
 WithPrep sets the preparation function with type safety. The input type In should match the node's input type when used with NewNode\[In, Out\]. For dynamic typing, use WithPrep\[any\]. The store parameter provides read\-only access to enforce Prep step semantics.
 
 <a name="WithRetry"></a>
-### func [WithRetry](<https://github.com/agentstation/pocket/blob/master/pocket.go#L247>)
+### func [WithRetry](<https://github.com/agentstation/pocket/blob/master/pocket.go#L269>)
 
 ```go
 func WithRetry(maxRetries int, delay time.Duration) Option
@@ -1023,13 +1057,15 @@ func main() {
 
 	// Create a node that fails twice before succeeding
 	flaky := pocket.NewNode[any, any]("flaky",
-		pocket.WithExec(func(ctx context.Context, input any) (any, error) {
-			attempts++
-			if attempts < 3 {
-				return nil, fmt.Errorf("temporary failure %d", attempts)
-			}
-			return "success", nil
-		}),
+		pocket.Steps{
+			Exec: func(ctx context.Context, input any) (any, error) {
+				attempts++
+				if attempts < 3 {
+					return nil, fmt.Errorf("temporary failure %d", attempts)
+				}
+				return "success", nil
+			},
+		},
 		pocket.WithRetry(2, 10*time.Millisecond), // Retry up to 2 times
 	)
 
@@ -1055,7 +1091,7 @@ Result after 3 attempts: success
 </details>
 
 <a name="WithTimeout"></a>
-### func [WithTimeout](<https://github.com/agentstation/pocket/blob/master/pocket.go#L255>)
+### func [WithTimeout](<https://github.com/agentstation/pocket/blob/master/pocket.go#L277>)
 
 ```go
 func WithTimeout(timeout time.Duration) Option
@@ -1081,8 +1117,30 @@ PrepFunc prepares data before execution with read\-only store access.
 type PrepFunc func(ctx context.Context, store StoreReader, input any) (prepResult any, err error)
 ```
 
+<a name="Steps"></a>
+## type [Steps](<https://github.com/agentstation/pocket/blob/master/pocket.go#L58-L71>)
+
+Steps groups the lifecycle functions for a node. All fields are optional \- if not provided, default implementations will be used.
+
+```go
+type Steps struct {
+    // Prep prepares data before execution with read-only store access.
+    Prep PrepFunc
+
+    // Exec performs the main processing logic without store access.
+    Exec ExecFunc
+
+    // Fallback handles Exec errors with the prepared data.
+    // Like Exec, it receives prepResult and has no store access.
+    Fallback FallbackFunc
+
+    // Post processes results and determines routing with full store access.
+    Post PostFunc
+}
+```
+
 <a name="Store"></a>
-## type [Store](<https://github.com/agentstation/pocket/blob/master/pocket.go#L68-L80>)
+## type [Store](<https://github.com/agentstation/pocket/blob/master/pocket.go#L90-L102>)
 
 Store provides thread\-safe storage for shared state.
 
@@ -1148,7 +1206,7 @@ func WithTTL(ttl time.Duration) StoreOption
 WithTTL sets the time\-to\-live for entries. Entries older than the TTL are automatically removed.
 
 <a name="StoreReader"></a>
-## type [StoreReader](<https://github.com/agentstation/pocket/blob/master/pocket.go#L53-L59>)
+## type [StoreReader](<https://github.com/agentstation/pocket/blob/master/pocket.go#L75-L81>)
 
 StoreReader provides read\-only access to the store. Used in the Prep step to enforce read\-only semantics.
 
@@ -1163,7 +1221,7 @@ type StoreReader interface {
 ```
 
 <a name="StoreWriter"></a>
-## type [StoreWriter](<https://github.com/agentstation/pocket/blob/master/pocket.go#L63-L65>)
+## type [StoreWriter](<https://github.com/agentstation/pocket/blob/master/pocket.go#L85-L87>)
 
 StoreWriter provides full read\-write access to the store. Used in the Post step for state mutations.
 
@@ -1174,7 +1232,7 @@ type StoreWriter interface {
 ```
 
 <a name="Tracer"></a>
-## type [Tracer](<https://github.com/agentstation/pocket/blob/master/pocket.go#L924-L926>)
+## type [Tracer](<https://github.com/agentstation/pocket/blob/master/pocket.go#L963-L965>)
 
 Tracer provides distributed tracing capabilities.
 
@@ -1267,336 +1325,479 @@ Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)
 
 <!-- gomarkdoc:embed:end -->
 
-## Core Types
+## Quick Start Examples
 
-### Node Interface
-
-The fundamental building block of Pocket workflows.
+### Basic Node Usage
 
 ```go
-type Node interface {
-    // Name returns the node's identifier
-    Name() string
-    
-    // Prep phase: Read-only store access, input validation
-    Prep(ctx context.Context, store StoreReader, input any) (prepResult any, err error)
-    
-    // Exec phase: Pure computation, no store access
-    Exec(ctx context.Context, prepResult any) (execResult any, err error)
-    
-    // Post phase: Full store access, routing decisions
-    Post(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
-    
-    // Connect adds a successor node for the given action
-    Connect(action string, next Node) Node
-    
-    // Successors returns all connected nodes
-    Successors() map[string]Node
-    
-    // InputType returns the expected input type (for validation)
-    InputType() reflect.Type
-    
-    // OutputType returns the output type (for validation)
-    OutputType() reflect.Type
-}
+// Create a simple processor node
+node := pocket.NewNode[string, string]("uppercase",
+    pocket.WithExec(func(ctx context.Context, input string) (string, error) {
+        return strings.ToUpper(input), nil
+    }),
+)
+
+// Create a graph and run
+graph := pocket.NewGraph(node, pocket.NewStore())
+result, err := graph.Run(context.Background(), "hello")
+// result: "HELLO"
 ```
 
-### Graph
-
-Orchestrates node execution in a workflow.
+### Using Prep/Exec/Post Lifecycle
 
 ```go
-type Graph struct {
-    // Internal fields
-}
-
-// NewGraph creates a new graph with a start node and store
-func NewGraph(start Node, store Store) *Graph
-
-// Run executes the workflow with the given input
-func (g *Graph) Run(ctx context.Context, input any) (output any, err error)
-
-// AsNode returns the graph as a Node (for composition)
-func (g *Graph) AsNode(name string) Node
-
-// Graph implements Node interface
-func (g *Graph) Name() string
-func (g *Graph) Prep(ctx context.Context, store StoreReader, input any) (any, error)
-func (g *Graph) Exec(ctx context.Context, prepResult any) (any, error)
-func (g *Graph) Post(ctx context.Context, store StoreWriter, input, prep, exec any) (any, string, error)
-func (g *Graph) Connect(action string, next Node) Node
-func (g *Graph) Successors() map[string]Node
-func (g *Graph) InputType() reflect.Type
-func (g *Graph) OutputType() reflect.Type
-```
-
-### Store
-
-Thread-safe storage for workflow state.
-
-```go
-type Store interface {
-    // Get retrieves a value by key
-    Get(ctx context.Context, key string) (value any, exists bool)
-    
-    // Set stores a value with the given key
-    Set(ctx context.Context, key string, value any) error
-    
-    // Delete removes a key from the store
-    Delete(ctx context.Context, key string) error
-    
-    // Scope returns a new store with the given prefix
-    Scope(prefix string) Store
-}
-
-// StoreReader provides read-only access (used in Prep)
-type StoreReader interface {
-    Get(ctx context.Context, key string) (value any, exists bool)
-    Scope(prefix string) Store
-}
-
-// StoreWriter provides full access (used in Post)
-type StoreWriter interface {
-    Store
-}
-```
-
-## Node Creation
-
-### NewNode
-
-Creates a new node with generic type parameters.
-
-```go
-func NewNode[In, Out any](name string, opts ...NodeOption) Node
-```
-
-**Parameters:**
-- `name`: Unique identifier for the node
-- `opts`: Configuration options (see NodeOption)
-
-**Type Parameters:**
-- `In`: Expected input type
-- `Out`: Output type
-
-**Example:**
-```go
-node := pocket.NewNode[User, ProcessedUser]("process-user",
-    pocket.WithExec(func(ctx context.Context, user User) (ProcessedUser, error) {
-        return processUser(user), nil
+// Node with full lifecycle
+node := pocket.NewNode[Request, Response]("api-processor",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, req Request) (any, error) {
+        // Load configuration
+        config, _ := store.Get(ctx, "api:config")
+        return map[string]any{
+            "request": req,
+            "config":  config,
+        }, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (Response, error) {
+        // Process with prepared data
+        data := prepData.(map[string]any)
+        return callAPI(data["request"], data["config"])
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, 
+        req Request, prep any, resp Response) (Response, string, error) {
+        // Save result and route
+        store.Set(ctx, "last:response", resp)
+        if resp.Success {
+            return resp, "success", nil
+        }
+        return resp, "retry", nil
     }),
 )
 ```
 
-### NodeOption Functions
-
-#### WithPrep
-
-Sets the Prep phase function.
+### Error Handling with Fallback
 
 ```go
-func WithPrep(fn PrepFunc) NodeOption
-func WithPrep[In any](fn func(context.Context, StoreReader, In) (any, error)) NodeOption
+node := pocket.NewNode[Request, Response]("resilient",
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            // Primary logic that might fail
+            return riskyOperation(prepResult)
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            // Fallback receives prepResult (not original input) and the error
+            log.Printf("Primary failed: %v, using fallback", err)
+            return safeDefault(prepResult), nil
+        },
+    },
+    pocket.WithRetry(3, time.Second),
+)
 ```
 
-**Example:**
-```go
-pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, input User) (any, error) {
-    config, _ := store.Get(ctx, "config")
-    return map[string]any{
-        "user":   input,
-        "config": config,
-    }, nil
-})
-```
+## Complete Examples
 
-#### WithExec
-
-Sets the Exec phase function.
+### Building a Multi-Step Workflow
 
 ```go
-func WithExec(fn ExecFunc) NodeOption
-func WithExec[In, Out any](fn func(context.Context, In) (Out, error)) NodeOption
-```
-
-**Example:**
-```go
-pocket.WithExec(func(ctx context.Context, data UserData) (Result, error) {
-    return processUserData(data), nil
-})
-```
-
-#### WithPost
-
-Sets the Post phase function.
-
-```go
-func WithPost(fn PostFunc) NodeOption
-func WithPost[In, Out any](fn func(context.Context, StoreWriter, In, any, Out) (Out, string, error)) NodeOption
-```
-
-**Example:**
-```go
-pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, 
-    input User, prep any, result Result) (Result, string, error) {
-    
-    store.Set(ctx, "lastResult", result)
-    
-    if result.Success {
-        return result, "success", nil
-    }
-    return result, "failure", nil
-})
-```
-
-#### Lifecycle Hooks
-
-```go
-// Called on successful execution
-func WithOnSuccess(fn func(context.Context, StoreWriter, any)) NodeOption
-
-// Called on execution failure
-func WithOnFailure(fn func(context.Context, StoreWriter, error)) NodeOption
-
-// Always called after execution
-func WithOnComplete(fn func(context.Context, StoreWriter)) NodeOption
-```
-
-#### Error Handling Options
-
-```go
-// Add retry with delay
-func WithRetry(attempts int, delay time.Duration) NodeOption
-
-// Add fallback on error
-func WithFallback(fn func(context.Context, any, error) (any, error)) NodeOption
-func WithFallback[In, Out any](fn func(context.Context, In, error) (Out, error)) NodeOption
-
-// Add timeout
-func WithTimeout(timeout time.Duration) NodeOption
-```
-
-## Store Operations
-
-### NewStore
-
-Creates a new store with optional configuration.
-
-```go
-func NewStore(opts ...StoreOption) Store
-```
-
-### StoreOption Functions
-
-```go
-// Set maximum number of entries (LRU eviction)
-func WithMaxEntries(maxEntries int) StoreOption
-
-// Set time-to-live for entries
-func WithTTL(ttl time.Duration) StoreOption
-
-// Set eviction callback
-func WithEvictionCallback(fn func(key string, value any)) StoreOption
-```
-
-**Example:**
-```go
+// Create store with bounds
 store := pocket.NewStore(
     pocket.WithMaxEntries(1000),
     pocket.WithTTL(5 * time.Minute),
-    pocket.WithEvictionCallback(func(key string, value any) {
-        log.Printf("Evicted: %s", key)
+)
+
+// Step 1: Validate
+validate := pocket.NewNode[Order, Order]("validate",
+    pocket.WithExec(func(ctx context.Context, order Order) (Order, error) {
+        if err := order.Validate(); err != nil {
+            return Order{}, err
+        }
+        return order, nil
+    }),
+)
+
+// Step 2: Process payment
+payment := pocket.NewNode[Order, PaymentResult]("payment",
+    pocket.WithExec(func(ctx context.Context, order Order) (PaymentResult, error) {
+        return processPayment(order)
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
+        order Order, prep any, result PaymentResult) (PaymentResult, string, error) {
+        
+        if result.Success {
+            return result, "ship", nil
+        }
+        return result, "refund", nil
+    }),
+)
+
+// Step 3: Ship order
+ship := pocket.NewNode[PaymentResult, ShipmentInfo]("ship",
+    pocket.WithExec(func(ctx context.Context, payment PaymentResult) (ShipmentInfo, error) {
+        return createShipment(payment.OrderID)
+    }),
+)
+
+// Connect workflow
+validate.Connect("default", payment)
+payment.Connect("ship", ship)
+
+// Build and run
+graph := pocket.NewGraph(validate, store)
+result, err := graph.Run(context.Background(), Order{ID: "123"})
+```
+
+### Concurrent Processing
+
+```go
+// Process items in parallel
+processor := pocket.NewNode[Item, Result]("processor",
+    pocket.WithExec(func(ctx context.Context, item Item) (Result, error) {
+        return processItem(item)
+    }),
+)
+
+// Use FanOut for parallel processing
+results, err := pocket.FanOut(ctx, processor, store, items,
+    pocket.WithConcurrency(10),
+    pocket.WithOrdered(true),
+)
+```
+
+### State Management
+
+```go
+// Node that maintains state
+stateful := pocket.NewNode[Event, Response]("stateful",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, event Event) (any, error) {
+        // Load current state
+        state, exists := store.Get(ctx, "process:state")
+        if !exists {
+            state = NewState()
+        }
+        return map[string]any{
+            "event": event,
+            "state": state,
+        }, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (Response, error) {
+        data := prepData.(map[string]any)
+        state := data["state"].(State)
+        event := data["event"].(Event)
+        
+        // Process with state
+        return state.Process(event)
+    }),
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
+        event Event, prep any, response Response) (Response, string, error) {
+        
+        // Update state
+        data := prep.(map[string]any)
+        state := data["state"].(State)
+        state.Update(response)
+        
+        store.Set(ctx, "process:state", state)
+        return response, "next", nil
     }),
 )
 ```
 
-### TypedStore
+## Error Handling Patterns
 
-Type-safe store wrapper.
+### Retry with Backoff
 
 ```go
-// Create a typed store
-func NewTypedStore[T any](store Store) TypedStore[T]
+node := pocket.NewNode[Input, Output]("retry-example",
+    pocket.WithExec(unreliableOperation),
+    pocket.WithRetryConfig(pocket.RetryConfig{
+        MaxAttempts:  5,
+        InitialDelay: 100 * time.Millisecond,
+        MaxDelay:     10 * time.Second,
+        Multiplier:   2.0,
+        Jitter:       0.1,
+    }),
+)
+```
 
-type TypedStore[T any] interface {
-    Get(ctx context.Context, key string) (T, bool, error)
-    Set(ctx context.Context, key string, value T) error
-    Delete(ctx context.Context, key string) error
+### Circuit Breaker Pattern
+
+```go
+// Use fallback as circuit breaker
+breaker := pocket.NewNode[Request, Response]("circuit-breaker",
+    pocket.Steps{
+        Prep: func(ctx context.Context, store pocket.StoreReader, req Request) (any, error) {
+            failures, _ := store.Get(ctx, "circuit:failures")
+            if failures.(int) > 5 {
+                return nil, errors.New("circuit open")
+            }
+            return req, nil
+        },
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            return callService(prepResult.(Request))
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            // Return cached or default response
+            return getCachedResponse(), nil
+        },
+    },
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
+        req Request, prep any, result any) (any, string, error) {
+        
+        // Track failures
+        if _, ok := result.(error); ok {
+            failures, _ := store.Get(ctx, "circuit:failures")
+            store.Set(ctx, "circuit:failures", failures.(int)+1)
+        } else {
+            store.Set(ctx, "circuit:failures", 0)
+        }
+        
+        return result, "next", nil
+    }),
+)
+```
+
+## Advanced Patterns
+
+### Dynamic Routing
+
+```go
+router := pocket.NewNode[Message, Message]("router",
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
+        msg Message, prep, exec any) (Message, string, error) {
+        
+        switch msg.Type {
+        case "email":
+            return msg, "email-handler", nil
+        case "sms":
+            return msg, "sms-handler", nil
+        case "push":
+            return msg, "push-handler", nil
+        default:
+            return msg, "default-handler", nil
+        }
+    }),
+)
+
+// Connect handlers
+router.Connect("email-handler", emailNode)
+router.Connect("sms-handler", smsNode)
+router.Connect("push-handler", pushNode)
+router.Connect("default-handler", defaultNode)
+```
+
+### Conditional Execution
+
+```go
+conditional := pocket.NewNode[Data, Result]("conditional",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, data Data) (any, error) {
+        // Check condition in prep
+        enabled, _ := store.Get(ctx, "feature:enabled")
+        return map[string]any{
+            "data":    data,
+            "enabled": enabled.(bool),
+        }, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (Result, error) {
+        p := prepData.(map[string]any)
+        if !p["enabled"].(bool) {
+            return Result{Skipped: true}, nil
+        }
+        
+        // Process only if enabled
+        return processData(p["data"].(Data))
+    }),
+)
+```
+
+### Sub-Graph Composition
+
+```go
+// Create a sub-workflow
+subWorkflow := pocket.NewGraph(subStart, subStore)
+
+// Use directly as a node (Graph implements Node)
+mainWorkflow := pocket.NewNode[Input, Output]("main",
+    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter,
+        input Input, prep, result any) (Output, string, error) {
+        
+        if needsSubWorkflow(result) {
+            return result.(Output), "sub-workflow", nil
+        }
+        return result.(Output), "continue", nil
+    }),
+)
+
+// Connect sub-graph directly
+mainWorkflow.Connect("sub-workflow", subWorkflow)
+```
+
+## Testing
+
+### Testing Individual Nodes
+
+```go
+func TestNode(t *testing.T) {
+    store := pocket.NewStore()
+    ctx := context.Background()
+    
+    node := pocket.NewNode[string, string]("test",
+        pocket.WithExec(strings.ToUpper),
+    )
+    
+    // Test via graph
+    graph := pocket.NewGraph(node, store)
+    result, err := graph.Run(ctx, "hello")
+    
+    assert.NoError(t, err)
+    assert.Equal(t, "HELLO", result)
 }
 ```
 
-## Graph Building
-
-### Builder API
-
-Fluent API for constructing graphs.
+### Testing Lifecycle Phases
 
 ```go
-type Builder struct {
-    // Internal fields
-}
-
-// Create a new builder
-func NewBuilder(store Store) *Builder
-
-// Add a node to the graph
-func (b *Builder) Add(node Node) *Builder
-
-// Connect two nodes
-func (b *Builder) Connect(from, action, to string) *Builder
-
-// Set the start node
-func (b *Builder) Start(name string) *Builder
-
-// Build the graph
-func (b *Builder) Build() (*Graph, error)
-```
-
-**Example:**
-```go
-graph, err := pocket.NewBuilder(store).
-    Add(validateNode).
-    Add(processNode).
-    Add(saveNode).
-    Connect("validate", "success", "process").
-    Connect("process", "success", "save").
-    Start("validate").
-    Build()
-```
-
-## Validation
-
-### ValidateGraph
-
-Validates type compatibility across connected nodes.
-
-```go
-func ValidateGraph(start Node) error
-```
-
-**Returns:**
-- `nil` if all connections are type-compatible
-- Error describing the first type mismatch found
-
-**Example:**
-```go
-if err := pocket.ValidateGraph(startNode); err != nil {
-    log.Fatalf("Invalid graph: %v", err)
+func TestLifecycle(t *testing.T) {
+    store := pocket.NewStore()
+    ctx := context.Background()
+    
+    // Test prep phase
+    prepResult, err := node.Prep(ctx, store, input)
+    assert.NoError(t, err)
+    
+    // Test exec phase
+    execResult, err := node.Exec(ctx, prepResult)
+    assert.NoError(t, err)
+    
+    // Test post phase
+    output, next, err := node.Post(ctx, store, input, prepResult, execResult)
+    assert.NoError(t, err)
+    assert.Equal(t, "next-node", next)
 }
 ```
 
-## Concurrent Patterns
+### Testing with Mocks
+
+```go
+type MockStore struct {
+    data map[string]any
+}
+
+func (m *MockStore) Get(ctx context.Context, key string) (any, bool) {
+    val, ok := m.data[key]
+    return val, ok
+}
+
+func (m *MockStore) Set(ctx context.Context, key string, value any) error {
+    m.data[key] = value
+    return nil
+}
+
+func TestWithMockStore(t *testing.T) {
+    mockStore := &MockStore{data: make(map[string]any)}
+    mockStore.data["config"] = Config{Enabled: true}
+    
+    node := createNode()
+    result, err := node.Prep(context.Background(), mockStore, input)
+    
+    assert.NoError(t, err)
+    assert.NotNil(t, result)
+}
+```
+
+## Performance Considerations
+
+### Store Configuration
+
+```go
+// Configure store for high throughput
+store := pocket.NewStore(
+    pocket.WithMaxEntries(100000),       // Large capacity
+    pocket.WithTTL(30 * time.Second),    // Short TTL
+    pocket.WithEvictionCallback(func(key string, value any) {
+        // Clean up resources
+        if closer, ok := value.(io.Closer); ok {
+            closer.Close()
+        }
+    }),
+)
+```
+
+### Batch Processing
+
+```go
+// Process in batches for efficiency
+batchProcessor := pocket.NewNode[[]Item, []Result]("batch",
+    pocket.WithExec(func(ctx context.Context, items []Item) ([]Result, error) {
+        results := make([]Result, len(items))
+        
+        // Process batch together (e.g., bulk API call)
+        bulkResults, err := processBatch(items)
+        if err != nil {
+            return nil, err
+        }
+        
+        return bulkResults, nil
+    }),
+)
+```
+
+### Memory Management
+
+```go
+// Use scoped stores to isolate data
+processNode := pocket.NewNode[Task, Result]("processor",
+    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, task Task) (any, error) {
+        // Create scoped store for this task
+        taskStore := store.(pocket.Store).Scope(fmt.Sprintf("task:%s", task.ID))
+        return map[string]any{
+            "task":  task,
+            "store": taskStore,
+        }, nil
+    }),
+    pocket.WithExec(func(ctx context.Context, prepData any) (Result, error) {
+        data := prepData.(map[string]any)
+        task := data["task"].(Task)
+        taskStore := data["store"].(pocket.Store)
+        
+        // Use scoped store for task-specific data
+        return processWithStore(task, taskStore)
+    }),
+)
+```
+
+## Debugging
+
+### Enable Logging
+
+```go
+import "github.com/agentstation/pocket/middleware"
+
+// Add logging to node
+node = middleware.WithLogging(logger)(node)
+```
+
+### Add Metrics
+
+```go
+// Add metrics collection
+node = middleware.WithMetrics(metricsCollector)(node)
+```
+
+### Trace Execution
+
+```go
+// Add tracing
+node = middleware.WithTracing(tracer)(node)
+```
+
+## Common Patterns
 
 ### FanOut
 
-Process items in parallel.
+Process multiple items concurrently.
 
 ```go
-func FanOut[T, R any](ctx context.Context, processor Node, store Store, items []T) ([]R, error)
+func FanOut(ctx context.Context, processor Node, store Store, items []any) ([]any, error)
 ```
 
 **Parameters:**
-- `ctx`: Context for cancellation
 - `processor`: Node to process each item
 - `store`: Store for the operation
 - `items`: Items to process

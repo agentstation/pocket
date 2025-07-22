@@ -237,19 +237,24 @@ func TestCompleteWorkflow(t *testing.T) {
 func TestErrorHandling(t *testing.T) {
     // Node that can fail
     riskyNode := pocket.NewNode[Request, Response]("risky",
-        pocket.WithExec(func(ctx context.Context, req Request) (Response, error) {
-            if req.ShouldFail {
-                return Response{}, errors.New("simulated failure")
-            }
-            return Response{Success: true}, nil
-        }),
-        pocket.WithFallback(func(ctx context.Context, req Request, err error) (Response, error) {
-            return Response{
-                Success:  false,
-                Fallback: true,
-                Error:    err.Error(),
-            }, nil
-        }),
+        pocket.Steps{
+            Exec: func(ctx context.Context, prepResult any) (any, error) {
+                req := prepResult.(Request)
+                if req.ShouldFail {
+                    return Response{}, errors.New("simulated failure")
+                }
+                return Response{Success: true}, nil
+            },
+            Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+                req := prepResult.(Request)
+                return Response{
+                    Success:   false,
+                    Fallback:  true,
+                    Error:     err.Error(),
+                    RequestID: req.ID, // Access request data from prepResult
+                }, nil
+            },
+        },
     )
     
     errorHandler := pocket.NewNode[Response, FinalResult]("error-handler",
