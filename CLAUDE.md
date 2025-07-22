@@ -63,15 +63,17 @@ Key benefits:
 ```go
 type PrepFunc func(ctx context.Context, store StoreReader, input any) (prepResult any, err error)
 type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err error)
+type FallbackFunc func(ctx context.Context, prepResult any, execErr error) (fallbackResult any, err error)
 type PostFunc func(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
 ```
 
 Key aspects:
 - **Prep** receives the original input and a read-only store (StoreReader)
 - **Exec** receives only the prep result - no store access for pure functions
+- **Fallback** handles Exec errors with the same prep result - also no store access
 - **Post** receives all values and a read-write store (StoreWriter) for state mutations
 
-This enforces the read/write separation at the type level.
+This enforces the read/write separation at the type level. Fallback receives prepResult (not the original input) for consistency with Exec.
 
 ### Store Interfaces
 
@@ -157,28 +159,39 @@ pocket.SetDefaults(
 
 NewNode provides compile-time type checking while maintaining flexibility:
 ```go
-// NewNode with generic options provides type safety out of the box!
+// NewNode with Steps struct provides type safety and clean organization
 node := pocket.NewNode[Input, Output]("processor",
-    pocket.WithPrep(func(ctx context.Context, store pocket.StoreReader, in Input) (any, error) {
-        // Type-safe prep function - store is read-only
-        data, _ := store.Get(ctx, "config")
-        return processedInput, nil
-    }),
-    pocket.WithExec(func(ctx context.Context, prepData any) (Output, error) {
-        // Type-safe exec function - pure, no store access
-        return Output{Result: process(prepData)}, nil
-    }),
-    pocket.WithPost(func(ctx context.Context, store pocket.StoreWriter, in Input, prep any, result Output) (Output, string, error) {
-        // Post has full read/write access
-        store.Set(ctx, "lastResult", result)
-        return result, "next", nil
-    }),
-    pocket.WithRetry(3, time.Second),  // Regular options work!
+    pocket.Steps{
+        Prep: func(ctx context.Context, store pocket.StoreReader, input any) (any, error) {
+            // Prep validates and prepares data - store is read-only
+            in := input.(Input)
+            data, _ := store.Get(ctx, "config")
+            return ProcessedInput{Input: in, Config: data}, nil
+        },
+        Exec: func(ctx context.Context, prepData any) (any, error) {
+            // Exec is pure - processes prepared data
+            processed := prepData.(ProcessedInput)
+            return Output{Result: process(processed)}, nil
+        },
+        Fallback: func(ctx context.Context, prepData any, execErr error) (any, error) {
+            // Fallback handles Exec errors with same prepared data
+            log.Printf("Primary processing failed: %v, using fallback", execErr)
+            processed := prepData.(ProcessedInput)
+            return Output{Result: fallbackProcess(processed)}, nil
+        },
+        Post: func(ctx context.Context, store pocket.StoreWriter, input, prep, result any) (any, string, error) {
+            // Post has full read/write access for state updates
+            output := result.(Output)
+            store.Set(ctx, "lastResult", output)
+            return output, "next", nil
+        },
+    },
+    pocket.WithRetry(3, time.Second),  // Additional options
     pocket.WithTimeout(5*time.Second),
 )
 ```
 
-All lifecycle options (`WithPrep`, `WithExec`, `WithPost`) are now generic by default, providing compile-time type safety when used with typed nodes. For untyped nodes, use `NewNode[any, any]` to make the dynamic typing explicit.
+All lifecycle functions are grouped in the Steps struct, including the optional Fallback for error recovery. For untyped nodes, use `NewNode[any, any]` to make the dynamic typing explicit.
 
 ### 5. Built-in Concurrency Patterns
 
@@ -283,8 +296,8 @@ yamlNode := pocket.NewNode[any, any]("output",
 
 ### Fallback Mechanisms
 
-- Node-level fallbacks with `WithFallback`
-- Circuit breaker pattern in `fallback`
+- Node-level fallbacks with `Steps.Fallback`
+- Circuit breaker pattern in `fallback` package
 - Fallback chains with multiple strategies
 
 ### Cleanup Hooks

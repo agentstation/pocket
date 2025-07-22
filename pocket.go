@@ -48,7 +48,12 @@ type ExecFunc func(ctx context.Context, prepResult any) (execResult any, err err
 // PostFunc processes results and determines routing with full store access.
 type PostFunc func(ctx context.Context, store StoreWriter, input, prepResult, execResult any) (output any, next string, err error)
 
-// Steps groups the three lifecycle functions for a node.
+// FallbackFunc handles errors from the Exec step using the prepared data.
+// It receives the prepResult (like Exec) and the error from the failed Exec.
+// Like ExecFunc, it has no store access to maintain purity.
+type FallbackFunc func(ctx context.Context, prepResult any, execErr error) (fallbackResult any, err error)
+
+// Steps groups the lifecycle functions for a node.
 // All fields are optional - if not provided, default implementations will be used.
 type Steps struct {
 	// Prep prepares data before execution with read-only store access.
@@ -56,6 +61,10 @@ type Steps struct {
 
 	// Exec performs the main processing logic without store access.
 	Exec ExecFunc
+
+	// Fallback handles Exec errors with the prepared data.
+	// Like Exec, it receives prepResult and has no store access.
+	Fallback FallbackFunc
 
 	// Post processes results and determines routing with full store access.
 	Post PostFunc
@@ -149,7 +158,7 @@ type nodeOptions struct {
 
 	// Error handling
 	onError  func(error)
-	fallback func(ctx context.Context, input any, err error) (any, error)
+	fallback func(ctx context.Context, prepResult any, err error) (any, error)
 
 	// Cleanup hooks
 	onSuccess  func(ctx context.Context, store StoreWriter, output any)
@@ -275,29 +284,6 @@ func WithTimeout(timeout time.Duration) Option {
 func WithErrorHandler(handler func(error)) Option {
 	return func(o *nodeOptions) {
 		o.onError = handler
-	}
-}
-
-// WithFallback adds a fallback function that runs if the exec step fails.
-// The types In and Out should match the node's types when used with NewNode[In, Out].
-// For dynamic typing, use WithFallback[any, any].
-// Like exec functions, fallback functions do not have store access.
-func WithFallback[In, Out any](fn func(ctx context.Context, input In, err error) (Out, error)) Option {
-	return func(o *nodeOptions) {
-		o.fallback = func(ctx context.Context, input any, err error) (any, error) {
-			// Type assertion for input
-			typedInput, ok := input.(In)
-			if !ok {
-				return nil, fmt.Errorf("%w: fallback expected %T, got %T", ErrInvalidInput, *new(In), input)
-			}
-
-			// Execute typed fallback
-			result, fallbackErr := fn(ctx, typedInput, err)
-			if fallbackErr != nil {
-				return nil, fallbackErr
-			}
-			return result, nil
-		}
 	}
 }
 
@@ -519,6 +505,13 @@ func NewNode[In, Out any](name string, steps Steps, opts ...Option) Node {
 	if steps.Post != nil {
 		allOpts = append(allOpts, func(o *nodeOptions) {
 			o.post = steps.Post
+		})
+	}
+	if steps.Fallback != nil {
+		allOpts = append(allOpts, func(o *nodeOptions) {
+			o.fallback = func(ctx context.Context, prepResult any, err error) (any, error) {
+				return steps.Fallback(ctx, prepResult, err)
+			}
 		})
 	}
 
@@ -883,8 +876,8 @@ func (g *Graph) executeLifecycle(ctx context.Context, n Node, input any) (output
 				g.opts.logger.Debug(ctx, "executing fallback", "name", n.Name(), "error", err)
 			}
 
-			// Execute fallback with original input
-			fallbackResult, fallbackErr := simpleNode.opts.fallback(ctx, input, err)
+			// Execute fallback with prepResult
+			fallbackResult, fallbackErr := simpleNode.opts.fallback(ctx, prepResult, err)
 			if fallbackErr != nil {
 				return nil, "", fmt.Errorf("exec failed and fallback failed: primary=%w, fallback=%v", err, fallbackErr)
 			}
