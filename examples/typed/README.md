@@ -172,17 +172,20 @@ node := pocket.NewNode[Input, Output]("processor",
 
 ```go
 node := pocket.NewNode[Request, Response]("api-call",
-    // Generic option for exec
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, req Request) (Response, error) {
-        return callAPI(req)
-    }),
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepData any) (any, error) {
+            req := prepData.(Request)
+            return callAPI(req)
+        },
+        // Fallback is part of Steps, receives prepResult from Prep (or input if no Prep)
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            req := prepResult.(Request)
+            return getCachedResponse(req), nil
+        },
+    },
     // Configuration options work seamlessly
     pocket.WithRetry(3, time.Second),
     pocket.WithTimeout(30 * time.Second),
-    pocket.WithFallback(func(ctx context.Context, store pocket.Store, req Request, err error) (Response, error) {
-        // Generic fallback on error
-        return getCachedResponse(req), nil
-    }),
 )
 ```
 
@@ -230,19 +233,24 @@ validator.Connect("default", logger)
 
 ```go
 processor := pocket.NewNode[Request, Response]("processor",
-    pocket.WithExec(func(ctx context.Context, store pocket.Store, req Request) (Response, error) {
-        if !req.Valid {
-            return Response{}, errors.New("invalid request")
-        }
-        return process(req), nil
-    }),
-    pocket.WithFallback(func(ctx context.Context, store pocket.Store, req Request, err error) (Response, error) {
-        // Type-safe error recovery
-        return Response{
-            Status: "fallback",
-            Error:  err.Error(),
-        }, nil
-    }),
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepData any) (any, error) {
+            req := prepData.(Request)
+            if !req.Valid {
+                return Response{}, errors.New("invalid request")
+            }
+            return process(req), nil
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            // Type-safe error recovery
+            req := prepResult.(Request)
+            return Response{
+                Status: "fallback",
+                Error:  err.Error(),
+                RequestID: req.ID, // Can access request data
+            }, nil
+        },
+    },
 )
 ```
 

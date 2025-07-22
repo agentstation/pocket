@@ -205,11 +205,11 @@ func TestCleanupHooks(t *testing.T) {
 					executionOrder = append(executionOrder, "exec")
 					return nil, errors.New("exec failed")
 				},
+				Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+					executionOrder = append(executionOrder, "fallback")
+					return "fallback result", nil
+				},
 			},
-			pocket.WithFallback(func(ctx context.Context, input any, err error) (any, error) {
-				executionOrder = append(executionOrder, "fallback")
-				return "fallback result", nil
-			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output any) {
 				executionOrder = append(executionOrder, "onSuccess")
 			}),

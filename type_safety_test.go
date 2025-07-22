@@ -196,15 +196,17 @@ func TestNodeOptions(t *testing.T) {
 				Exec: func(ctx context.Context, input any) (any, error) {
 					return TestOutput{}, execError
 				},
+				Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+					fallbackCalled = true
+					// The error will be wrapped with retry information
+					if !strings.Contains(err.Error(), execError.Error()) {
+						t.Errorf("Wrong error in fallback, expected to contain %v, got: %v", execError, err)
+					}
+					// Since we have no Prep, prepResult is the original input
+					input := prepResult.(TestInput)
+					return TestOutput{Result: "fallback: " + input.Value}, nil
+				},
 			},
-			pocket.WithFallback(func(ctx context.Context, input TestInput, err error) (TestOutput, error) {
-				fallbackCalled = true
-				// The error will be wrapped with retry information
-				if !strings.Contains(err.Error(), execError.Error()) {
-					t.Errorf("Wrong error in fallback, expected to contain %v, got: %v", execError, err)
-				}
-				return TestOutput{Result: "fallback: " + input.Value}, nil
-			}),
 		)
 
 		graph := pocket.NewGraph(node, store)
@@ -422,10 +424,10 @@ func TestNewAPIUsagePatterns(t *testing.T) {
 					typedOutput := output.(TestOutput)
 					return typedOutput, defaultRoute, nil
 				},
+				Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+					return TestOutput{Result: "fallback"}, nil
+				},
 			},
-			pocket.WithFallback(func(ctx context.Context, input TestInput, err error) (TestOutput, error) {
-				return TestOutput{Result: "fallback"}, nil
-			}),
 			pocket.WithOnSuccess(func(ctx context.Context, store pocket.StoreWriter, output TestOutput) {
 				// Log success
 			}),
