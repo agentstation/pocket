@@ -1935,14 +1935,3 @@ func (l *Loader) Load(data []byte, store Store) (*Graph, error)
 func (l *Loader) RegisterHandler(name string, handler any) error
 ```
 
-## Deprecated APIs
-
-The following APIs are deprecated but still supported:
-
-```go
-// Deprecated: Use NewNode with generics instead
-func TypedNode[In, Out any](name string, opts ...NodeOption) Node
-
-// Deprecated: Use WithExec with generics instead
-func ProcessorFunc(fn func(context.Context, any) (any, error)) Processor
-```

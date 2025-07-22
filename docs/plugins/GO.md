@@ -572,7 +572,7 @@ func getBuiltinNodes() []builtin.NodeMetadata {
 
 4. **Write comprehensive tests** in `builtin/builders_test.go`
 
-5. **Update documentation** in `docs/plugins/BUILT_IN.md`
+5. **Update documentation** in `docs/NODE_TYPES.md`
 
 ### Code Style Guidelines
 

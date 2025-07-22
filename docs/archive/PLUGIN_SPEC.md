@@ -1,6 +1,17 @@
-# Pocket Plugin System Specification
+# Pocket Plugin System Specification (ARCHIVED)
 
-> **Note**: This is the original planning specification for the Pocket plugin system. All three phases have now been implemented. For current documentation, see [Plugin System Overview](docs/PLUGIN_SYSTEM.md).
+> **⚠️ ARCHIVED DOCUMENT**: This is the original planning specification for the Pocket plugin system, preserved for historical reference. This document is no longer maintained and contains outdated information.
+>
+> **For current documentation, please see:**
+> - [Plugin System Overview](../PLUGIN_SYSTEM.md) - Current architecture and status
+> - [Plugin User Guide](../PLUGINS.md) - How to use WebAssembly plugins
+> - [Built-in Nodes Reference](../plugins/BUILT_IN.md) - Available built-in nodes
+>
+> **Status as of implementation:**
+> - ✅ Phase 1: Built-in nodes system - Complete (14 nodes)
+> - ✅ Phase 2: Lua scripting - Complete (via `lua` node type)
+> - ✅ Phase 3: WebAssembly plugins - Complete (TypeScript, Rust, Go support)
+> - ❌ Phase 3: RPC plugins - Not implemented
 
 ## Overview
 

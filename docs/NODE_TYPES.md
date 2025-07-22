@@ -1,4 +1,8 @@
-# Built-in Node Reference
+# Pocket Node Types Reference
+
+> **Note**: This document describes Pocket's 14 built-in node types. These are native to the framework and are NOT plugins. They provide core functionality out of the box without requiring any additional installation.
+>
+> For extending Pocket with custom functionality beyond these built-in types, see the [Plugin System](PLUGIN_SYSTEM.md) documentation.
 
 This document provides comprehensive documentation for all built-in nodes in Pocket. Each node includes configuration options, examples, and best practices.
 
@@ -635,18 +639,20 @@ Be mindful of timeouts and resource limits:
     max_concurrency: 5  # Don't overwhelm the system
 ```
 
-## Node Comparison
+## Node Type Comparison
 
-| Feature | Built-in | Lua Script | Future: WASM |
-|---------|----------|------------|--------------|
+| Feature | Built-in Nodes | Lua Script | WASM Plugins |
+|---------|----------------|------------|--------------|
 | Performance | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
 | Flexibility | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Security | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Security | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
 | Ease of Use | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Debugging | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| Debugging | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Language Support | Go only | Lua only | TypeScript, Rust, Go, etc. |
 
 ## See Also
 
-- [Lua Scripting Guide](LUA.md) - Deep dive into Lua scripting
-- [Plugin Development](../PLUGIN_DEVELOPMENT.md) - Creating custom nodes
-- [Examples](examples/) - Real-world examples
+- [Plugin System Overview](PLUGIN_SYSTEM.md) - Extend Pocket beyond built-in nodes
+- [WebAssembly Plugins](PLUGINS.md) - Creating WASM plugins
+- [Node Reference](NODE_REFERENCE.md) - Auto-generated API reference
+- [Examples](../examples/cli/) - Real-world workflow examples

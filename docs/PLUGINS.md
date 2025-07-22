@@ -1,4 +1,8 @@
-# Pocket Plugin System
+# Pocket WebAssembly Plugin Development Guide
+
+This document covers WebAssembly plugin development for Pocket. For information about built-in nodes and the overall plugin architecture, see:
+- [Plugin System Overview](PLUGIN_SYSTEM.md) - Complete plugin architecture
+- [Node Types Reference](NODE_TYPES.md) - All 14 built-in node types
 
 The Pocket plugin system allows extending the workflow engine with custom nodes written in any language that can compile to WebAssembly.
 
@@ -118,9 +122,9 @@ class MyNode extends PluginNode {
 
 ### Prerequisites
 
-1. Install the Pocket plugin CLI:
+1. Install Pocket:
    ```bash
-   go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
+   go install github.com/agentstation/pocket/cmd/pocket@latest
    ```
 
 2. Choose your development language and install its toolchain:
@@ -148,7 +152,7 @@ class MyNode extends PluginNode {
 
 4. **Install locally**:
    ```bash
-   pocket-plugins install .
+   pocket plugins install .
    ```
 
 5. **Use in a workflow**:
@@ -351,21 +355,15 @@ permissions:
 
 ## CLI Reference
 
-### Installation
-
-```bash
-go install github.com/agentstation/pocket/cmd/pocket-plugins@latest
-```
-
 ### Commands
 
-- `pocket-plugins list` - List installed plugins
-- `pocket-plugins install <path>` - Install a plugin
-- `pocket-plugins remove <name>` - Remove a plugin
-- `pocket-plugins info <name>` - Show plugin details
-- `pocket-plugins validate <path>` - Validate a plugin
+Plugin management is integrated into the main `pocket` CLI:
 
-See the [CLI documentation](../cmd/pocket-plugins/README.md) for detailed usage.
+- `pocket plugins list` - List installed plugins
+- `pocket plugins install <path>` - Install a plugin
+- `pocket plugins remove <name>` - Remove a plugin
+- `pocket plugins info <name>` - Show plugin details
+- `pocket plugins validate <path>` - Validate a plugin
 
 ## Examples
 
@@ -447,7 +445,7 @@ func flattenJSON(data interface{}, params map[string]interface{}) (interface{}, 
 ### Debug Tips
 
 1. Add logging to each phase
-2. Test with `pocket-plugins validate`
+2. Test with `pocket plugins validate`
 3. Start with simple logic, add complexity gradually
 4. Use the example plugins as reference
 
@@ -463,8 +461,8 @@ To contribute plugins:
 
 ## Resources
 
-- [Plugin SDK API Reference](./PLUGIN_SDK_API.md)
+- [Plugin SDK API Reference](plugins/SDK_API.md)
+- [Plugin Development Guide](plugins/DEVELOPMENT.md)
 - [Example Plugins](../plugin/examples/)
 - [Javy Documentation](https://github.com/Shopify/javy)
 - [WebAssembly Specification](https://webassembly.org/)
-- [Pocket Workflow Guide](./WORKFLOWS.md)

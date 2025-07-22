@@ -122,7 +122,7 @@ Pocket follows semantic versioning (semver). To create a new release:
 git tag v0.1.1
 git push origin v0.1.1
 
-# For minor release (new features, backward compatible)
+# For minor release (new features)
 git tag v0.2.0
 git push origin v0.2.0
 

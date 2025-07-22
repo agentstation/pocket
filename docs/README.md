@@ -32,25 +32,35 @@ Common patterns and recipes for building sophisticated workflows.
 ### 🚀 Advanced Topics
 Deep dives into advanced features and customization.
 
-- [**Plugin Development**](PLUGIN_DEVELOPMENT.md) - Guide to creating custom nodes for Pocket
 - [**Middleware System**](advanced/MIDDLEWARE.md) - Hooks, middleware, and lifecycle customization
 - [**YAML Integration**](advanced/YAML_INTEGRATION.md) - Building workflows from YAML definitions
 - [**Performance Optimization**](advanced/PERFORMANCE.md) - Benchmarking and optimization techniques
 - [**Custom Nodes**](advanced/CUSTOM_NODES.md) - Implementing custom node types
 
+### 🔌 Built-in Node Types
+Core node types available out of the box.
+
+- [**Node Types Reference**](NODE_TYPES.md) - All 14 built-in node types
+- [**Node Reference**](NODE_REFERENCE.md) - Auto-generated comprehensive reference
+
+### 🔌 Plugin System
+Extend Pocket with custom functionality.
+
+- [**Plugin System Overview**](PLUGIN_SYSTEM.md) - Architecture and plugin types
+- [**Lua Scripting**](plugins/LUA.md) - Write custom logic in Lua
+- [**WebAssembly Plugins**](PLUGINS.md) - Create plugins in TypeScript, Rust, or Go
+- [**Plugin Development**](plugins/DEVELOPMENT.md) - General plugin development guide
+
 ### 🧪 Experimental Features
 Features under active development - APIs may change.
 
 - [**CLI and YAML Workflows**](advanced/CLI.md) - Define and run workflows from YAML files (experimental)
-- [**Plugin System**](plugins/) - Extend Pocket with custom nodes using built-in types, Lua scripts, or future WebAssembly plugins
 
 ### 📋 Reference
 Detailed reference documentation.
 
 - [**API Reference**](reference/API.md) - Complete API documentation
-- [**Node Reference**](NODE_REFERENCE.md) - Comprehensive reference for all built-in nodes
 - [**Configuration Options**](reference/CONFIGURATION.md) - All available configuration options
-- [**Migration Guide**](reference/MIGRATION.md) - Migrating from other frameworks or versions
 
 ### 💡 Examples
 Learn by example with our comprehensive demos.
