@@ -13,7 +13,7 @@ A minimalist LLM decision graph framework for Go. Build composable workflows wit
 - 🎯 **Decision graphs** - Dynamic routing based on runtime logic
 - 🔒 **Type safety** - Optional compile-time type checking with generics
 - 🚀 **Built-in concurrency** - Native Go goroutines and patterns
-- 📦 **Minimal dependencies** - Uses `golang.org/x/sync` for sync and [goccy/go-yaml](https://github.com/goccy/go-yaml) for YAML
+- 📦 **Minimal dependencies** - Concurrency primitives: `golang.org/x/sync`, YAML parsing: [goccy/go-yaml](https://github.com/goccy/go-yaml)
 - 🔧 **Interface-based** - Extensible architecture, graphs as nodes
 - 🛡️ **Production ready** - Error handling, retries, observability
 - 🔌 **Plugin system** - Built-in nodes, Lua scripting, and WebAssembly plugins
