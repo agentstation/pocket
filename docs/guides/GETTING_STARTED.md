@@ -364,26 +364,32 @@ Build resilient workflows with error handling:
 func main() {
     // Main processing node with potential failures
     processPayment := pocket.NewNode[Payment, PaymentResult]("process-payment",
-        pocket.WithExec(func(ctx context.Context, payment Payment) (PaymentResult, error) {
-            // Simulate occasional failures
-            if payment.Amount > 1000 {
-                return PaymentResult{}, fmt.Errorf("payment processor unavailable")
-            }
-            
-            return PaymentResult{
-                TransactionID: generateID(),
-                Status:       "completed",
-            }, nil
-        }),
-        pocket.WithFallback(func(ctx context.Context, payment Payment, err error) (PaymentResult, error) {
-            // Fallback to alternative processor
-            fmt.Printf("Primary processor failed: %v, using fallback\n", err)
-            
-            return PaymentResult{
-                TransactionID: "fallback_" + generateID(),
-                Status:       "completed_via_fallback",
-            }, nil
-        }),
+        pocket.Steps{
+            Exec: func(ctx context.Context, prepResult any) (any, error) {
+                payment := prepResult.(Payment)
+                // Simulate occasional failures
+                if payment.Amount > 1000 {
+                    return PaymentResult{}, fmt.Errorf("payment processor unavailable")
+                }
+                
+                return PaymentResult{
+                    TransactionID: generateID(),
+                    Status:       "completed",
+                }, nil
+            },
+            // Fallback receives prepResult (the payment) and the error from Exec
+            Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+                payment := prepResult.(Payment)
+                // Fallback to alternative processor
+                fmt.Printf("Primary processor failed: %v, using fallback\n", err)
+                
+                return PaymentResult{
+                    TransactionID: "fallback_" + generateID(),
+                    Status:       "completed_via_fallback",
+                    Amount:       payment.Amount, // Access payment data
+                }, nil
+            },
+        },
     )
     
     // Add retry capability
@@ -471,20 +477,26 @@ Now that you understand the basics:
 ```go
 // Simple exec-only node
 node := pocket.NewNode[In, Out]("name",
-    pocket.WithExec(execFunc),
+    pocket.Steps{
+        Exec: execFunc,
+    },
 )
 
 // Full lifecycle node
 node := pocket.NewNode[In, Out]("name",
-    pocket.WithPrep(prepFunc),
-    pocket.WithExec(execFunc),
-    pocket.WithPost(postFunc),
+    pocket.Steps{
+        Prep: prepFunc,
+        Exec: execFunc,
+        Post: postFunc,
+    },
 )
 
 // With error handling
 node := pocket.NewNode[In, Out]("name",
-    pocket.WithExec(execFunc),
-    pocket.WithFallback(fallbackFunc),
+    pocket.Steps{
+        Exec: execFunc,
+        Fallback: fallbackFunc, // Receives prepResult and error
+    },
     pocket.WithRetry(3, time.Second),
 )
 ```

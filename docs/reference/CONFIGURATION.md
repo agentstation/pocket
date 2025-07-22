@@ -116,14 +116,22 @@ pocket.WithRetryConfig(RetryConfig{
 })
 ```
 
-#### WithFallback
-Provide alternative behavior on failure.
+#### Fallback (in Steps)
+Provide alternative behavior on failure. Fallback is now part of the Steps struct and receives prepResult.
 
 ```go
-pocket.WithFallback(func(ctx context.Context, input In, err error) (Out, error) {
-    log.Printf("Primary failed: %v, using fallback", err)
-    return getDefaultOutput(), nil
-})
+pocket.NewNode[In, Out]("node",
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            // Primary logic
+            return process(prepResult)
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            log.Printf("Primary failed: %v, using fallback", err)
+            return getDefaultOutput(prepResult), nil
+        },
+    },
+)
 ```
 
 #### WithTimeout

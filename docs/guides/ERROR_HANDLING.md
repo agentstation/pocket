@@ -46,30 +46,36 @@ Provide alternative behavior when primary logic fails:
 
 ```go
 apiCall := pocket.NewNode[Request, Response]("api-call",
-    pocket.WithExec(func(ctx context.Context, req Request) (Response, error) {
-        // Primary API call
-        resp, err := callExternalAPI(req)
-        if err != nil {
-            return Response{}, err
-        }
-        return resp, nil
-    }),
-    pocket.WithFallback(func(ctx context.Context, req Request, originalErr error) (Response, error) {
-        // Fallback logic
-        log.Printf("API call failed: %v, using fallback", originalErr)
-        
-        // Try alternative approach
-        if cachedResp, exists := getFromCache(req); exists {
-            return cachedResp, nil
-        }
-        
-        // Return default response
-        return Response{
-            Status:  "fallback",
-            Message: "Service temporarily unavailable",
-            Data:    getDefaultData(),
-        }, nil
-    }),
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            req := prepResult.(Request)
+            // Primary API call
+            resp, err := callExternalAPI(req)
+            if err != nil {
+                return Response{}, err
+            }
+            return resp, nil
+        },
+        // Fallback receives prepResult (not original input) and the error from Exec
+        Fallback: func(ctx context.Context, prepResult any, originalErr error) (any, error) {
+            req := prepResult.(Request)
+            // Fallback logic
+            log.Printf("API call failed: %v, using fallback", originalErr)
+            
+            // Try alternative approach
+            if cachedResp, exists := getFromCache(req); exists {
+                return cachedResp, nil
+            }
+            
+            // Return default response
+            return Response{
+                Status:    "fallback",
+                Message:   "Service temporarily unavailable",
+                Data:      getDefaultData(),
+                RequestID: req.ID, // Can access request data from prepResult
+            }, nil
+        },
+    },
 )
 ```
 
@@ -150,13 +156,40 @@ protectedNode := pocket.NewNode[Request, Response]("protected",
         cb.RecordSuccess()
         return resp, nil
     }),
-    pocket.WithFallback(func(ctx context.Context, req Request, err error) (Response, error) {
-        // Fallback when circuit is open
-        return Response{
-            Status: "degraded",
-            Data:   getDegradedResponse(),
-        }, nil
-    }),
+)
+
+// Or combine with Steps for a complete solution:
+protectedNode := pocket.NewNode[Request, Response]("protected",
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            req := prepResult.(Request)
+            // Check circuit breaker state
+            if !cb.CanExecute() {
+                return Response{}, errors.New("circuit breaker open")
+            }
+            
+            // Attempt operation
+            resp, err := riskyOperation(req)
+            
+            // Record result
+            if err != nil {
+                cb.RecordFailure()
+                return Response{}, err
+            }
+            
+            cb.RecordSuccess()
+            return resp, nil
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            req := prepResult.(Request)
+            // Fallback when circuit is open or operation fails
+            return Response{
+                Status:    "degraded",
+                Data:      getDegradedResponse(),
+                RequestID: req.ID,
+            }, nil
+        },
+    },
 )
 ```
 
@@ -384,15 +417,22 @@ processor.Connect("success", successHandler)
 func TestErrorHandling(t *testing.T) {
     // Create a node that fails predictably
     failingNode := pocket.NewNode[Input, Output]("failing",
-        pocket.WithExec(func(ctx context.Context, input Input) (Output, error) {
-            if input.ShouldFail {
-                return Output{}, errors.New("injected failure")
-            }
-            return Output{Success: true}, nil
-        }),
-        pocket.WithFallback(func(ctx context.Context, input Input, err error) (Output, error) {
-            return Output{Fallback: true}, nil
-        }),
+        pocket.Steps{
+            Exec: func(ctx context.Context, prepResult any) (any, error) {
+                input := prepResult.(Input)
+                if input.ShouldFail {
+                    return Output{}, errors.New("injected failure")
+                }
+                return Output{Success: true}, nil
+            },
+            Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+                input := prepResult.(Input)
+                return Output{
+                    Fallback: true,
+                    InputID:  input.ID, // Can access input data from prepResult
+                }, nil
+            },
+        },
     )
     
     store := pocket.NewStore()

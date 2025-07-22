@@ -414,9 +414,11 @@ if err := pocket.ValidateGraph(startNode); err != nil {
 
 // Add resilience
 node = pocket.NewNode[In, Out]("resilient",
-    pocket.WithExec(processor),
+    pocket.Steps{
+        Exec: processor,
+        Fallback: fallbackProcessor, // Receives prepResult and error
+    },
     pocket.WithRetry(3, time.Second),
-    pocket.WithFallback(fallbackProcessor),
 )
 
 // Add observability
@@ -439,10 +441,16 @@ except Exception as e:
 **Pocket pattern:**
 ```go
 node := pocket.NewNode[Data, Result]("processor",
-    pocket.WithExec(process),
-    pocket.WithFallback(func(ctx context.Context, data Data, err error) (Result, error) {
-        return fallback(data), nil
-    }),
+    pocket.Steps{
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            data := prepResult.(Data)
+            return process(data)
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            data := prepResult.(Data)
+            return fallback(data), nil
+        },
+    },
 )
 ```
 

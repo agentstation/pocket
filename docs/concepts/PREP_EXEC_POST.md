@@ -2,9 +2,9 @@
 
 ## Introduction
 
-The Prep/Exec/Post pattern is the heart of Pocket's execution model. Every node in a Pocket workflow follows this three-phase lifecycle, ensuring clean separation of concerns and predictable execution.
+The Prep/Exec/Post pattern is the heart of Pocket's execution model. Every node in a Pocket workflow follows this three-phase lifecycle, with an optional Fallback phase for error recovery, ensuring clean separation of concerns and predictable execution.
 
-## The Three Phases
+## The Phases
 
 ### 1. Prep Phase - Preparation and Validation
 
@@ -80,6 +80,43 @@ func (n *node) Post(ctx context.Context, store StoreWriter, input, prepResult, e
 ```
 
 **Key capability**: Full read/write access to the store via `StoreWriter`.
+
+### 4. Fallback Phase (Optional) - Error Recovery
+
+The Fallback phase provides graceful error handling when Exec fails:
+- **Receives prepResult** (not the original input) for consistency with Exec
+- **Handles errors** from the Exec phase
+- **Provides alternative results** when primary logic fails
+- **No store access** to maintain purity like Exec
+
+```go
+// Fallback is part of the Steps struct
+pocket.Steps{
+    Exec: func(ctx context.Context, prepResult any) (any, error) {
+        // Primary logic that might fail
+        data := prepResult.(PreparedData)
+        return riskyOperation(data)
+    },
+    Fallback: func(ctx context.Context, prepResult any, execErr error) (any, error) {
+        // Fallback receives same prepResult as Exec
+        data := prepResult.(PreparedData)
+        
+        log.Printf("Primary operation failed: %v, using fallback", execErr)
+        
+        // Return safe default based on prepared data
+        return SafeResult{
+            Value: data.DefaultValue,
+            Source: "fallback",
+            OriginalError: execErr.Error(),
+        }, nil
+    },
+}
+```
+
+**Key constraints**: 
+- Fallback receives `prepResult`, not the original input
+- No store access (like Exec) to maintain functional purity
+- Only runs if Exec returns an error
 
 ## Why This Pattern?
 
@@ -197,6 +234,47 @@ pocket.WithPost(func(ctx context.Context, store StoreWriter, input, prep, exec a
         return result, "low-risk", nil
     }
 })
+```
+
+### 5. Error Recovery with Fallback
+
+```go
+pocket.NewNode[Request, Response]("api-call",
+    pocket.Steps{
+        Prep: func(ctx context.Context, store StoreReader, req Request) (any, error) {
+            // Prepare request with retry count
+            retries, _ := store.Get(ctx, "retries:" + req.ID)
+            return map[string]any{
+                "request": req,
+                "retries": retries,
+                "timeout": 5 * time.Second,
+            }, nil
+        },
+        Exec: func(ctx context.Context, prepResult any) (any, error) {
+            // Primary API call that might fail
+            data := prepResult.(map[string]any)
+            req := data["request"].(Request)
+            timeout := data["timeout"].(time.Duration)
+            
+            return callExternalAPI(req, timeout)
+        },
+        Fallback: func(ctx context.Context, prepResult any, err error) (any, error) {
+            // Fallback receives prepResult, not original input
+            data := prepResult.(map[string]any)
+            req := data["request"].(Request)
+            
+            log.Printf("API call failed for %s: %v", req.ID, err)
+            
+            // Return cached or default response
+            return Response{
+                ID:     req.ID,
+                Status: "fallback",
+                Data:   getDefaultData(),
+                Error:  err.Error(),
+            }, nil
+        },
+    },
+)
 ```
 
 ## Best Practices
@@ -382,12 +460,13 @@ conditional := pocket.NewNode[Task, Result]("conditional",
 
 ## Summary
 
-The Prep/Exec/Post pattern provides:
+The Prep/Exec/Post pattern (with optional Fallback) provides:
 
-1. **Clear separation** of read, compute, and write operations
-2. **Enhanced testability** through pure business logic
-3. **Predictable state management** with controlled mutations
+1. **Clear separation** of read, compute, write, and error-recovery operations
+2. **Enhanced testability** through pure business logic in Exec and Fallback
+3. **Predictable state management** with controlled mutations in designated phases
 4. **Improved concurrency** through phase-based isolation
 5. **Better maintainability** with organized code structure
+6. **Graceful error handling** through the optional Fallback phase
 
 This pattern is fundamental to Pocket's design philosophy: make the complex simple by breaking it into well-defined, composable parts.

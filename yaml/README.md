@@ -272,7 +272,7 @@ func Example() string
 Example shows what a YAML graph definition would look like.
 
 <a name="FromYAML"></a>
-## func [FromYAML](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L131>)
+## func [FromYAML](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L134>)
 
 ```go
 func FromYAML(yamlStr string, target any) error
@@ -281,7 +281,7 @@ func FromYAML(yamlStr string, target any) error
 FromYAML parses YAML string into the target structure.
 
 <a name="LLMNodeBuilder"></a>
-## func [LLMNodeBuilder](<https://github.com/agentstation/pocket/blob/master/yaml/loader.go#L259>)
+## func [LLMNodeBuilder](<https://github.com/agentstation/pocket/blob/master/yaml/loader.go#L261>)
 
 ```go
 func LLMNodeBuilder(def *NodeDefinition) (pocket.Node, error)
@@ -290,7 +290,7 @@ func LLMNodeBuilder(def *NodeDefinition) (pocket.Node, error)
 LLMNodeBuilder creates an LLM node from a definition.
 
 <a name="ToYAML"></a>
-## func [ToYAML](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L122>)
+## func [ToYAML](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L125>)
 
 ```go
 func ToYAML(data any) (string, error)
@@ -299,7 +299,7 @@ func ToYAML(data any) (string, error)
 ToYAML converts any data to YAML string.
 
 <a name="ValidatorNodeBuilder"></a>
-## func [ValidatorNodeBuilder](<https://github.com/agentstation/pocket/blob/master/yaml/loader.go#L272>)
+## func [ValidatorNodeBuilder](<https://github.com/agentstation/pocket/blob/master/yaml/loader.go#L276>)
 
 ```go
 func ValidatorNodeBuilder(def *NodeDefinition) (pocket.Node, error)
@@ -308,7 +308,7 @@ func ValidatorNodeBuilder(def *NodeDefinition) (pocket.Node, error)
 ValidatorNodeBuilder creates a validator node.
 
 <a name="YAMLNode"></a>
-## func [YAMLNode](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L14>)
+## func [YAMLNode](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L15>)
 
 ```go
 func YAMLNode(name string, execFn pocket.ExecFunc) pocket.Node
@@ -317,7 +317,7 @@ func YAMLNode(name string, execFn pocket.ExecFunc) pocket.Node
 YAMLNode creates a node that marshals its output to YAML format. If execFn is provided, it wraps the function to marshal its output as YAML. If execFn is nil, the node will marshal its input as YAML.
 
 <a name="YAMLNodeWithLifecycle"></a>
-## func [YAMLNodeWithLifecycle](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L52>)
+## func [YAMLNodeWithLifecycle](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L55>)
 
 ```go
 func YAMLNodeWithLifecycle(name string, prep pocket.PrepFunc, exec pocket.ExecFunc, post pocket.PostFunc) pocket.Node
@@ -591,7 +591,7 @@ func (rc *RetryConfig) Validate() error
 Validate checks if the retry config is valid.
 
 <a name="YAMLOutput"></a>
-## type [YAMLOutput](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L110-L114>)
+## type [YAMLOutput](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L113-L117>)
 
 YAMLOutput represents structured output in YAML format.
 
@@ -604,7 +604,7 @@ type YAMLOutput struct {
 ```
 
 <a name="YAMLOutput.String"></a>
-### func \(YAMLOutput\) [String](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L117>)
+### func \(YAMLOutput\) [String](<https://github.com/agentstation/pocket/blob/master/yaml/output.go#L120>)
 
 ```go
 func (y YAMLOutput) String() string

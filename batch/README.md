@@ -78,7 +78,7 @@ Package batch provides generic batch processing capabilities for pocket workflow
 
 
 <a name="Filter"></a>
-## func [Filter](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L214-L219>)
+## func [Filter](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L217-L222>)
 
 ```go
 func Filter[T any](name string, extract func(context.Context, pocket.StoreReader) ([]T, error), predicate func(context.Context, T) (bool, error), opts ...Option) pocket.Node
@@ -87,7 +87,7 @@ func Filter[T any](name string, extract func(context.Context, pocket.StoreReader
 Filter creates a batch processor that filters items.
 
 <a name="ForEach"></a>
-## func [ForEach](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L195-L200>)
+## func [ForEach](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L198-L203>)
 
 ```go
 func ForEach[T any](name string, extract func(context.Context, pocket.StoreReader) ([]T, error), process func(context.Context, T) error, opts ...Option) pocket.Node
@@ -96,7 +96,7 @@ func ForEach[T any](name string, extract func(context.Context, pocket.StoreReade
 ForEach creates a batch processor that doesn't aggregate results.
 
 <a name="MapReduce"></a>
-## func [MapReduce](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L183-L189>)
+## func [MapReduce](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L186-L192>)
 
 ```go
 func MapReduce[T, R any](name string, extract func(context.Context, pocket.StoreReader) ([]T, error), mapper func(context.Context, T) (R, error), reducer func(context.Context, []R) (any, error), opts ...Option) pocket.Node
@@ -105,7 +105,7 @@ func MapReduce[T, R any](name string, extract func(context.Context, pocket.Store
 MapReduce creates a map\-reduce batch processor as a Node.
 
 <a name="Option"></a>
-## type [Option](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L30>)
+## type [Option](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L31>)
 
 Option configures a batch processor.
 
@@ -114,7 +114,7 @@ type Option func(*options)
 ```
 
 <a name="WithConcurrency"></a>
-### func [WithConcurrency](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L38>)
+### func [WithConcurrency](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L39>)
 
 ```go
 func WithConcurrency(n int) Option
@@ -123,7 +123,7 @@ func WithConcurrency(n int) Option
 WithConcurrency sets the maximum concurrent workers.
 
 <a name="WithOrdered"></a>
-### func [WithOrdered](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L45>)
+### func [WithOrdered](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L46>)
 
 ```go
 func WithOrdered() Option
@@ -132,7 +132,7 @@ func WithOrdered() Option
 WithOrdered ensures results maintain input order.
 
 <a name="Processor"></a>
-## type [Processor](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L14-L27>)
+## type [Processor](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L15-L28>)
 
 Processor processes a batch of items of type T.
 
@@ -151,7 +151,7 @@ type Processor[T, R any] struct {
 ```
 
 <a name="NewProcessor"></a>
-### func [NewProcessor](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L52-L57>)
+### func [NewProcessor](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L53-L58>)
 
 ```go
 func NewProcessor[T, R any](extract func(context.Context, pocket.StoreReader) ([]T, error), transform func(context.Context, T) (R, error), reduce func(context.Context, []R) (any, error), opts ...Option) *Processor[T, R]
@@ -160,7 +160,7 @@ func NewProcessor[T, R any](extract func(context.Context, pocket.StoreReader) ([
 NewProcessor creates a new batch processor.
 
 <a name="Processor[T, R].ToNode"></a>
-### func \(\*Processor\[T, R\]\) [ToNode](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L82>)
+### func \(\*Processor\[T, R\]\) [ToNode](<https://github.com/agentstation/pocket/blob/master/batch/batch.go#L83>)
 
 ```go
 func (p *Processor[T, R]) ToNode(name string) pocket.Node
