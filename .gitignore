@@ -27,6 +27,18 @@ go.work.sum
 # env file
 .env
 
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+.directory
+.Trash-*
+
 # Editor/IDE
 # .idea/
 # .vscode/
@@ -60,3 +72,7 @@ examples/*/[!.]?*
 # Temporary scripts
 *.sh
 !scripts/go-format-hook.sh
+!install.sh
+
+# GoReleaser
+dist/

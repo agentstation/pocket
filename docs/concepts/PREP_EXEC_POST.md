@@ -1,8 +1,8 @@
-# The Prep/Exec/Post Pattern
+# The Prep/Exec/Post Execution Pattern
 
 ## Introduction
 
-The Prep/Exec/Post pattern is the heart of Pocket's execution model. Every node in a Pocket workflow follows this three-phase lifecycle, with an optional Fallback phase for error recovery, ensuring clean separation of concerns and predictable execution.
+The Prep/Exec/Post pattern is the core execution model of Pocket's graph engine. Every node processed by the engine follows this three-phase lifecycle, with an optional Fallback phase for error recovery. This pattern ensures clean separation of concerns and predictable execution behavior across all workflow types - whether defined in YAML/JSON or implemented in Go.
 
 ## The Phases
 

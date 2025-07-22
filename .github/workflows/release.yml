@@ -7,10 +7,11 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  release:
-    name: Release
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -21,46 +22,160 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Run tests
-        run: go test -v ./...
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
 
       - name: Run linters
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+          args: --timeout 5m
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          PREVIOUS_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
-          if [ -z "$PREVIOUS_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
-          else
-            COMMITS=$(git log --pretty=format:"- %s" --no-merges ${PREVIOUS_TAG}..HEAD)
-          fi
-          
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "## What's Changed" >> $GITHUB_OUTPUT
-          echo "" >> $GITHUB_OUTPUT
-          echo "$COMMITS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+  release:
+    name: Release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          body: |
-            ## Installation
-            
-            ```bash
-            go get github.com/agentstation/pocket@${{ github.ref_name }}
-            ```
-            
-            ${{ steps.changelog.outputs.CHANGELOG }}
-            
-            **Full Changelog**: https://github.com/agentstation/pocket/compare/${{ steps.changelog.outputs.PREVIOUS_TAG }}...${{ github.ref_name }}
-          draft: false
-          prerelease: false
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      
+      - name: Get Go version
+        id: go-version
+        run: echo "GO_VERSION=$(go version | cut -d ' ' -f 3)" >> $GITHUB_OUTPUT
+
+      - name: Validate tag
+        run: |
+          # Ensure tag matches expected format
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+            echo "Error: Tag must be in format v1.2.3 or v1.2.3-beta1"
+            exit 1
+          fi
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GO_VERSION: ${{ steps.go-version.outputs.GO_VERSION }}
+
+  verify-release:
+    name: Verify Release
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: pocket-linux-x86_64.tar.gz
+          - os: macos-latest
+            asset: pocket-darwin-x86_64.tar.gz
+          - os: windows-latest
+            asset: pocket-windows-x86_64.zip
+    steps:
+      - name: Download release asset
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          repo: agentstation/pocket
+          version: tags/${{ github.ref_name }}
+          file: ${{ matrix.asset }}
+          
+      - name: Extract archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          tar -xzf ${{ matrix.asset }}
+          cd pocket-*
+          chmod +x pocket
+          ./pocket version
+          
+      - name: Extract archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Expand-Archive -Path ${{ matrix.asset }} -DestinationPath .
+          cd pocket-*
+          .\pocket.exe version
+
+  verify-homebrew:
+    name: Verify Homebrew Formula Update
+    needs: release
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref_name, '-')"  # Only for stable releases
+    steps:
+      - name: Wait for GoReleaser to update formula
+        run: |
+          echo "Waiting 30 seconds for GoReleaser to complete Homebrew formula update..."
+          sleep 30
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: agentstation/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          ref: main
+
+      - name: Verify formula was updated
+        run: |
+          cd homebrew-tap
+          git pull origin main
+          
+          # Check if the formula was updated
+          if git log -1 --pretty=format:"%s" | grep -q "Update pocket to ${{ github.ref_name }}"; then
+            echo "✅ Homebrew formula was successfully updated by GoReleaser"
+            
+            # Show the formula content
+            echo "Current formula:"
+            cat Formula/pocket.rb | grep -E "(url|sha256|version)" | head -10
+          else
+            echo "⚠️  Homebrew formula update not found yet."
+            echo "This might be normal if the release is still processing."
+            echo "Recent commits:"
+            git log --oneline -5
+          fi
+
+  create-announcement:
+    name: Create Release Announcement
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create announcement issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: context.ref.replace('refs/tags/', '')
+            });
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🎉 Pocket ${context.ref.replace('refs/tags/', '')} Released!`,
+              body: `A new version of Pocket has been released!\n\n${release.data.body}\n\n[View Release](${release.data.html_url})`,
+              labels: ['announcement', 'release']
+            });
+            
+            // Close the issue immediately as it's just an announcement
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.data.number,
+              state: 'closed'
+            });

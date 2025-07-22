@@ -1,8 +1,8 @@
-# Graph Composition
+# Graph Composition in the Execution Engine
 
 ## Overview
 
-One of Pocket's most powerful features is that `Graph` implements the `Node` interface. This means graphs can be used anywhere nodes are expected, enabling natural hierarchical composition of workflows.
+A key architectural feature of Pocket's execution engine is that `Graph` implements the `Node` interface. This means graphs can be used anywhere nodes are expected, enabling the engine to execute hierarchically composed workflows without special handling.
 
 ## Graphs as Nodes
 
