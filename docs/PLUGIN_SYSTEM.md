@@ -5,10 +5,8 @@
 The Pocket plugin system provides an extensible architecture for adding new node types to the framework. The system has been implemented in three phases:
 
 1. **Phase 1**: Built-in nodes with metadata and CLI integration (✅ Complete)
-2. **Phase 2**: Lua scripting for custom logic (⚠️ Partially Complete - missing script management features)  
+2. **Phase 2**: Lua scripting for custom logic (✅ Complete)  
 3. **Phase 3**: WebAssembly plugins for any language (✅ Complete)
-
-While the core Lua scripting functionality is implemented, some convenience features for script management (discovery, validation, debugging) were not completed in Phase 2.
 
 ## Phase 1 Status: ✅ Complete
 
@@ -20,7 +18,9 @@ While the core Lua scripting functionality is implemented, some convenience feat
 - **Builder Pattern**: Clean separation between node definition and implementation
 - **CLI Integration**: `pocket nodes list` and `pocket nodes info <type>` commands
 
-#### Built-in Nodes (13 types)
+#### Built-in Nodes (14 types)
+
+**Note**: These built-in nodes are native to the Pocket framework and are NOT plugins. They provide core functionality out of the box. For detailed documentation on all built-in node types, see the [Node Types Reference](NODE_TYPES.md).
 
 **Core Nodes (4)**
 - `echo` - Output messages and pass through input
@@ -42,6 +42,9 @@ While the core Lua scripting functionality is implemented, some convenience feat
 
 **Flow Nodes (1)**
 - `parallel` - Execute multiple operations in parallel with concurrency control
+
+**Script Nodes (1)**
+- `lua` - Execute Lua scripts for custom logic
 
 ### Key Design Decisions
 
@@ -95,7 +98,11 @@ Flow:
 -----
   parallel             Executes multiple operations in parallel
 
-Total: 13 node types
+Script:
+-------
+  lua                  Execute Lua scripts for custom logic
+
+Total: 14 node types
 ```
 
 ### Get Node Details
@@ -155,20 +162,18 @@ See the `examples/cli/` directory for complete workflow examples:
 4. **Documentation**: Self-documenting through metadata
 5. **Testing**: Comprehensive test coverage for all nodes
 
-## Phase 2 Status: ⚠️ Partially Complete
+## Phase 2 Status: ✅ Complete
 
-### Lua Scripting Integration (Implemented)
+### Lua Scripting Integration
 - **Embedded Lua interpreter** via Shopify/go-lua
 - **Sandboxed execution** with restricted functions
 - **JSON support** with encode/decode functions
 - **String utilities** for common operations
 - **Script timeout** support for safety
 - **File-based scripts** in addition to inline
+- **Lua node type** available as a built-in node
 
-### Script Management (Not Implemented)
-- ❌ Script discovery from ~/.pocket/scripts
-- ❌ Script validation command
-- ❌ Script debugging support
+Lua scripts can be used through the `lua` node type in workflows. For detailed documentation on Lua scripting, see the [Node Types Reference](NODE_TYPES.md#lua).
 
 ## Phase 3 Status: ✅ Complete
 
@@ -178,27 +183,29 @@ See the `examples/cli/` directory for complete workflow examples:
 - **TypeScript SDK**: Full SDK with Javy integration
 - **Example Plugins**: TypeScript, Rust, and Go examples
 - **Security**: Sandboxing with memory limits and permissions
-- **CLI Tool**: `pocket-plugins` for plugin management
+- **CLI Integration**: Unified `pocket plugins` commands
 - **Documentation**: Comprehensive guides and API reference
 
 ### Plugin CLI Commands
-- `pocket-plugins list` - List installed plugins
-- `pocket-plugins install <path>` - Install plugin from directory
-- `pocket-plugins remove <name>` - Remove installed plugin
-- `pocket-plugins info <name>` - Show plugin details
-- `pocket-plugins validate <path>` - Validate plugin manifest
+- `pocket plugins list` - List installed plugins
+- `pocket plugins install <path>` - Install plugin from directory
+- `pocket plugins remove <name>` - Remove installed plugin
+- `pocket plugins info <name>` - Show plugin details
+- `pocket plugins validate <path>` - Validate plugin manifest
 
 For detailed plugin documentation, see:
-- [Plugin User Guide](PLUGINS.md)
-- [Plugin Development Guide](PLUGIN_DEVELOPMENT.md)
-- [Plugin SDK API Reference](PLUGIN_SDK_API.md)
-- [Plugin Migration Guide](PLUGIN_MIGRATION.md)
+- [WebAssembly Plugin Guide](PLUGINS.md) - Creating WASM plugins
+- [Plugin Development Guide](plugins/DEVELOPMENT.md) - General plugin development
+- [Plugin SDK API Reference](plugins/SDK_API.md) - TypeScript SDK reference
+
+For built-in node documentation, see:
+- [Node Types Reference](NODE_TYPES.md) - All 14 built-in node types
 
 ## Development Guide
 
 ### Adding a New Built-in Node
 
-1. Implement the NodeBuilder interface in `builtin/builders.go`:
+1. Implement the NodeBuilder interface in `nodes/builders.go`:
 ```go
 type MyNodeBuilder struct {
     Verbose bool
@@ -218,20 +225,23 @@ func (b *MyNodeBuilder) Build(def *yaml.NodeDefinition) (pocket.Node, error) {
 }
 ```
 
-2. Register in `builtin/registry.go`:
+2. Register in `nodes/registry.go`:
 ```go
 registry.Register(&MyNodeBuilder{Verbose: verbose})
 ```
 
-3. Add to CLI in `cmd/pocket/nodes.go`:
-```go
-(&builtin.MyNodeBuilder{}).Metadata(),
-```
+3. The node will be automatically discovered through the registry.
 
-4. Write tests in `builtin/builders_test.go`
+4. Write tests in `nodes/builders_test.go`
 
 5. Create an example workflow in `examples/cli/`
 
 ## Conclusion
 
-Phase 1 of the Pocket plugin system provides a robust foundation for extensible workflow nodes. The architecture balances simplicity with power, enabling both simple configurations and complex integrations while maintaining security and performance.
+The Pocket plugin system provides a comprehensive solution for extending workflow capabilities:
+
+- **Built-in nodes** (14 types) cover common use cases with full system access
+- **Lua scripting** enables custom logic in a sandboxed environment
+- **WebAssembly plugins** allow development in TypeScript, Rust, or Go with security boundaries
+
+The architecture balances simplicity with power, enabling both simple configurations and complex integrations while maintaining security and performance.

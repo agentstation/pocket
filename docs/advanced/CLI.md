@@ -226,15 +226,6 @@ Planned enhancements for the CLI:
 - Integration with LLM providers
 - Web UI for workflow design
 
-## Migration Path
-
-As this is experimental, breaking changes may occur. To minimize impact:
-
-1. **Version Lock**: Pin to specific Pocket versions
-2. **Test Coverage**: Validate workflows with each upgrade
-3. **Schema Version**: Use the `version` field to track schema changes
-4. **Gradual Migration**: New features will be opt-in when possible
-
 ## Examples
 
 See the [CLI examples directory](../../examples/cli/) for more workflow examples:

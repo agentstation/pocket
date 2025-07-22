@@ -374,7 +374,7 @@ See [CLI examples](examples/cli/) for more workflow examples and [CLI documentat
 Pocket supports three types of plugins:
 
 #### 1. Built-in Nodes
-Pocket includes 11+ built-in node types for common operations:
+Pocket includes 14 built-in node types for common operations:
 - **Core**: echo, delay, conditional, router
 - **Data**: transform, template, jsonpath, aggregate, validate
 - **I/O**: http, file, exec
@@ -449,21 +449,6 @@ go tool cover -html=coverage.out
 ```
 
 [Testing guide →](docs/guides/TESTING.md)
-
-## Migration Guide
-
-### From Other Frameworks
-
-- **From Airflow/Temporal** - [Migration guide](docs/reference/MIGRATION.md)
-- **From Previous Versions** - No changes needed! Full backward compatibility
-
-### What's New
-
-- Graphs implement Node interface (compose workflows naturally)
-- Built-in bounded store with LRU and TTL
-- Enhanced type safety with compile-time validation
-
-[Full migration guide →](docs/reference/MIGRATION.md)
 
 ## Contributing
 

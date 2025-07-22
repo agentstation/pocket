@@ -516,49 +516,6 @@ func PreprocessYAML(input []byte) ([]byte, error) {
 }
 ```
 
-### YAML Workflow Versioning
-
-```go
-// Version-aware workflow loading
-type VersionedLoader struct {
-    versions map[string]WorkflowVersion
-}
-
-type WorkflowVersion struct {
-    Version    string
-    Deprecated bool
-    Migrator   func(old map[string]any) map[string]any
-}
-
-func (v *VersionedLoader) Load(yamlData []byte) (*pocket.Graph, error) {
-    // Parse to get version
-    var meta struct {
-        Version string `yaml:"version"`
-    }
-    yaml.Unmarshal(yamlData, &meta)
-    
-    // Check version
-    version, exists := v.versions[meta.Version]
-    if !exists {
-        return nil, fmt.Errorf("unsupported version: %s", meta.Version)
-    }
-    
-    if version.Deprecated {
-        log.Printf("Warning: version %s is deprecated", meta.Version)
-    }
-    
-    // Migrate if needed
-    var data map[string]any
-    yaml.Unmarshal(yamlData, &data)
-    
-    if version.Migrator != nil {
-        data = version.Migrator(data)
-    }
-    
-    // Load workflow
-    return loadFromMap(data)
-}
-```
 
 ## Best Practices
 

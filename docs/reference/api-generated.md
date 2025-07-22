@@ -680,7 +680,7 @@ NewGraph creates a new graph starting from the given node.
 func (g *Graph) AsNode(name string) Node
 ```
 
-AsNode returns the graph as a Node interface. Since graph already implements Node, we just return it. This method exists for backward compatibility.
+AsNode returns the graph as a Node interface. Since graph already implements Node, we just return it.
 
 <a name="Graph.Run"></a>
 ### func \(\*Graph\) [Run](<https://github.com/agentstation/pocket/blob/master/pocket.go#L755>)
