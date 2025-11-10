@@ -1,6 +1,6 @@
 module github.com/agentstation/pocket
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.5
 
@@ -11,7 +11,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/tetratelabs/wazero v1.9.0
 	github.com/xeipuuv/gojsonschema v1.2.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
