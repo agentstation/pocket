@@ -9,7 +9,7 @@ require (
 	github.com/goccy/go-yaml v1.18.0
 	github.com/ohler55/ojg v1.26.8
 	github.com/spf13/cobra v1.9.1
-	github.com/tetratelabs/wazero v1.9.0
+	github.com/tetratelabs/wazero v1.10.0
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/sync v0.16.0
 )
