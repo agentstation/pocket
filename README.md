@@ -24,12 +24,15 @@ graph LR
 ### Quick Install (Recommended)
 
 ```bash
-# macOS and Linux via Homebrew (pre-built binary)
-brew install agentstation/tap/pocket
+# macOS and Linux via Homebrew (source build)
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 
 # Or use our install script
 curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.sh | bash
 ```
+
+Pocket has no tagged CLI release. The Homebrew formula builds the current `master` branch with `--HEAD`.
 
 ### Other Installation Methods
 
@@ -37,8 +40,9 @@ curl -sSL https://raw.githubusercontent.com/agentstation/pocket/master/install.s
 <summary>Build from Source via Homebrew</summary>
 
 ```bash
-# Compile locally instead of using pre-built binary
-brew install --build-from-source agentstation/tap/pocket
+# Build the current master branch
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 ```
 </details>
 
