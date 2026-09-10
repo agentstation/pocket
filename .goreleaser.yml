@@ -72,8 +72,6 @@ archives:
     # Create a more organized archive structure
     wrap_in_directory: true
     
-    # Custom directory name inside archive
-    rlcp: true
 
 # Checksum configuration
 checksum:
@@ -140,7 +138,8 @@ release:
     
     ### Homebrew (macOS and Linux)
     ```bash
-    brew install agentstation/tap/pocket
+    brew trust --formula agentstation/tap/pocket
+    brew install --formula agentstation/tap/pocket
     ```
     
     ### Go Install
@@ -184,7 +183,7 @@ brews:
     name: pocket
     
     # Folder inside the repository
-    folder: Formula
+    directory: Formula
     
     # Git commit information
     commit_author:

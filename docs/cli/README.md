@@ -14,7 +14,8 @@ The Pocket CLI is a command-line tool that:
 
 ```bash
 # Install Pocket CLI (recommended: via Homebrew)
-brew install agentstation/tap/pocket
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 
 # Or install via Go
 # go install github.com/agentstation/pocket/cmd/pocket@latest

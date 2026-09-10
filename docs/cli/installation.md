@@ -8,7 +8,8 @@ The fastest way to install Pocket:
 
 ```bash
 # macOS and Linux via Homebrew
-brew install agentstation/tap/pocket
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 ```
 
 ## Installation Methods
@@ -18,10 +19,12 @@ brew install agentstation/tap/pocket
 ```bash
 # Tap and install
 brew tap agentstation/tap
-brew install pocket
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 
 # Or install directly
-brew install agentstation/tap/pocket
+brew trust --formula agentstation/tap/pocket
+brew install --HEAD --formula agentstation/tap/pocket
 
 # Verify installation
 pocket version
